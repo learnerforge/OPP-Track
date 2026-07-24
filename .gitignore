@@ -1,0 +1,58 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.staging
+*.key
+*.pem
+*.cert
+*.pfx
+credentials*
+secrets*
+*.secret
+*.token
+id_rsa
+id_dsa
+*.pgp
+*.gpg
+.npmrc
+.netrc
+test.env
+
+# Dependencies
+node_modules/
+.vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Build output
+dist/
+build/
+.next/
+out/
+target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
