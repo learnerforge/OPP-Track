@@ -38,13 +38,34 @@
 - Accenture Innovation Challenge 2026 — Online, hiring pipeline
 - Specathon 2026 — St. Peter's Hyderabad, ~Aug 20
 - EchoSphere Agora Conversational AI — Online, ~Aug 17
+- Promptathon (YCCE Nagpur) — 5 days left — https://unstop.com/hackathons/promptathon-yeshwantrao-chavan-college-of-engineering-ycce-nagpur-1725407
+- Synapse 2026 — 5 days left — https://unstop.com/hackathons/synapse-2026-techverse-solutions-1726927
+- Caspian AI Agent Hackathon — 9 days left — https://unstop.com/hackathons/caspian-ai-agent-hackathon-caspian-1726439
+- Nexora Hackhere — 19 days left — https://unstop.com/hackathons/nexora-hackhere-1727929
+- Morrow 1.0 (Makers Need More) — 30 days left — https://unstop.com/hackathons/morrow-10-makers-need-more-mnm-1727667
+
+#### DoraHacks
+- **WEEX AI Wars II — $200K, Aug 29** — https://dorahacks.io/hackathon/weex-ai-wars2
+- Delphi: Agent Arena — $10K — https://dorahacks.io/hackathon/delphi-agent-competition
+- 13 WTF Hackathon — $1.5K — https://dorahacks.io/hackathon/wtf-hackathon
+- KeeperHub Agents Onchain — $5K — https://dorahacks.io/hackathon/agents-onchain
+- BUIDL CTC 2026 Fall — $15K — https://dorahacks.io/hackathon/buidl-ctc-2026-fall
+- Flare Summer Signal — $12K — https://dorahacks.io/hackathon/flaresummersignal
+- GNSS for Disaster Risk Reduction — https://dorahacks.io/hackathon/satnav
+- Creative Minds Jam #1 (The Sandbox) — $10K — https://dorahacks.io/hackathon/creativeminds
+- MDBA Youth Blockchain — $50K — https://dorahacks.io/hackathon/mdba-youth
+- BLI Legal Tech Hackathon 2 — $50K — https://dorahacks.io/hackathon/legal-hack-2026
+- **AlgoBharat Regional Hackathons (59 India events)** — https://dorahacks.io/hackathon/algobharat-regional-hack
+- HackTrent 2026 (Canada) — $2K — https://dorahacks.io/hackathon/2285
 
 #### HackIndia
-- Adaption AutoScientist Challenge — Virtual, Aug 3, $50K global
-- **Spark-11 @ CBIT Hyderabad — Aug 7-8** ← closest to MGIT!
-- Spark-10 @ Uttarakhand — Aug 21-22
-- Spark-12 @ Jaipur — Sep 18-19
-- AI-First Startup Hackathon — Virtual, Sep 2 - Nov 1
+- Adaption AutoScientist Part 2 — Virtual, Aug 10, **$60K** global — https://hackindia.org/2026/adaption-autoscientist-challenge-part-2-60000-prize-pool
+- **Spark-11 @ CBIT Hyderabad — Aug 7-8** ← closest to MGIT! — https://hackindia.org/2026/hackindia-spark-11-hyderabad-telangana-south-central-region
+- Spark-10 @ Uttarakhand — Aug 21-22 — https://hackindia.org/2026/hackindia-spark-10-uttarakhand-north-region
+- Spark-12 @ Jaipur — Sep 18-19 — https://hackindia.org/2026/hackindia-spark-12-jaipur-rajasthan-north-india-region
+- AI-First Startup Hackathon — Virtual, Sep 2 - Nov 1 — https://hackindia.org/2026/ai-first-startup-hackathon-build-a-startup-using-ai-only
+- AI, Web3 & FutureTech Lucknow — Aug 21-22 — https://hackindia.org/2026/ai-web3-futuretech-hackathon-2026-lucknow
+- Hack Synapse 2026 MITS Gwalior — Sep 5-6 — https://hackindia.org/2026/hack-synapse-2026-mits-du-gwalior-madhya-pradesh
 
 #### Devpost
 - Build with Gemini XPRIZE — $2M, Aug 17
