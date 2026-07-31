@@ -185,3 +185,100 @@
 - https://hackindia.org — multi-city sparks, Hyderabad edition coming
 - https://devpost.com/hackathons — global online hackathons
 - https://lablab.ai/next — AI-specific hackathons
+
+---
+
+## Multi-Agent Deep Research — Jul 31, 2026
+
+> 3 parallel research agents (top-10 platforms / obscure hunt / Hyderabad-local) + live URL verification via Jina Reader (`r.jina.ai`). All URLs below verified live unless marked.
+
+### Agent 1 — Top 10 Platforms (new, not in seed)
+
+| Hackathon | Direct URL | Deadline | Prize | Location |
+|-----------|-----------|----------|-------|----------|
+| RevenueCat Shipaton 2026 | https://revenuecat-shipaton-2026.devpost.com | Oct 1 | **$685,000** | Online |
+| Caspian AI Agent Hackathon | https://unstop.com/hackathons/caspian-ai-agent-hackathon-caspian-1726439 | Aug 12 | $20K | Online |
+| BLI Legal Tech Hackathon 2 | https://dorahacks.io/hackathon/legal-hack-2026 | ~Oct 31 | $50K | Online |
+| BUIDL CTC 2026 Fall | https://dorahacks.io/hackathon/buidl-ctc-2026-fall | ~Aug 12 | $15K | Online |
+| AI Builders Challenge (IBM Bob) | https://www.hackathon.com/event/ai-builders-challenge-with-ibm-bob-6a29d039b55a95e59d3bda60 | Aug 31 | $15K | Online |
+| Flare Summer Signal | https://dorahacks.io/hackathon/flaresummersignal | Aug 14 | $12K | Online |
+| Road To Devcon (IIT Roorkee) | https://road-to-devcon-iitr.devfolio.co | Aug 8 | TBA | Online |
+| VENTURE'26 | https://venture-26.devfolio.co | Aug 22 | TBA | India |
+| Creative Minds Jam #1 (The Sandbox) | https://dorahacks.io/hackathon/creativeminds | Aug 28 | $10K | Online |
+| YouCam API (Perfect Corp) | https://youcam-api.devpost.com | Aug 17 | $6K | Online |
+| HACKER HOUSE GOA 2026 | https://hacker-house-goa-2026.devfolio.co | Sep 30 | TBA | Goa |
+| Infinity Hacks 2026 | https://infinity-hacks.devfolio.co | Aug 5 | TBA | India |
+| Dora Hack 2.0 | https://dora-hack.devfolio.co | Aug 10 | TBA | India |
+| ETHKochi | https://ethkochi.devfolio.co | Aug 25 | TBA | Kochi |
+| DSU DEVHACK 3.0 | https://dsudevhack3.devfolio.co | Aug 10 | TBA | India |
+| CodeStorm 2026: FutureForge | https://codestorm-futureforge.devfolio.co | Aug 25 | TBA | Online |
+| Hack On Hills 8.0 | https://hackonhills8.devfolio.co | Oct 15 | TBA | India |
+| MLH Global Hack Week: Agents | https://events.mlh.io/events/14312-global-hack-week-agents | Aug 7-13 | Prizes | Online |
+| AI Factory (native.builder) | https://lablab.ai/ai-hackathons/nativebuilder-build-without-limits | Aug 10 | TBA | Online |
+| AI GENESIS | https://lablab.ai/ai-hackathons/ai-genesis-2026 | Nov 2 | TBA | Dubai finale |
+| AlgoBharat Regional (59 events) | https://dorahacks.io/hackathon/algobharat-regional-hack | 99+ d | TBA | India |
+| HyperFusion | https://hyperfusion.devfolio.co | Aug 15 | TBA | India |
+| HackNex Season 2 | https://hacknex-season-2.devfolio.co | Aug 23 | TBA | India |
+| HackInverse 1.0 | https://hackinverse-s1.devfolio.co | Aug 24 | TBA | India |
+| MunichTech Innovation | https://dorahacks.io/hackathon/2019 | ~50 d | corporate | Online |
+| AI Infra Summit Hackathon | https://lablab.ai/ai-hackathons/ai-infra-summit-hackathon | Sep 16 | TBA | Hybrid |
+| The Rise of AI Agents | https://lablab.ai/ai-hackathons/ai-agents-ai-week-hackathon | Fall | $60K+ | Dubai |
+| Prasunethon 2.0 | https://unstop.com/hackathons/prasunethon-20-prasunet-1728532 | Aug 13 | PPIs/offers | Online |
+| Y-Hack'26 (KPRIET) | https://unstop.com/hackathons/y-hack26-24-hour-national-hackathon-kpr-institute-of-engineering-and-technology-kpriet-coimbatore-1702198 | open | TBA | Coimbatore |
+
+### Agent 2 — Most Obscure/Unknown (best win-odds first)
+
+| Hackathon | Direct URL | Deadline | Prize | Location | Why unknown |
+|-----------|-----------|----------|-------|----------|-------------|
+| EPOCH ZERO (24h) ⭐ | https://www.sponsormyevent.com/epoch-zero-24-houra-hackathon-hyderabad | Aug 8-9 | ₹60K | CMR Tech Campus, Hyd | Only on SponsorMyEvent blog |
+| DEMUX 3.0 (BVRIT) ⭐ | https://bvrit.ac.in/Demux3.0/ | Aug 13-14 | ₹50K+ | Medak, TS | College-site only, rural |
+| Neurobots Championship 2026 | https://neurobots.in/hackathon | Aug 7-8 | ₹5,00,000 | Thrissur, Kerala | Tiny community, 2 days left |
+| Tech Horizon 2.0 (GNITC) | https://unstop.com/hackathons/tech-horizon-20-national-level-hackathon-guru-nanak-institutions-technical-campus-gnitc-hyderabad-1677311 | Nov 11 | ₹2,00,000 | Hyderabad | IEEE chapter, date changes |
+| Hackfest 2026: Agentic Era | https://inclusiveindiaforum.org/events/hackfest-2026.html | Sep 10 | ₹10,00,000 | Hybrid | NGO flyer-only visibility |
+| CyberHack 2026 (SRMS) | https://srmscetrevents.in/ | Aug 25 | ₹51K+ | Bareilly | ₹1,500 fee wall |
+| All India Hackathon (Axcentra) | https://unstop.com/hackathons/all-india-hackathon-axcentra-1703933 | Aug 12-14 | ₹50K + Wolfram | Online | No-name platform founded 2026 |
+| Hefty-Hacks | https://hefty-hacks.devfolio.co/overview | Oct 10 | ₹75K + Azure | Online | First edition, Finance niche |
+| Omnikon National | https://unstop.com/p/omnikon-national-hackathon-2026-omnikon-1715716 | Aug 15-20 | ₹10K | Online | Tiny prize scares off pros |
+| Innohacks 4.0 (KIET) | https://innohacks-4.devfolio.co/overview | Sep 10-26 | Top-40 | Ghaziabad | Idea-PPT shortlist |
+| CodeClash'24 (runs Nov) | https://codeclash24.devfolio.co/overview | Nov 9-30 | $550 | Online | Mislabeled '24 = skeleton crew |
+| DeepTech Bharat 2026 | https://nec.org.in/hackathon_2026.php | TBD | Incubation | Nashik | Buried on NEC cluster site |
+| ReFlow 2026 (IIT BBS) | https://rep.iitbbs.ac.in/menstrual-health-innovation-hackathon-2026/ | TBD | — | IIT BBS | Niche social theme |
+| IEEE ClimateChain | https://ieee-climatechain-hack.devpost.com/ | Oct 5-25 | $3,000 | Online | **~8 participants** |
+| GatewayHacks 2026 | https://gatewayhacks-2026.devpost.com/ | Sep 1-Oct 2 | $1,685 | Online | **~9 participants** |
+| Arbiter Hacks V1 | https://arbiter-hacks-v1.devpost.com/ | Sep 14-Nov 14 | $300 | Online | **~4 participants** |
+| OneAquaHealth (IEEE) | https://oneaquahealth-ieee-hackathon.devpost.com/ | Sep 14-30 | $3,000 | Online | 345 parts, high $/hacker |
+| AnimalHack 2026 | https://animalhack2026.devpost.com/ | Sep 12 | non-cash | Online | ~94 participants |
+| Devonomics V1 | https://devonomicsv1.devpost.com/ | Sep 16-23 | non-cash | Online | ~79 participants |
+| Evorozen Apex Buildathon | https://dorahacks.io/hackathon/evorozen-apex-buildathon | Sep 21 | 6-mo API | Online | **~3 hackers total** |
+| TechHub Africa 2026 | https://dorahacks.io/hackathon/hackathon2026challenge | Oct 31 | $1,000 | Online | Ghana-focused, global open |
+| Hack[AI]Thon 2.0 (partial) | https://hackaithon.spherehive.in/ | Aug 8-9 | ₹35K | Belagavi | R1 closed, top-16 only |
+
+### Agent 3 — Hyderabad/Telangana Local (open events)
+
+| Hackathon | Direct URL | Deadline | Prize | Venue | Status |
+|-----------|-----------|----------|-------|-------|--------|
+| **TCOE Emerging Tech 2026** (Road to IMC) 🔴 | https://internshala.com/competitions/emerging-technologies-hackathon-2026-win-%E2%82%B910-lakh/ | **Jul 31 TODAY** | ₹10L+ | Hybrid → IMC Delhi | URGENT |
+| **AlgoNation 2026** 🔴 | https://internshala.com/competitions/algonation-2026-national-cs-ai-hackathon-in-india/ | **Jul 31 TODAY** | ₹85K | Online → in-person | URGENT, 500-seat cap |
+| Odoo x GCET Hyderabad | https://hackathon.odoo.com/event/odoo-x-gcet-hyderabad-hackathon-26-30/register | Sep 20 (reg Aug 17) | ₹45K + 5-8 LPA job | GCET Bachupally | OPEN |
+| LaunchPadX (SNIST) | https://internshala.com/competitions/launchpadx-national-innovation-hackathon-2026-48-hour-national-innovation/ | open | — | SNIST Hyd, Aug 22-23 | OPEN |
+| Tech Horizon 2.0 (GNITC) | https://unstop.com/hackathons/tech-horizon-20-national-level-hackathon-guru-nanak-institutions-technical-campus-gnitc-hyderabad-1677311 | Nov 11 | ₹2,00,000 | GNITC, Nov 19-21 | OPEN |
+| HACKLABS 2026 (AntiLabs) | https://internshala.com/competitions/hacklabs-2026-by-antilabs-national-level-online-hackathon/ | open | — | Online, Aug 8-9 | OPEN |
+| Building AI With C.A.R.E | https://www.techolution.com/ai-fication-hackathon/ | open | — | Hyderabad, Sep 6-7 | CONFIRM year |
+| e-Yantra eYRC 2026-27 | https://portal.e-yantra.org/ | Aug 25 (reg Aug 1) | — | IIT Bombay finale Mar 2027 | OPEN |
+| UIDAI Aadhaar Data Hackathon | https://event.data.gov.in/challenge/uidai-data-hackathon-2026/ | check | — | Online | CHECK |
+| Megathon 2026 (IIIT-H) | https://megathon.in/ | TBA (~Sep) | ₹7L+ (2025) | IIIT-H, ~Oct | WATCH |
+| Shaastra 2027 (IIT M) | https://www.shaastra.org/ | TBA | — | IIT Madras ~Jan 2027 | WATCH |
+| Techfest (IIT Bombay) | https://techfest.org/ | TBA | — | IIT Bombay ~Dec 2026 | WATCH |
+
+**Seed link resolutions found:**
+- **EmErgE 2K26 (VNR VJIET)** → https://unstop.com/hackathons/24-hour-hackathon-emerge-2k26-vnr-vjiet-1663638 *(closed Apr 2026)*
+- **HackSavvy-26 (MGIT)** → https://mgit.ac.in/events/hacksavvy-26/ *(closed Feb 2026)*
+- **Hack4Hyd 2.0** → targets 9th-12th graders — NOT eligible; site expired
+- **Specathon (St. Peter's)** → 2026 edition NOT announced — watch https://www.spechyd.ac.in/event-details/specathon
+
+### Platform access notes (this run)
+- **HackerEarth** — 403 `Guardian — ANONYMOUS IP` even via r.jina.ai; unusable
+- **hack2skill.com/hackathons** — 404; homepage is JS SPA
+- **DoraHacks** — correct listing is `https://dorahacks.io/hackathon` (not `/hackathons`)
+- **lablab.ai** — correct listing is `/ai-hackathons` (not `/next`)
+- **Devfolio** — SPA; scraped `__NEXT_DATA__` JSON successfully (event = `<name>.devfolio.co`)
