@@ -282,3 +282,74 @@
 - **DoraHacks** — correct listing is `https://dorahacks.io/hackathon` (not `/hackathons`)
 - **lablab.ai** — correct listing is `/ai-hackathons` (not `/next`)
 - **Devfolio** — SPA; scraped `__NEXT_DATA__` JSON successfully (event = `<name>.devfolio.co`)
+
+---
+
+## 10-Agent Deep Research Wave 2 — Aug 1, 2026
+
+> 10 parallel agents (A top-10 platforms, B alt aggregators, C ultra-obscure, D Hyderabad college-by-college, E Telangana/AP, F govt/ministry, G corporate, H global micro-competition, I niche themes, J university + OSS). ~120 URLs liveness-verified (HTTP 200) on Aug 1, 2026. All top finds added to seed as seed_117+.
+
+### Highlights worth acting on FIRST
+| Priority | Hackathon | Direct URL | Deadline | Prize | Why |
+|---|---|---|---|---|---|
+| 🔴 URGENT | BioMed Bharat 2026 (GITAM) | biomedbharat.gitam.edu | Aug 1 TODAY | ₹4.5L | concept+BOM due today; finale Sep 17-18 |
+| 🔴 URGENT | LFX Mentorship Fall 2026 | mentorship.lfx.linuxfoundation.org | Aug 3-5 | $3-6.6K | highest stipend program, apps open this week |
+| 🔴 URGENT | IncludAI (Stanford) | includai-2026.devpost.com | Aug 8 | $3K / 146 regs | starts Aug 1, low competition |
+| ⭐ | AI Builders × T-Hub | internshala.com/competitions/ai-builders-hackathon | Sep 3 | TBA | T-Hub Hyderabad, ~25 km |
+| ⭐ | SPECATHON St. Peter's | unstop.com/hackathons/specathon-2026-st-peters-engineering-college-1723868 | Aug 20 | TBA | 36h Applied AI Hyderabad |
+| ⭐ | SEMICON India | i4c.in/hackathon-2026 | Aug 16 | TBA | fresh Jul 31, ML/CV niche |
+| ⭐ | DevThon VJIT | devupvjit.in/events/devthon | Aug 20 | ₹1.5L | ~9 km from MGIT |
+| ⭐ | graVITas VIT | gravitas.vit.ac.in | Sep 20 | ₹30L+ | reg live |
+| ⭐ | HackTitan | hacktitan.devpost.com | Feb 2027 | $10K / 54 regs | best prize-to-competition ratio |
+
+### Agent F — govt: only actionable item is Youth Ideathon 2026 (youthideathon.in, ~₹25L). ISEA awareness challenge open. DRDO D2D 6.0 / iDEX / RBI HaRBInger all WATCH for new editions.
+
+### Agent G — corporate: JPMC Code for Good (OPEN, internship), PwC Fiercest Competitor (OPEN, hiring pipeline). Watch: Uber HackTag, Zoho Cliqtrix (Nov), Flipkart GRiD 8.0, Microsoft Engage, Adobe India, HackWithInfy.
+
+### Agent H — global micro-competition (best win odds): HackTitan ($10K/54), IEEE ClimateChain ($3K/40), OurPlanet.Rocks ($1K/40), IncludAI ($3K/146), Build with Paritok ($630/133), VentureFix (7 regs), NeuralSprint ($150/89).
+
+### Agent I — niche themes: CTF (DEF CON Aug 7, UIUCTF Aug 8, PatriotCTF Sep 12, CSAW Sep, InCTF ongoing, H7CTF), semiconductors (SEMICON India), biomedical (BioMed Bharat), women (E2E Global), space (NASA Space Apps), quantum (IBM Quantum Challenge Fall).
+
+### Agent J — university + OSS: SIH 2026 reg opens Aug (via SPOC, Sep 30); graVITas'26 reg live; LFX Fall (Aug 3-5); MLH Fellowship (Aug 31); SWOC S6 open; Hacktoberfest Oct; prep GSoC 2027. Fest season Jan-Mar 2027 (Kshitij, Tryst, Pragyan, Cognizance, Techkriti, APOGEE).
+
+### Seed-data corrections from wave 2
+- **seed_001 SIH**: real deadline is Sep 30 2026 (reg opens Aug via SPOC, finale Nov) — corrected from Jul 31
+- **seed_002 MIT India**: ₹25.88L, Unstop registration URL added
+- **seed_167 SPECATHON**: 2026 edition confirmed live (was "TBA" before)
+
+---
+
+## Deep Research Wave 3 — Aug 1, 2026 (high-prize + career pipeline)
+
+> 2 agents: Agent K (global hackathons >$50K with realistic win odds), Agent L (India hackathons → internships/PPI/PPO). All listed URLs liveness-verified HTTP 200 on Aug 1, 2026. Added to seed as seed_195+.
+
+### Agent K — highest win-odds high-prize (added to seed)
+| Hackathon | Prize | Regs | Dates | Verified URL |
+|---|---|---|---|---|
+| General Learning Hacks | $88,888 | **16** | Sep 19-20 | general-learning-hacks.devpost.com |
+| Recruit Holdings Innovation Cup | $70K | **29** | Sep 25-27 | innovation-cup2026.devpost.com |
+| IBM Z Datathon 2026 | $50K+ | 16,000+ | Oct 17-18 | starhacks.org/ibm-z-datathon-2026 |
+| Agentic Cinema | $75K | 2,434 | Jul 27-Sep 7 | agentic-cinema.devpost.com |
+| Gemini XPRIZE | $2M | 23,312 | Aug 17 | xprize.devpost.com |
+| RevenueCat Shipaton | $700K+ | 9,973 | Aug 1-Sep 30 | revenuecat-shipaton-2026.devpost.com |
+| WEEX AI Wars II | $200K USDT | 104 | opens Aug 31 | dorahacks.io/hackathon/weex-ai-wars2 |
+
+**Rejected as inflated/not applicable**: Reverie Hacks ($153K listed, ~$100 real cash), OregonHacks ($58K listed, ~$50 gift cards), STEM Energy (JMD + ages 12-19), Since AI 2026 (in-person Finland), INDIA RUNS (deadline passed Jun 28). Colosseum Eternal login-walled; lablab Dubai AI Week prize unconfirmable.
+
+### Agent L — career pipeline (added to seed)
+| Program | Status | Award | Deadline | Verified URL |
+|---|---|---|---|---|
+| **Adobe University Hackathon 2026** | 🔴 OPEN | Top 50 → PPI + ₹1.1L/mo internship (2028 batch), MacBook Pro | **R1 Aug 9** | unstop.com/hackathons/crp-adobe-university-hackathon-2026-adobe-1715333 |
+| TCS CodeVita S14 | Upcoming | ~$20K top-3 + Ninja/Digital hiring | reg ~Aug-Sep | codevita.tcsapps.com |
+| Walmart Sparkplug | WATCH (~Oct-Nov 2026) | Top 100 → ₹1-1.1L/mo internship | next cycle | unstop.com/hackathons/crp-sparkplug-summer-internship-2026-walmart-global-tech-in-india-1575885 |
+| Goldman Sachs India Hackathon | WATCH (~Apr 2027) | PPI (2027/2028 grads) | next cycle | goldmansachs.com careers |
+| Flipkart GRiD 9.0 | WATCH (~Jun-Jul 2027) | PPIs + ~₹1L/mo internships | next cycle | mycareernet.co/events/flipkart-earlycareers-grid-8-0 |
+| Uber HackTag 3.0 | WATCH (~Jan 2027) | ₹5L + internships/FT pipeline | next cycle | unstop.com/hackathon/uber-hacktag-20-uber-technologies-inc-260528 |
+| Infosys HackWithInfy (2027 ed) | WATCH (~Jan 2027) | PPI Specialist Programmer + internships | next cycle | infosys.com/careers/hackwithinfy.html |
+| Amazon HackOn 7.0 | WATCH (~May 2027) | PPI + ₹2.25L | next cycle | unstop.com/hackathons/hackon-with-amazon-60-amazon-1682652 |
+| EY Techathon 6 | Check eligibility | Internship + interviews | ongoing | ey.com/en_in/techathon-6 |
+| Lumen Quest / Juspay / Samsung PRISM | Watch | ₹40K/mo→PPO ₹21-27LPA etc | rolling | jobs.lumen.com / Unstop / Samsung research |
+
+**Closed 2026 (watch 2027)**: Flipkart GRiD 8.0, Goldman Sachs 2026, Amazon HackOn 6.0 + ML Summer School, JPMC Code for Good (also SG edition), Uber HackTag 2.0, HackWithInfy 2026, Walmart CodeHers + AmEx Makeathon (women-only). Mastercard Code for Change 404. Morgan Stanley 502 unverified.
+
+**Key insight from Agent L**: SIH 2026 college SPOC registration closed Jul 31 — student reg + problem statements expected late Aug; you must win the college internal hackathon to be nominated. Confirm MGIT nomination now.

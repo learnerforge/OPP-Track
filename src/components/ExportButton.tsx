@@ -3,6 +3,7 @@ import type { Opportunity } from '../types/opportunity';
 import {
   exportAsJSON,
   exportAsCSV,
+  exportAsICS,
   downloadFile,
   copyToClipboard,
   getExportFilename,
@@ -12,7 +13,7 @@ interface ExportButtonProps {
   opportunities: Opportunity[];
 }
 
-type ExportFormat = 'json' | 'csv';
+type ExportFormat = 'json' | 'csv' | 'ics';
 type ExportAction = 'download' | 'clipboard';
 
 export function ExportButton({ opportunities }: ExportButtonProps) {
@@ -32,13 +33,26 @@ export function ExportButton({ opportunities }: ExportButtonProps) {
   }, [open, close]);
 
   async function handleExport(format: ExportFormat, action: ExportAction) {
-    const content = format === 'json'
-      ? exportAsJSON(opportunities)
-      : exportAsCSV(opportunities);
+    const content =
+      format === 'json'
+        ? exportAsJSON(opportunities)
+        : format === 'csv'
+          ? exportAsCSV(opportunities)
+          : exportAsICS(opportunities);
+
+    if (!content && format === 'ics') {
+      close();
+      return;
+    }
 
     if (action === 'download') {
       const filename = getExportFilename(format);
-      const mime = format === 'json' ? 'application/json' : 'text/csv';
+      const mime =
+        format === 'json'
+          ? 'application/json'
+          : format === 'csv'
+            ? 'text/csv'
+            : 'text/calendar';
       downloadFile(content, filename, mime);
     } else {
       const ok = await copyToClipboard(content);
@@ -92,6 +106,13 @@ export function ExportButton({ opportunities }: ExportButtonProps) {
               className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
               📊 CSV file
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => handleExport('ics', 'download')}
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              📅 Calendar (.ics)
             </button>
             <div className="border-t border-gray-100 my-1" />
             <div className="px-3 py-1.5 text-xs text-gray-400 font-medium uppercase tracking-wide">

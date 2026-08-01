@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { Opportunity, Filters } from '../types/opportunity';
-import { isExpiredOrCompleted } from '../utils';
+import type { Opportunity, Filters, SortKey } from '../types/opportunity';
+import { isExpiredOrCompleted, isWithinDays } from '../utils';
 
 interface UseFiltersReturn {
   active: Opportunity[];
@@ -9,6 +9,12 @@ interface UseFiltersReturn {
   allTags: string[];
   totalCount: number;
 }
+
+const SORTERS: Record<SortKey, (a: Opportunity, b: Opportunity) => number> = {
+  deadline: (a, b) => a.deadline.localeCompare(b.deadline),
+  date_added: (a, b) => a.date_added.localeCompare(b.date_added),
+  title: (a, b) => a.title.localeCompare(b.title),
+};
 
 export function useFilters(opps: Opportunity[], filters: Filters): UseFiltersReturn {
   return useMemo(() => {
@@ -35,6 +41,15 @@ export function useFilters(opps: Opportunity[], filters: Filters): UseFiltersRet
       list = list.filter(o => o.tags.includes(filters.tag));
     }
 
+    if (filters.dueWithin > 0) {
+      list = list.filter(
+        o => o.status !== 'Completed' && isWithinDays(o.deadline, filters.dueWithin)
+      );
+    }
+
+    const dir = filters.sortDir === 'asc' ? 1 : -1;
+    list.sort((a, b) => SORTERS[filters.sortKey](a, b) * dir);
+
     const active: Opportunity[] = [];
     const archived: Opportunity[] = [];
 
@@ -45,9 +60,6 @@ export function useFilters(opps: Opportunity[], filters: Filters): UseFiltersRet
         active.push(opp);
       }
     }
-
-    active.sort((a, b) => a.deadline.localeCompare(b.deadline));
-    archived.sort((a, b) => b.deadline.localeCompare(a.deadline));
 
     const sources = Array.from(
       new Set(opps.map(o => o.source).filter(Boolean))

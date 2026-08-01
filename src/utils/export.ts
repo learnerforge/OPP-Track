@@ -71,6 +71,55 @@ export function getExportFilename(extension: string): string {
   return `opptrack-export-${date}.${extension}`;
 }
 
+export function exportAsICS(opps: Opportunity[]): string {
+  const activeOpps = opps.filter(o => o.deadline && o.status !== 'Completed');
+  if (activeOpps.length === 0) return '';
+
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//OppTrack//OppTrack//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+  ];
+
+  const now = icsStamp(new Date());
+
+  for (const opp of activeOpps) {
+    const dt = opp.deadline.replace(/-/g, '');
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${opp.id}@opptrack`);
+    lines.push(`DTSTAMP:${now}`);
+    lines.push(`DTSTART;VALUE=DATE:${dt}`);
+    lines.push(`SUMMARY:${icsEscape(`${opp.title} (${opp.type})`)}`);
+    if (opp.link) lines.push(`URL:${opp.link}`);
+    const description = opp.notes
+      ? `${opp.notes} — via ${opp.source || 'OppTrack'}`
+      : `${opp.status} — via ${opp.source || 'OppTrack'}`;
+    lines.push(`DESCRIPTION:${icsEscape(description)}`);
+    lines.push('END:VEVENT');
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function icsStamp(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}` +
+    `T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`
+  );
+}
+
+function icsEscape(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
 function todayFilename(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

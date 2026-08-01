@@ -1,4 +1,4 @@
-import type { Filters, OpportunityType, OpportunityStatus } from '../types/opportunity';
+import type { Filters, OpportunityType, OpportunityStatus, SortKey } from '../types/opportunity';
 import { TYPE_OPTIONS, STATUS_OPTIONS } from '../constants';
 
 interface FilterBarProps {
@@ -9,6 +9,19 @@ interface FilterBarProps {
   activeCount: number;
   totalCount: number;
 }
+
+const SORT_LABELS: Record<SortKey, string> = {
+  deadline: 'Deadline',
+  date_added: 'Date Added',
+  title: 'Title',
+};
+
+const DUE_WITHIN_OPTIONS = [
+  { value: 0, label: 'Any time' },
+  { value: 7, label: '7 days' },
+  { value: 14, label: '14 days' },
+  { value: 30, label: '30 days' },
+];
 
 export function FilterBar({
   filters,
@@ -27,7 +40,10 @@ export function FilterBar({
     filters.type !== 'All' ||
     filters.status !== 'All' ||
     filters.source !== 'All' ||
-    filters.tag !== 'All';
+    filters.tag !== 'All' ||
+    filters.dueWithin > 0 ||
+    filters.sortKey !== 'deadline' ||
+    filters.sortDir !== 'asc';
 
   function clearFilters() {
     onFilterChange({
@@ -36,6 +52,9 @@ export function FilterBar({
       status: 'All',
       source: 'All',
       tag: 'All',
+      sortKey: 'deadline',
+      sortDir: 'asc',
+      dueWithin: 0,
     });
   }
 
@@ -115,6 +134,49 @@ export function FilterBar({
             ))}
           </select>
         )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400">Due within:</span>
+          {DUE_WITHIN_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => update('dueWithin', opt.value)}
+              aria-pressed={filters.dueWithin === opt.value}
+              className={`text-xs font-medium px-2.5 py-1.5 rounded-full border transition-colors min-h-[32px] ${
+                filters.dueWithin === opt.value
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">Sort by:</span>
+          <select
+            value={filters.sortKey}
+            onChange={e => update('sortKey', e.target.value as SortKey)}
+            aria-label="Sort opportunities"
+            className="border border-gray-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[32px]"
+          >
+            {(Object.keys(SORT_LABELS) as SortKey[]).map(key => (
+              <option key={key} value={key}>{SORT_LABELS[key]}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => update('sortDir', filters.sortDir === 'asc' ? 'desc' : 'asc')}
+            aria-label={
+              filters.sortDir === 'asc' ? 'Sort ascending, switch to descending' : 'Sort descending, switch to ascending'
+            }
+            className="text-xs bg-white border border-gray-200 text-gray-600 px-2.5 py-1.5 rounded-md hover:bg-gray-50 transition-colors font-medium min-h-[32px]"
+          >
+            {filters.sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

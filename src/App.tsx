@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ViewMode, Filters, Opportunity } from './types/opportunity';
 import { useOpportunities } from './hooks/useOpportunities';
 import { useFilters } from './hooks/useFilters';
+import { useReminders } from './hooks/useReminders';
 import {
   Header,
   EntryForm,
@@ -22,6 +23,9 @@ const INITIAL_FILTERS: Filters = {
   status: 'All',
   source: 'All',
   tag: 'All',
+  sortKey: 'deadline',
+  sortDir: 'asc',
+  dueWithin: 0,
 };
 
 function AppContent() {
@@ -48,6 +52,12 @@ function AppContent() {
     opportunities,
     filters
   );
+
+  const {
+    enabled: remindersEnabled,
+    supported: remindersSupported,
+    toggle: toggleReminders,
+  } = useReminders(opportunities);
 
   const handleCancel = useCallback(() => {
     setShowForm(false);
@@ -131,6 +141,9 @@ function AppContent() {
         onViewChange={setViewMode}
         onAdd={handleAdd}
         showForm={showForm}
+        remindersEnabled={remindersEnabled}
+        remindersSupported={remindersSupported}
+        onToggleReminders={toggleReminders}
       />
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
