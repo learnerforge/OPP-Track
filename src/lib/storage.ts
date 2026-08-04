@@ -13,7 +13,7 @@ export class StorageError extends Error {
   }
 }
 
-const SEED_VERSION = 5;
+export const SEED_VERSION = 5;
 const SEED_VERSION_KEY = 'opptrack-seed-version';
 
 function getStorage(): { get: (key: string) => string | null; set: (key: string, value: string) => void } | null {
@@ -31,7 +31,7 @@ function getStorage(): { get: (key: string) => string | null; set: (key: string,
   return null;
 }
 
-const SEED_DATA: Opportunity[] = [
+export const SEED_DATA: Opportunity[] = [
   {
     id: 'seed_001',
     title: 'Smart India Hackathon 2026',

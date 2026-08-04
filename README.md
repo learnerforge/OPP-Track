@@ -58,6 +58,18 @@ npm run build
 npm run preview
 ```
 
+### Data Tooling
+
+```bash
+npm run validate        # Check the seed data (dupes, bad statuses, stale deadlines)
+npm run validate:links  # HTTP-check every link (network calls)
+npm run test            # Migration regression tests (29 checks)
+```
+
+Data is curated in `SEED_DATA` inside `src/lib/storage.ts` and shipped to users via
+a version migration. See `docs/RESEARCH_WORKFLOW.md` for the full research loop and
+`docs/RESEARCH_LOG.md` for the change history.
+
 ### Artifact Mode (Single File)
 
 The project can also be deployed as a single HTML artifact. The `index.html` at the project root serves as the artifact entry point.
@@ -74,6 +86,10 @@ OPP-Track/
 ├── postcss.config.js           # PostCSS configuration
 ├── public/
 │   └── favicon.svg             # App icon
+├── scripts/
+│   └── validate-data.mjs       # Data validation + optional link checker
+├── tests/
+│   └── migration.test.mjs      # Migration regression tests (npm test)
 ├── src/
 │   ├── main.tsx                # React DOM entry point
 │   ├── App.tsx                 # Main application component
@@ -112,7 +128,9 @@ OPP-Track/
     ├── TASKS.md                # Task breakdown
     ├── CODING_RULES.md         # Code conventions
     ├── RISKS_AND_EDGE_CASES.md # Risks and edge cases
-    └── KNOWN_ISSUES_AND_DECISIONS.md # Decision log
+    ├── KNOWN_ISSUES_AND_DECISIONS.md # Decision log
+    ├── RESEARCH_WORKFLOW.md   # Repeatable research/update pipeline
+    └── RESEARCH_LOG.md        # Audit change history
 ```
 
 ## Usage

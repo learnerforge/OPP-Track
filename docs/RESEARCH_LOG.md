@@ -1,0 +1,45 @@
+# Research Log
+
+Dated record of opportunity data audits and corrections. Append a new entry per
+research session. Each entry: date, seeds touched, sources verified, what changed,
+version bump (if any).
+
+## 2026-08-04 — v5 audit (SEED_VERSION 4 → 5)
+
+**Scope:** full `SEED_DATA` audit against live pages (Devpost, DoraHacks, Unstop,
+Devfolio, lablab.ai, Devfolio sites, careers pages).
+
+**Round A (seeds 001–070):** fixed titles, deadlines, links, and eligibility for
+~18 entries. Highlights:
+
+- `seed_018` Push to Prod → `pushtoprod-india.devfolio.co` (Anthropic × Elevation
+  Capital; in-person Aug 8, Basecamp Bengaluru)
+- `seed_021/022/024` Microsoft / Qualcomm / Amazon intern links replaced (old URLs dead)
+- `seed_032` Chanakya Fellowship → `tihiitb.org/programs/hr-skill-development/cfp-2026/`,
+  deadline 2026-07-12, notes "2026 cycle closed"
+- `seed_038` NexHack 2.0 venue corrected: IITM Janakpuri, New Delhi (NOT IIT Madras)
+- `seed_039` Adaption Part 2: registration ENDED (915 teams), winners Aug 17
+- `seed_049` Build with DataHub → `hack2skill.com/event/bah2026/` (BHARAT hackathon page)
+- `seed_068` Dora Hack 2.0: women-led, online Aug 20-23, vibe-coding friendly
+
+**Round B (seeds 105–143):** `seed_105` deadline 2026-12-18; `seed_106` R2 online
+Aug 7-8; `seed_113` CLOSED (deadline 2026-01-20, status Completed); `seed_125`
+Hybrid, offline finale Sep 11-12 Pune; `seed_126` offline Oct 4-6 PMEC Berhampur;
+`seed_129` pre-reg Aug 18 → submission Sep 5; `seed_140` Nov 6-9, deadline 2026-11-09.
+
+**Round C (seeds 174–212):** `seed_174` MLH Fellowship link; `seed_186` Zoho
+Cliqtrix 2025 (next edition ~Nov 2026); `seed_190` NIT Warangal Ignite (Ignite 36,
+Sep 27-28 2025); `seed_192` concluded (R1 extended 20 Mar 2026, R2 Apr 10-12);
+`seed_200` WEEX deadline 2026-08-31; `seed_204` Goldman title 2026, closed 10 May
+2026; `seed_205` Flipkart GRiD 8.0, regs ended 12 Jul 2026; `seed_210/211` Juspay
+and Samsung PRISM links.
+
+**Removed:** orphaned duplicates `seed_016`, `seed_020`, `seed_040`, `seed_046`,
+`seed_052`, `seed_189` dropped from `SEED_DATA` (migration removes them for existing
+users too). `SEED_DATA` = 206 entries, 0 duplicate titles.
+
+**Linked correction:** Qualcomm URL `qualcomm.com/careers/internships` was 404 →
+`qualcomm.com/company/careers/internships-and-early-in-career-opportunities/india`.
+
+**Verification:** `npm run validate` 0 errors; `tests/migration.test.mjs` 29/29 pass;
+`npm run typecheck` + `npm run build` green.
