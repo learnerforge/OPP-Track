@@ -4,6 +4,50 @@ Dated record of opportunity data audits and corrections. Append a new entry per
 research session. Each entry: date, seeds touched, sources verified, what changed,
 version bump (if any).
 
+## 2026-08-05 — v6 audit (SEED_VERSION 5 → 6)
+
+**Scope:** full 5-way parallel audit of all 206 `SEED_DATA` entries against live
+pages (Devpost, DoraHacks, Unstop, Devfolio, Internshala, official event sites).
+
+**Method:** 5 research agents, each verified a batch of 42/42/42/42/38 seeds by
+fetching every live link (JS pages cross-checked via search snippets + official
+secondary sources). 140 OK / 62 FIX / 0 DEAD / 4 UNVERIFIED; all fixes applied.
+
+**Batch 1–2 (seeds 001–089):** SPOC extended, MIT $25.88→₹25L, What The Tech,
+Outreachy, Teach For India, Adaption, TA Hackathon, Accenture, HackSavvy, ISRO BAH,
+CDL/Oracle notes, Wexa link, Hackfest "The Agentic Era", Neurobots, DEMUX,
+MunichTech, Y-Hack, Prasunethon, Tech Horizon. (`seed_003/012/015/031` flagged
+UNVERIFIED — links left as-is.)
+
+**Batch 3 (seeds 090–131):** `seed_091` deadline → 2026-08-11 (4,165 regs, not low
+competition); `seed_092` → 2026-10-23 (single-phase Oct 24–Nov 1); `seed_093` →
+2026-08-14 (2,911 regs); `seed_097` → 2026-08-15; `seed_107/108` registration
+CLOSED notes; `seed_125` UG-only + min 1 female member/team.
+
+**Batch 4 (seeds 132–173):** `seed_135` not a hackathon, 37 regs, swag-only;
+`seed_144` reg Aug 9 + female-member rule; `seed_145` reg Aug 15, hybrid;
+`seed_146` in-person Coimbatore; `seed_147` reg closed Jul 30, in-person;
+`seed_156` → 2026-08-20; `seed_158` → 2026-08-10, offline Sep 25-26;
+`seed_160` Africa-only (India ineligible), $16.5K; `seed_163` 382 regs, students
+only; `seed_169` IIT-T region only, Aug 29-30; `seed_171` Sep 30 idea deadline,
+₹10L; `seed_173` → 2026-08-18. (`seed_165` GIH window Oct 15–Dec 30 and
+`seed_172` graVITas "Coming Soon" noted but not applied — pending confirmation.)
+
+**Batch 5 (seeds 174–212):** `seed_176` Hacktoberfest 2026 unannounced;
+`seed_177/182/183/208` → Completed (concluded events); `seed_178/179/180/181/182/
+198/199` participant counts refreshed; `seed_181` pool $100 + TKS scholarship;
+`seed_184` → 2026-09-18, event Oct 16; `seed_185` invite-only select colleges;
+`seed_194` ₹1L pool; `seed_195` $25K pool, invite-only in-person HK;
+`seed_196` approved-applicants only, $70K breakdown; `seed_200` 112 hackers;
+`seed_201` reg → 2026-08-08; `seed_207` 2026 edition concluded; `seed_210` Juspay
+careers shows no openings.
+
+**Removed:** `seed_187` (Adobe India Hackathon 2026) — duplicate/renamed; merged
+into `seed_201` (Adobe University Hackathon 2026). `SEED_DATA` = 205 entries.
+
+**Verification:** `npm run validate` 0 errors (12 stale-deadline warnings);
+`tests/migration.test.mjs` 29/29 pass; `npm run typecheck` + `npm run build` green.
+
 ## 2026-08-04 — v5 audit (SEED_VERSION 4 → 5)
 
 **Scope:** full `SEED_DATA` audit against live pages (Devpost, DoraHacks, Unstop,
