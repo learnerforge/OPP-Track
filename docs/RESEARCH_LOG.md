@@ -4,6 +4,54 @@ Dated record of opportunity data audits and corrections. Append a new entry per
 research session. Each entry: date, seeds touched, sources verified, what changed,
 version bump (if any).
 
+## 2026-08-14 — v7 research pass (SEED_VERSION 6 → 7)
+
+**Scope:** re-verified all 37 deadline-passed `SEED_DATA` entries against live
+pages (Devpost, Unstop, Internshala, DoraHacks, official sites, LinkedIn), plus a
+new-opportunity sweep.
+
+**Closed → Completed (35 seeds — reg closed / event concluded / missed):**
+`seed_005, 007, 017, 018, 031, 032, 036, 041, 044, 049, 051, 057, 062, 067, 068,
+070, 073, 074, 085, 086, 087, 091, 106, 107, 108, 110, 125, 128, 144, 147, 148,
+158, 178, 181, 201`.
+
+- What The Tech concluded Aug 6-7; Salesforce SWE-intern window closed Jul 29;
+  Azaadi ran Aug 14-15; Anthropic × Elevation concluded Aug 8 (Basecamp
+  Bengaluru); Chanakya 2026 closed Jul 12 (PG ₹12,400/mo + ₹50K contingency);
+  HackIndia Spark-11 concluded Aug 7-8 at CBIT (529 teams); Oreo TA finale Aug 6;
+  ISRO BAH finale Aug 6-7; DataHub ended Aug 10 (winners Sep 8, 3,083 teams);
+  Backblaze closed Aug 3; Caspian deadline Aug 12; ETH-IITR concluded Aug 8;
+  Infinity Hacks reg Aug 5; Dora Hack 2.0 reg Aug 10; DSU DEVHACK reg Aug 10;
+  MLH GHW: Agents ended Aug 13; AI Factory ended Aug 10; EPOCH ZERO concluded
+  Aug 8-9; DEMUX finals Aug 13-14; Neurobots concluded Aug 7-8 (winners Aug 9);
+  Axcentra reg Aug 11; Hack[AI]Thon R2 Aug 7-8; TCOE reg Jul 31; AlgoNation reg
+  Jul 31; HACKLABS ran Aug 8-9; IEEE WIE reg extended to Aug 5 (finale Sep 11-12
+  Pune); KeeperHub deadline Aug 13; Decode SIH reg Aug 9; IIIT Pune concluded
+  Aug 7-8; IndeHub closed Aug 7 (finale Aug 22); HackIndia Spark-10 reg ~Aug 10;
+  Stanford Neurodiversity closed Aug 8; OurPlanet.Rocks concluded Aug 9; Adobe
+  reg Aug 8 (R1 OA Aug 9).
+
+**Deadline corrections:** `seed_036` → 2026-07-17; `seed_087` → 2026-08-05;
+`seed_147` → 2026-07-30 (all = registration close).
+
+**Kept OPEN:** `seed_002` MIT India Hackathon — registration EXTENDED →
+2026-08-15 (Pune qualifier Aug 21-22, grand finale Oct 24 Delhi, ₹25L pool,
+100-team cap); `seed_026` TASK — rolling batches, deadline → 2026-12-31 (free
+Git & GitHub SDP starts Aug 17, free cert).
+
+**Added (3):** `seed_213` All Things Agentic Hackathon (Google × Devpost,
+$180K cash, deadline Aug 31); `seed_214` AI Builders Hackathon OSC (Devpost,
+$33.9K, deadline Sep 15); `seed_215` Code for a Billion — Bharat Agentic-AI
+Hackathon (Code for India × Nasscom, ₹18L, launches Aug 15, deadline Nov 15).
+
+**Rejected/not added:** OregonHacks 2026 (prize is ~$50 gift cards — earlier
+pass); HackerEarth "Global AI Hackathon" (URL 404); NASA Space Apps + DevNetwork +
+Shipaton + IBM Z already tracked as seeds.
+
+**Verification:** `npm run validate` 0 errors (1 pre-existing warning
+`seed_003` empty link); `tests/migration.test.mjs` 29/29 pass; `npm run typecheck`
++ `npm run build` green. `SEED_DATA` = 208 entries.
+
 ## 2026-08-05 — v6 audit (SEED_VERSION 5 → 6)
 
 **Scope:** full 5-way parallel audit of all 206 `SEED_DATA` entries against live

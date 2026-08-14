@@ -1,4 +1,4 @@
-import { STORAGE_KEY } from '../constants';
+﻿import { STORAGE_KEY } from '../constants';
 import type { Opportunity } from '../types/opportunity';
 
 interface StorageResult {
@@ -13,7 +13,7 @@ export class StorageError extends Error {
   }
 }
 
-export const SEED_VERSION = 6;
+export const SEED_VERSION = 7;
 const SEED_VERSION_KEY = 'opptrack-seed-version';
 
 function getStorage(): { get: (key: string) => string | null; set: (key: string, value: string) => void } | null {
@@ -51,11 +51,11 @@ export const SEED_DATA: Opportunity[] = [
     type: 'Hackathon',
     source: 'MIT India',
     link: 'https://punehackathon.mitindia.com',
-    deadline: '2026-08-09',
+    deadline: '2026-08-15',
     eligibility: 'Teams of 4. Engineering/Science/Management/Design streams. 3rd year eligible.',
     tags: ['Full Stack', 'Innovation', 'AI'],
     status: 'Not Started',
-    notes: 'Pune qualifier Aug 21-22. Grand finale Delhi Oct 24. ₹25 Lakh prize pool (₹7L cash top-5 + AWS cert vouchers + cloud credits). ₹4K/team fee. Register on Unstop: https://unstop.com/hackathons/national-level-mit-india-hackathon-2026-mit-academy-of-engineering-mitaoe-pune-maharashtra-1727144',
+    notes: 'STILL OPEN — registration deadline EXTENDED to Aug 15, 2026 6:30 PM (Unstop). Pune qualifier Aug 21-22 (IRS 2026), grand finale Oct 24 Delhi (IES 2026). ₹25L pool, top-30 advance, 100-team cap at qualifier (70 Eng/Sci/Mgmt + 30 Design). ₹4K/team. Teams of 4. Register on Unstop now.',
     date_added: '2026-07-29',
   },
   {
@@ -93,8 +93,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-01',
     eligibility: 'Students. Teams of 2-5. ₹299 entry fee.',
     tags: ['Full Stack', 'General', 'Hyderabad'],
-    status: 'Not Started',
-    notes: 'GMC Balayogi Indoor Stadium, Gachibowli. 24-HOUR hackathon Aug 6-7. ₹1.5L prize pool. Register via Luma: https://luma.com/t04s4n2s (1,363 going).',
+    status: 'Completed',
+    notes: 'Concluded Aug 6-7, 2026 at GMC Balayogi Indoor Stadium (What The Tech main event + The Great India Hackathon finale Aug 9). ₹1.5L pool. Missed — watch foundersfest.org for next edition.',
     date_added: '2026-07-29',
   },
   {
@@ -119,8 +119,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-07-29',
     eligibility: 'B.Tech/B.E in CS. 2026/2027 graduation. Java/JS/Python. DSA proficiency.',
     tags: ['SWE', 'CRM', 'Hyderabad', 'Top Tier'],
-    status: 'Not Started',
-    notes: '🔴 DEADLINE TODAY! Hyderabad Hi-Tech City. ₹80K-1.2L/month. PPO rate 50-70%. Fully furnished housing + meals + shuttle included.',
+    status: 'Completed',
+    notes: 'Window closed Jul 29, 2026 — Summer 2027 SWE Intern (Hyderabad/Bangalore) targeted Class of 2028 (your batch) and was missed. Watch Salesforce careers for the next SWE-intern posting (typically opens ~spring 2027). ₹80K-1.2L/mo, PPO 50-70%.',
     date_added: '2026-07-29',
   },
   {
@@ -236,8 +236,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-10',
     eligibility: 'All students. Teams of 3-5 (at least one member must code).',
     tags: ['Full Stack', 'Innovation', 'Hyderabad'],
-    status: 'Not Started',
-    notes: 'Hyderabad hub. ₹1.5L is 1st prize per city (₹3L/city total; ₹18L across 6 hubs — Delhi, Mumbai, Bengaluru, Hyderabad, Indore, Lucknow). 30-hr hybrid hackathon Aug 14-15 (Independence Day weekend). FREE registration. Organizer: Code for India.',
+    status: 'Completed',
+    notes: 'Event ran Aug 14-15, 2026 (Independence Day weekend); registration closed Aug 10 (missed). 30-hr hybrid, 6 hubs incl. Hyderabad, ₹1.5L 1st prize per city. Same organizer now runs the Bharat Agentic-AI Hackathon (see seed_215).',
     date_added: '2026-07-29',
   },
   {
@@ -249,8 +249,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-05',
     eligibility: 'All developers. Build with Claude API. Teams of 1-3.',
     tags: ['AI', 'Claude', 'API', 'Premium'],
-    status: 'Not Started',
-    notes: '$10,000 prize pool. In-person Aug 8 at Basecamp Bengaluru (Elevation Capital), part of Basecamp Aug 6-12. Teams 1-3. Build with Claude.',
+    status: 'Completed',
+    notes: 'Concluded — in-person Aug 8, 2026 at Basecamp Bengaluru (Anthropic × Elevation Capital), $11K pool, teams 1-3, build with Claude. Applications closed. Watch for next Push-to-Prod edition.',
     date_added: '2026-07-29',
   },
   {
@@ -337,11 +337,11 @@ export const SEED_DATA: Opportunity[] = [
     type: 'Certification',
     source: 'TASK',
     link: 'https://task.telangana.gov.in',
-    deadline: '2026-07-31',
+    deadline: '2026-12-31',
     eligibility: 'All Telangana students. MGIT Hyderabad students eligible.',
     tags: ['Telangana', 'Govt', 'Jobs', 'Essential'],
     status: 'Not Started',
-    notes: '🔴 REGISTER BY JUL 31. Key to MNC off-campus drives (Infosys ₹21LPA+). Free skill assessments, certifications, and job placements through Telangana govt.',
+    notes: 'Registration OPEN in rolling batches — student-registration portal live (tasklms.telangana.gov.in/student-registration/). Free 15-day Git & GitHub Student Development Program (with ExcelR) starts Aug 17, free cert. Key to MNC off-campus drives (Infosys ₹21LPA+), free skill assessments + certs.',
     date_added: '2026-07-29',
   },
   {
@@ -405,8 +405,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-07-31',
     eligibility: 'B.Tech CS/IT. Python, ML basics, software dev skills.',
     tags: ['AI', 'Python', 'Hyderabad', 'Startup'],
-    status: 'Not Started',
-    notes: 'Hyderabad/SF AI startup. ₹8-10K/month. AI startup, actively hiring SWE interns. Jul 31 deadline passed — search "Wexa AI" on Internshala for the current posting.',
+    status: 'Completed',
+    notes: 'SWE intern posting (Hyderabad, ₹10K/mo) closed Jul 31, 2026. Wexa still actively hiring a generalist intern (₹10-20K/mo); a software-intern posting (apply by Sep 16) is ECE/embedded-oriented — poor fit for CSE. Watch Internshala "Wexa AI" for the next SWE opening.',
     date_added: '2026-07-29',
   },
   {
@@ -418,8 +418,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-07-12',
     eligibility: 'UG 2nd/3rd year engineering. Interest in research and innovation.',
     tags: ['Research', 'Fellowship', 'IIT', 'Premium'],
-    status: 'Not Started',
-    notes: '2026 cycle closed (last date Jul 12). Fellowship + research opportunity at IIT Bombay. Watch tihiitb.org for the next cycle.',
+    status: 'Completed',
+    notes: '2026 cycle closed (last date Jul 12) — confirmed on tihiitb.org: application deadline is over. PG fellowship ₹12,400/mo + ₹50K/yr contingency. TIH-IoT IIT Bombay. Watch for CFP 2027 or Aarohan 6.0 (now open) on tihiitb.org.',
     date_added: '2026-07-29',
   },
   {
@@ -467,11 +467,11 @@ export const SEED_DATA: Opportunity[] = [
     type: 'Hackathon',
     source: 'HackIndia',
     link: 'https://hackindia.org/2026/hackindia-spark-11-hyderabad-telangana-south-central-region',
-    deadline: '2026-08-07',
+    deadline: '2026-07-17',
     eligibility: 'All students. College teams welcome.',
     tags: ['AI', 'Web3', 'Hyderabad', 'Local'],
-    status: 'Not Started',
-    notes: '📍 CBIT, Hyderabad — just 10 min from MGIT! HackIndia Spark series. AI, Web3 & FutureTech. Aug 7-8 (36-hr sprint). Registration closed 17-07-2026 11PM — check with CBIT for walk-in slots.',
+    status: 'Completed',
+    notes: 'Concluded — ran Aug 7-8, 2026 at CBIT Hyderabad (36-hr sprint), 529 teams / 1,613 members; Open Innovation winner from CBIT. Registration closed Jul 19, 2026 (missed). Watch HackIndia for the next Spark edition.',
     date_added: '2026-07-29',
   },
   {
@@ -522,8 +522,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-03',
     eligibility: 'Working professionals in Talent Acquisition & HR only (TA leaders, recruiters, HRBPs, people-analytics experts). Students NOT eligible. Teams of 1-3.',
     tags: ['HR Tech', 'Recruitment', 'Innovation', '₹1.5L'],
-    status: 'Not Started',
-    notes: '₹1,50,000 prize pool (₹1L jury + ₹50K audience). HR/Talent Acquisition tech focus. Video submissions closed 3 Aug 2026; Grand Finale at People Matters TechHR India 2026, Delhi, Aug 6. Missed this cycle.',
+    status: 'Completed',
+    notes: 'Concluded — video submissions closed Aug 3; grand finale at TechHR India 2026 Delhi Aug 6 (Jury winner: Reliance TalentLine). ₹1.5L pool. Note: working TA/HR professionals only — students ineligible.',
     date_added: '2026-07-29',
   },
   {
@@ -561,8 +561,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-07-01',
     eligibility: 'UG/PG/PhD students at Indian institutions. Teams of 3-4. Free.',
     tags: ['ISRO', 'Space', 'Govt', 'National', 'WATCH'],
-    status: 'Not Started',
-    notes: '2026 edition reg + idea submission CLOSED (ended Jul 1); shortlist Jul 20; Grand Finale Aug 6-7, 2026 — missed this edition. ISRO internship consideration + II AC travel for finalists. Watch Hack2skill for the next cycle.',
+    status: 'Completed',
+    notes: '2026 edition concluded — reg + idea submission closed Jul 1; shortlist Jul 20; grand finale Aug 6-7, 2026 (missed). ISRO internship consideration + II AC travel for finalists. Watch hack2skill.com for BAH 2027.',
     date_added: '2026-08-01',
   },
   {
@@ -613,8 +613,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-10',
     eligibility: 'All developers. Interest in data/AI agents.',
     tags: ['AI Agents', 'Data', 'DevOps', '$20K'],
-    status: 'Not Started',
-    notes: '$20,500 prize pool. 2,149 participants. Build data agent applications on DataHub platform. Good for AI agent portfolio.',
+    status: 'Completed',
+    notes: 'Ended — submissions closed Aug 10, 2026 5pm EDT; 3,083 participants; winners announced Sep 8. $20.5K pool ($6K grand + 4x$3K). Missed. Watch for the next DataHub challenge.',
     date_added: '2026-07-29',
   },
   {
@@ -639,8 +639,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-03',
     eligibility: 'All developers. Media/gen AI interest.',
     tags: ['AI', 'Media', 'Cloud', 'GenAI'],
-    status: 'Not Started',
-    notes: '$10,000 prize. 1,155 participants. Build generative media apps with Backblaze B2 storage. Submissions CLOSED Aug 3, 2026 — missed this one.',
+    status: 'Completed',
+    notes: 'Concluded — submissions closed Aug 3, 2026; 1,313 participants; $10K cash ($7K/$2K/$1K), winners announced ~Aug 12. Watch for the next Backblaze event.',
     date_added: '2026-07-29',
   },
   {
@@ -704,8 +704,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-12',
     eligibility: 'All UG/PG students. AI/agent interest.',
     tags: ['AI', 'Agents', '$20K', 'Online'],
-    status: 'Not Started',
-    notes: 'Advertised "$20K + $1.5K credits" NOT confirmed (aggregators show ≈$238) — treat prize as unverified. Fresh corporate AI-agent hackathon on Unstop. Deadline Aug 12 confirmed (final submission 6:30 PM GMT).',
+    status: 'Completed',
+    notes: 'Deadline Aug 12, 2026 passed (final submission 6:30 PM GMT). Fresh corporate AI-agent hackathon on Unstop; advertised $20K pool unverified (— aggregators show ~$238). Missed — low value anyway.',
     date_added: '2026-07-31',
   },
   {
@@ -769,8 +769,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-08',
     eligibility: 'IIT Roorkee students only (online). Web3/ETH interest.',
     tags: ['Web3', 'Ethereum', 'Devcon', 'Low Competition'],
-    status: 'Not Started',
-    notes: 'Official Road-to-Devcon for Devcon 8 in Mumbai. Only ~112 participants — low competition for an ETH Foundation event.',
+    status: 'Completed',
+    notes: 'Concluded Aug 8, 2026 — exclusively IIT Roorkee students ($300 pool), so not applicable. Watch Devfolio for other Road-to-Devcon events (Devcon 8 Mumbai).',
     date_added: '2026-07-31',
   },
   {
@@ -834,8 +834,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-05',
     eligibility: 'All students. Open theme.',
     tags: ['Open Theme', 'India', 'Online', 'Student'],
-    status: 'Not Started',
-    notes: 'Nationwide open-theme 2-day event, 416 participants. Reg closes Aug 5. Anti-trending theme — fewer top hackers.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 5, 2026 (missed) — 24-hr online hackathon ran Aug 15-16 (HackerRank Campus Crew), PPT submissions were due Aug 9. Watch for the next Infinity Hacks edition.',
     date_added: '2026-07-31',
   },
   {
@@ -847,8 +847,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-10',
     eligibility: 'All students. Open theme.',
     tags: ['Open Theme', 'India', 'Online'],
-    status: 'Not Started',
-    notes: 'Asia\'s largest women-led hackathon; vibe-coding/no-code friendly. Online Aug 20-23. Reg closes Aug 10.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 10, 2026 (missed); event itself runs online Aug 20-23. Asia —s largest women-led hackathon, open theme, vibe-coding friendly. Watch Devfolio for the next edition.',
     date_added: '2026-07-31',
   },
   {
@@ -873,8 +873,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-10',
     eligibility: 'All students. Open theme.',
     tags: ['India', '3rd Edition', 'Established'],
-    status: 'Not Started',
-    notes: '3rd edition, ~3K participants, strong structure. Reg closes Aug 10.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 10, 2026 (missed). 3rd edition, ~3K participants, open theme. Watch Devfolio for DSU DEVHACK 4.0.',
     date_added: '2026-07-31',
   },
   {
@@ -912,8 +912,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-13',
     eligibility: 'All students. Beginner friendly.',
     tags: ['MLH', 'Weekly', 'Free', 'Agents'],
-    status: 'Not Started',
-    notes: 'Beginner-friendly weekly hack week Aug 7-13. Zero cost, counts toward MLH season. Great for portfolio + community.',
+    status: 'Completed',
+    notes: 'Global Hack Week: Agents ended Aug 13, 2026 (missed). MLH runs GHW monthly — watch events.mlh.io for the next week; beginner-friendly, free, counts toward the MLH season.',
     date_added: '2026-07-31',
   },
   {
@@ -925,8 +925,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-10',
     eligibility: 'All developers. AI interest.',
     tags: ['AI', 'lablab', 'This Week'],
-    status: 'Not Started',
-    notes: 'native.builder official hackathon — runs this week only, ends Aug 10.',
+    status: 'Completed',
+    notes: 'Ended Aug 10, 2026 (native.builder official hackathon on lablab.ai). Missed. lablab.ai runs AI hackathons year-round — see lablab.ai/ai-hackathons.',
     date_added: '2026-07-31',
   },
   {
@@ -1068,8 +1068,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-08',
     eligibility: 'All students.',
     tags: ['Hyderabad', 'Local', '₹60K', 'Unknown'],
-    status: 'Not Started',
-    notes: 'Aug 8-9 at CMR Technical Campus, Secunderabad. ₹60,000 prize. Only listed on a SponsorMyEvent blog — zero Unstop/Devfolio presence, so very few teams.',
+    status: 'Completed',
+    notes: 'Concluded — ran Aug 8-9, 2026 at CMR Technical Campus, Secunderabad (₹60,000 prize). Missed. Correct URL is "epoch-zero-24-houra-hackathon-hyderabad".',
     date_added: '2026-07-31',
   },
   {
@@ -1081,8 +1081,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-13',
     eligibility: 'All students. AI tools encouraged.',
     tags: ['Telangana', 'College', '₹50K', 'Rural'],
-    status: 'Not Started',
-    notes: 'Registration CLOSED Aug 5, 2026; prelims online Aug 10; finals Aug 13-14 at BVRIT Narsapur (Medak). ₹50,000+, 6 tracks. Teams 2-3, any B.Tech. College-website-only — rural campus, tiny turnout. ₹999/team fee.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 5, 2026 (missed); prelims Aug 10, finals Aug 13-14 at BVRIT Narsapur (Medak). ₹50K+ pool, 6 tracks, ₹999/team. Rural Telangana campus, tiny turnout.',
     date_added: '2026-07-31',
   },
   {
@@ -1091,11 +1091,11 @@ export const SEED_DATA: Opportunity[] = [
     type: 'Hackathon',
     source: 'Neurobots',
     link: 'https://neurobots.in/hackathon',
-    deadline: '2026-07-11',
+    deadline: '2026-08-05',
     eligibility: 'All students.',
     tags: ['Kerala', '₹5L', 'Unknown'],
-    status: 'Not Started',
-    notes: 'Event CONCLUDED Jul 10-11, 2026 (record said Aug 7-8 — wrong). 24-hr, 4 domains (AI & Agentic AI, Robotics, Cyber Security, Open Innovation), ₹5L pool, ₹500/member. Watch for next edition.',
+    status: 'Completed',
+    notes: 'Concluded 2026 edition — 24-hr hackathon ran Aug 7-8, 2026 at IES College of Engineering, Thrissur; winners announced Aug 9. ₹5L pool, 4 domains. Missed. Watch neurobots.in/hackathon for the next edition.',
     date_added: '2026-07-31',
   },
   {
@@ -1146,8 +1146,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-11',
     eligibility: 'All students. Phase 1 = idea submission Aug 12-14.',
     tags: ['India', 'Online', '₹50K', 'New Platform'],
-    status: 'Not Started',
-    notes: '₹50K/30K/20K + Wolfram prize (₹1L+). Registration closes Aug 11; Phase 1 idea submission Aug 12-14. 4,165 registered — NOT low competition despite the young platform.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 11, 2026 (missed). ₹50K/30K/20K + Wolfram prize (₹1L+); Phase 1 idea submission ran Aug 12-14. 4,165 registered — not low competition. Watch Unstop for the next Axcentra edition.',
     date_added: '2026-07-31',
   },
   {
@@ -1341,8 +1341,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-09',
     eligibility: 'Shortlisted teams from Round 1 (top-16).',
     tags: ['AI', 'Belagavi', '₹35K', 'Round 2'],
-    status: 'Not Started',
-    notes: 'Round 1 passed Jul 25; Round 2 online Aug 7-8 (not offline). Only reachable if you already cleared R1.',
+    status: 'Completed',
+    notes: 'Round 2 (online) ran Aug 7-8, 2026; only top-16 from Round 1 could enter — not reachable. Watch spherehive.in for the next edition.',
     date_added: '2026-07-31',
   },
   {
@@ -1354,8 +1354,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-07-31',
     eligibility: 'All students. Emerging tech interest.',
     tags: ['₹10L', 'IMC Delhi', 'Hybrid', 'URGENT'],
-    status: 'Not Started',
-    notes: 'Registration CLOSED (closed 31 Jul 2026). ₹10L+ pool (1st ₹1.5L), hybrid, finale Oct 7-10 at India Mobile Congress New Delhi. Only watch for next edition.',
+    status: 'Completed',
+    notes: 'Registration closed Jul 31, 2026 (no extension) — shortlist Aug 28, R1 Aug 30, R2 Oct 8, grand finale Oct 7-10 at India Mobile Congress New Delhi. ₹10L+ pool (T1 ₹1.5L, 6th-15th ₹10K each). Bonus: finalists get direct entry to TCS CodeVita S14 Round 3. Missed.',
     date_added: '2026-07-31',
   },
   {
@@ -1367,8 +1367,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-07-31',
     eligibility: 'All students. DSA/AI interest.',
     tags: ['₹85K', 'CS + AI', '4 Rounds', 'URGENT'],
-    status: 'Not Started',
-    notes: 'Registration CLOSED (closed 31 Jul 2026 11:59 PM IST, 500-seat cap). ₹85,000 pool (1st ₹50K). Hybrid 4 rounds: R1 Aug 16 → finale Sep 6.',
+    status: 'Completed',
+    notes: 'Registration closed Jul 31, 2026 11:59 PM IST (500-seat cap, no extension). ₹85,000 pool (1st ₹50K). Hybrid 4 rounds: R1 Aug 16 (online coding), R2 Aug 23, R3 in-person, R4 finale Sep 6. Missed — watch Internshala for the 2027 edition.',
     date_added: '2026-07-31',
   },
   {
@@ -1393,8 +1393,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-09',
     eligibility: 'All students. Beginners welcome.',
     tags: ['Online', '48-hour', 'Beginner Friendly'],
-    status: 'Not Started',
-    notes: '48-hour national online hackathon Aug 8-9. Beginners welcome.',
+    status: 'Completed',
+    notes: '48-hour national online hackathon ran Aug 8-9, 2026 (missed). Beginner friendly, online. Watch Internshala for the next AntiLabs edition.',
     date_added: '2026-07-31',
   },
   {
@@ -1588,8 +1588,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-05',
     eligibility: 'UG students only (India + international). All departments. Min 1 female member per team (mandatory).',
     tags: ['IEEE', 'AI', 'SDG', 'Hybrid'],
-    status: 'Not Started',
-    notes: 'IEEE Women in Engineering. AI for SDG themes. Hybrid — offline finale Sep 11-12, Pune. Reg deadline 5 Aug 2026 (extended). Free.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 5, 2026 (extended, now passed). IEEE WIE Affinity Group BVCOE Pune, AI for SDG, free, hybrid; teams 2-4 with min 1 female member; offline finale Sep 11-12, 2026 Pune. Missed — watch for the 2027 edition.',
     date_added: '2026-08-01',
   },
   {
@@ -1627,8 +1627,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-13',
     eligibility: 'All developers. Web3/AI agents interest.',
     tags: ['Web3', 'Agents', '$5K', 'Low Competition'],
-    status: 'Not Started',
-    notes: '$5,000 pool. Web3 last-mile agents (x402/MCP). New protocol, 368 hackers registered — good odds.',
+    status: 'Completed',
+    notes: 'Deadline Aug 13, 2026 passed (build ran Jul 27-Aug 13). $5K pool + $1K Best Onboarding UX bounty; Web3 last-mile agents (x402/MCP) on KeeperHub. Missed.',
     date_added: '2026-08-01',
   },
   {
@@ -1835,8 +1835,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-09',
     eligibility: 'All students. Teams must have ≥1 female member; all members same institution.',
     tags: ['SIH Prep', '₹50L', 'Online', 'Free'],
-    status: 'Not Started',
-    notes: '₹50L claimed pool — SIH-decoding national event, free. Reg deadline Aug 9 (11 PM IST); ideation submission Aug 11. Grand Finale Sep 5. Great SIH practice + prize upside.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 9, 2026 11 PM IST (missed); ideation submission was Aug 11; Grand Finale Sep 5. SIH-decoding national event claiming ₹50L pool, free. Watch OSCode × CommunityX for the 2027 run.',
     date_added: '2026-08-01',
   },
   {
@@ -1871,11 +1871,11 @@ export const SEED_DATA: Opportunity[] = [
     type: 'Hackathon',
     source: 'IIIT Pune × Internshala',
     link: 'https://internshala.com/competitions/iiit-pune-llm-interface-hackathon-2026-win-usd-500/',
-    deadline: '2026-08-08',
+    deadline: '2026-07-30',
     eligibility: 'All students. LLM/AI interest.',
     tags: ['LLM', 'IIIT Pune', '$500', 'In-person'],
-    status: 'Not Started',
-    notes: 'Win $500. LLM interface challenge, in-person at IIIT Pune Aug 7-8. Registration CLOSED (closed Jul 30; participants announced Jul 31) — cannot enter now.',
+    status: 'Completed',
+    notes: 'Concluded — in-person Aug 7-8 at IIIT Pune (24-hr, HCI × LLM interfaces). $600 pool ($250/$150/$100). Registration closed Jul 30, 2026. Missed. Watch Internshala for the next IIIT Pune hackathon.',
     date_added: '2026-08-01',
   },
   {
@@ -1887,8 +1887,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-07',
     eligibility: 'All students. Monetization/payments interest.',
     tags: ['RevenueCat', '₹1L', 'Bengaluru', 'Fast Approaching'],
-    status: 'Not Started',
-    notes: '₹1L pool, Bengaluru. Fast-approaching Aug 7 deadline. Payments/monetization builds.',
+    status: 'Completed',
+    notes: 'Concluded — submissions closed Aug 7, 2026 11:59 PM IST (no extension); top-10 finalists announced Aug 10; in-person finale Aug 22 Bengaluru. Prize: Bambu Lab P2S 3D printer (~₹1L). Apple-native builds only. Missed.',
     date_added: '2026-08-01',
   },
   {
@@ -2017,8 +2017,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-10',
     eligibility: 'All students.',
     tags: ['HackIndia', 'Uttarakhand', '158 Teams'],
-    status: 'Not Started',
-    notes: 'Reg closes ~Aug 10. Offline round Sep 25-26 at MIET Kumaon, Haldwani. ₹10k/7k/4k. 158 teams.',
+    status: 'Completed',
+    notes: 'Registration closed ~Aug 10, 2026 (missed). Offline round Sep 25-26 at MIET Kumaon, Haldwani. ₹10k/7k/4k pool, 158 teams. Watch HackIndia for the next Spark edition.',
     date_added: '2026-08-01',
   },
   {
@@ -2277,8 +2277,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-08',
     eligibility: 'Students, all countries.',
     tags: ['Stanford', 'AI', '$3K', '280 Regs'],
-    status: 'Not Started',
-    notes: 'Deadline Aug 8 11:45pm PDT; kickoff Aug 1; winners present at Stanford Neurodiversity Summit (Sep 19-21). $1,000 GP + 3x$500 track + $500 neurodiversity award = $3,000. 280 registrations.',
+    status: 'Completed',
+    notes: 'Concluded — submissions closed Aug 8, 2026 11:45 PM PT (388 participants). $3K total ($1K grand + 3x$500 track + $500 neurodiversity). Winners present at Stanford Neurodiversity Summit Sep 19-21. Watch for the 2027 edition.',
     date_added: '2026-08-01',
   },
   {
@@ -2316,8 +2316,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-09',
     eligibility: 'Ages 13-24 only. Students only.',
     tags: ['Environment', '$100', '55 Regs'],
-    status: 'Not Started',
-    notes: 'Aug 7-9; submission deadline Aug 9, winners Aug 14. Pool is $100 cash (Launch Grant) + $1,000 TKS Scholarship opportunity (for those registered before Aug 5). 55 participants.',
+    status: 'Completed',
+    notes: 'Concluded — ran Aug 7-9, 2026; submissions closed Aug 9; winners announced Aug 14. Ages 13-24 only. $100 Launch Grant + $1K TKS scholarship opportunity, 55 participants. Missed.',
     date_added: '2026-08-01',
   },
   {
@@ -2550,8 +2550,8 @@ export const SEED_DATA: Opportunity[] = [
     deadline: '2026-08-08',
     eligibility: 'Full-time B.Tech/B.E. students graduating 2027-2031. Teams of 2-3 same college. Free.',
     tags: ['Adobe', 'PPI', 'Internship', '₹1.1L/mo', 'Top Tier', 'URGENT'],
-    status: 'Not Started',
-    notes: 'URGENT — registration closes Aug 8 (11:59 PM IST); R1 OA is Aug 9 (15 MCQ / 1 coding / 1 case study, team score = member avg). R2 Aug 16-Sep 6, R3 Sep 13-27, finals at Adobe HQ Noida (travel paid). Theme "Speak to Agents". Top 50 → PPI + ₹1.1L/mo internship (2028 batch only); winners MacBook Pro, RU MacBook Neo.',
+    status: 'Completed',
+    notes: 'Registration closed Aug 8, 2026 11:59 PM IST — R1 online assessment ran Aug 9 (2-10 PM IST). Missed this edition. Adobe University Hackathon is annual — watch Unstop for the 2027 edition. Top 50 → PPI + ₹1.1L/mo internship (2028 batch).',
     date_added: '2026-08-01',
   },
   {
@@ -2697,6 +2697,46 @@ export const SEED_DATA: Opportunity[] = [
     notes: 'WATCH — HackOn 6.0 closed (reg May 28, 2026, PPI + ₹2.25L). Next edition ~May 2027. Also watch Amazon ML Summer School (~Jun) and ML Challenge.',
     date_added: '2026-08-01',
   },
+  {
+    id: 'seed_213',
+    title: 'All Things Agentic Hackathon',
+    type: 'Hackathon',
+    source: 'Google × Devpost',
+    link: 'https://allthingsagentichackathon.devpost.com',
+    deadline: '2026-08-31',
+    eligibility: 'Open worldwide (legal age of majority; a few excluded countries). Build an AI agent on Gemini 3.5 + Google Cloud.',
+    tags: ['AI', 'Agents', 'Google', 'Gemini', 'Global', 'Big Prize'],
+    status: 'Not Started',
+    notes: 'Google-backed global agentic-AI hackathon. $180K cash ($50K grand + 3x$20K track + $20K startup + 2x$10K solo + more), deadline Aug 31 5pm PDT, ~2,767 participants. $150 free Google Cloud credits. High-value shot in this window.',
+    date_added: '2026-08-14',
+  },
+  {
+    id: 'seed_214',
+    title: 'AI Builders Hackathon (OSC)',
+    type: 'Hackathon',
+    source: 'OSC × Devpost',
+    link: 'https://ai-builders-hackathon-2026.devpost.com',
+    deadline: '2026-09-15',
+    eligibility: 'Open worldwide (18+).',
+    tags: ['AI', 'Global', 'Open-Ended'],
+    status: 'Not Started',
+    notes: '$33,900 pool, online, Aug 21 – Sep 15, ~1,248 participants. Open-ended AI builds, beginner friendly, India eligible. Winners announced Oct 12.',
+    date_added: '2026-08-14',
+  },
+  {
+    id: 'seed_215',
+    title: 'Code for a Billion (Bharat Agentic-AI Hackathon)',
+    type: 'Hackathon',
+    source: 'Code for India × Nasscom',
+    link: 'https://codeforindia.org/hackathon',
+    deadline: '2026-11-15',
+    eligibility: 'Open to students, professionals, developers worldwide. Solo or teams. Build on AgentFoundry.me.',
+    tags: ['AI', 'Agents', 'India', 'Open Source', 'Public Health'],
+    status: 'Not Started',
+    notes: '90-day fully virtual hackathon launches Aug 15, 2026 (Independence Day), builds to Nov 15, winners Dec 5. ₹18L pool. Tracks: education, health, climate, governance, financial inclusion. 1M free smart-code tokens per participant. Register at codeforindia.org/hackathon.',
+    date_added: '2026-08-14',
+  },
+
 ];
 
 function readSeedVersion(storage: {
