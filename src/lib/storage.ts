@@ -2737,7 +2737,7 @@ export const SEED_DATA: Opportunity[] = [
     date_added: '2026-08-14',
   },
 
-];
+];  // END_SEED_DATA
 
 function readSeedVersion(storage: {
   get: (key: string) => string | null;

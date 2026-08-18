@@ -112,11 +112,14 @@ def parse_deadline(raw: str) -> str:
     return ""
 
 
-def clean_text(text: str) -> str:
-    """Collapse whitespace and strip."""
-    if not text:
+def clean_text(text) -> str:
+    """Collapse whitespace and strip. Handles Selector/TextHandler objects."""
+    if text is None:
         return ""
-    return re.sub(r'\s+', ' ', text).strip()
+    text_str = str(text)
+    if not text_str:
+        return ""
+    return re.sub(r'\s+', ' ', text_str).strip()
 
 
 def deduplicate(items: list[ScrapeItem]) -> list[ScrapeItem]:

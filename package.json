@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "validate": "node scripts/validate-data.mjs",
     "validate:links": "node scripts/validate-data.mjs --check-links",
-    "test": "node tests/migration.test.mjs"
+    "test": "node tests/migration.test.mjs",
+    "scrape": "python scripts/scrapers/run_all.py",
+    "scrape:devfolio": "python scripts/scrapers/run_all.py --devfolio",
+    "scrape:validate": "python scripts/scrapers/run_all.py --validate",
+    "merge:seeds": "python scripts/merge_seeds.py"
   },
   "dependencies": {
     "react": "^18.3.1",
