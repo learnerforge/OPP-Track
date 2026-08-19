@@ -1,6 +1,6 @@
 """
 Unstop hackathon and internship scraper.
-Unstop requires cookies/JS — uses StealthyFetcher.
+Uses StealthyFetcher — Unstop is a JS-rendered Angular SPA.
 """
 
 from __future__ import annotations
@@ -13,46 +13,45 @@ from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
 logger = logging.getLogger(__name__)
 
 UNSTOP_URLS = [
+    ("https://unstop.com/competitions?oppstatus=open&usertype=students&domain=2", "Hackathon"),
     ("https://unstop.com/hackathons", "Hackathon"),
-    ("https://unstop.com/internships", "Internship"),
-    ("https://unstop.com/competitions", "Hackathon"),
 ]
 
 
-def _extract_deadline(text: str) -> str:
-    """Extract deadline from Unstop text like 'Registration closes 25 Aug 2026'."""
-    if not text:
-        return ""
-    text_lower = text.lower()
-
-    if any(w in text_lower for w in ("ended", "past", "closed")):
-        return ""
-
-    # "25 Aug 2026" or "Aug 25, 2026"
-    match = re.search(r'(\d{1,2}\s+\w+\s+\d{4})', text)
+def _extract_deadline_from_days_left(days_text: str) -> str:
+    """Parse '5 days left' into an approximate YYYY-MM-DD date."""
+    match = re.search(r'(\d+)\s+days?\s+left', days_text.lower())
     if match:
-        return parse_deadline(match.group(1))
-    match = re.search(r'(\w+\s+\d{1,2},?\s*\d{4})', text)
-    if match:
-        return parse_deadline(match.group(1))
-
+        from datetime import datetime, timedelta
+        days = int(match.group(1))
+        target = datetime.now() + timedelta(days=days)
+        return target.strftime("%Y-%m-%d")
     return ""
 
 
+def _extract_deadline_from_text(text: str) -> str:
+    """Extract deadline from text like 'Posted Aug 19, 2026' or '5 days left'."""
+    if not text:
+        return ""
+    text_lower = text.lower()
+    if any(w in text_lower for w in ("ended", "past", "closed")):
+        return ""
+    if "days left" in text_lower or "day left" in text_lower:
+        return _extract_deadline_from_days_left(text)
+    return parse_deadline(text)
+
+
 def _determine_type(title: str, hint: str) -> str:
-    """Determine if it's a hackathon, internship, or certification."""
     title_lower = title.lower()
     if "intern" in title_lower or "internship" in title_lower:
         return "Internship"
     if "certif" in title_lower:
         return "Certification"
-    if hint in ("Hackathon", "Internship"):
-        return hint
-    return "Hackathon"
+    return hint
 
 
 def scrape_unstop() -> list[ScrapeItem]:
-    """Scrape hackathons and internships from Unstop."""
+    """Scrape competitions from Unstop using accurate DOM selectors."""
     items: list[ScrapeItem] = []
 
     for url, hint_type in UNSTOP_URLS:
@@ -70,69 +69,75 @@ def scrape_unstop() -> list[ScrapeItem]:
                 logger.warning(f"Unstop returned status {page.status} for {url}")
                 continue
 
-            # Unstop uses card-based layouts. Try multiple selectors.
-            cards = (
-                page.css('[class*="card"]') or
-                page.css('[class*="Card"]') or
-                page.css('[class*="listing"]') or
-                page.css('[class*="Listing"]') or
-                page.css('[class*="event"]') or
-                page.css('[class*="Event"]')
-            )
+            # Unstop competition cards use <a class="item opp_{ID}">
+            cards = page.css('a[class*="opp_"]')
+            if not cards:
+                # Fallback selectors
+                cards = (
+                    page.css('a[class*="item"]') or
+                    page.css('[class*="card"]')
+                )
 
             seen_titles: set[str] = set()
             for card in cards:
-                # Get title
-                title_el = (
-                    card.css("h2::text") or card.css("h3::text") or
-                    card.css("h4::text") or card.css("a::text")
-                )
-                title = ""
-                for el in title_el:
-                    t = clean_text(el)
-                    if t and len(t) > 3:
-                        title = t
-                        break
-                if not title or title in seen_titles:
+                # Title: <h3 itemprop="name" class="double-wrap">
+                title_el = card.css('h3[itemprop="name"]') or card.css('h3.double-wrap') or card.css('h3')
+                title = clean_text(title_el[0].text if title_el else "")
+                if not title or len(title) < 3 or title in seen_titles:
                     continue
                 seen_titles.add(title)
 
-                # Get link
-                link_el = card.css("a[href]")
-                link = ""
-                for el in link_el:
-                    href = el.attrib.get("href", "")
-                    if href and ("/hackathon" in href or "/internship" in href or "/competition" in href or "/event" in href):
-                        link = href if href.startswith("http") else f"https://unstop.com{href}"
-                        break
+                # Link: href on the <a> tag
+                href = card.attrib.get("href", "")
+                link = href if href.startswith("http") else f"https://unstop.com{href}" if href else ""
 
-                # Get deadline
+                # Organization: <p class="single-wrap">
+                org_el = card.css("p.single-wrap")
+                org = clean_text(org_el[0].text if org_el else "")
+
+                # Deadline: <div class="dates-fields"> <label class="tag-text">
+                dates_div = card.css("div.dates-fields")
                 deadline = ""
-                for el in card.css("*"):
-                    text = clean_text(el.text)
-                    if any(kw in text.lower() for kw in ("register", "deadline", "close", "start", "end")):
-                        deadline = _extract_deadline(text)
-                        if deadline:
-                            break
+                posted_date = ""
+                if dates_div:
+                    date_labels = dates_div[0].css("label.tag-text")
+                    for dl in date_labels:
+                        dt_text = clean_text(dl.text)
+                        if "left" in dt_text.lower() or "day" in dt_text.lower():
+                            deadline = _extract_deadline_from_days_left(dt_text)
+                        elif "posted" in dt_text.lower():
+                            posted_date = dt_text
+                        elif not deadline:
+                            deadline = _extract_deadline_from_text(dt_text)
 
-                # Determine type
+                # Tags: <span class="chip_text">
+                tag_els = card.css("span.chip_text")
+                tags = [clean_text(t.text) for t in tag_els if clean_text(t.text)]
+
+                # Location: <span class="location_text">
+                loc_el = card.css("span.location_text")
+                location = clean_text(loc_el[0].text if loc_el else "")
+
                 opp_type = _determine_type(title, hint_type)
 
-                if not link:
-                    link = f"https://unstop.com/search?q={title.replace(' ', '+')}"
+                notes_parts = ["Source: Unstop."]
+                if org:
+                    notes_parts.append(f"Org: {org}.")
+                if location:
+                    notes_parts.append(f"Location: {location}.")
 
                 item = ScrapeItem(
                     title=title,
                     type=opp_type,
                     source="Unstop",
-                    link=link,
+                    link=link or f"https://unstop.com/search?q={title.replace(' ', '+')}",
                     deadline=deadline,
                     eligibility="Check Unstop for eligibility details",
-                    tags=[],
-                    notes=f"Source: Unstop."
+                    tags=tags,
+                    notes=" ".join(notes_parts),
                 )
                 items.append(item)
-                logger.info(f"  Found: {title} ({opp_type})")
+                logger.info(f"  Found: {title} | {opp_type} | {deadline}")
 
         except Exception as e:
             logger.error(f"Error scraping Unstop {url}: {e}")

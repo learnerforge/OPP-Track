@@ -10,6 +10,12 @@ export interface Opportunity {
   status: OpportunityStatus;
   notes: string;
   date_added: string;
+  location?: string;
+  prize_pool?: string;
+  participants?: string;
+  organizer?: string;
+  duration?: string;
+  quality_score?: number;
 }
 
 export type OpportunityType = 'Hackathon' | 'Internship' | 'Certification';

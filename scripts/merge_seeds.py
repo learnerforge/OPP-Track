@@ -78,8 +78,16 @@ def generate_seed_entry(item: dict, seed_id: int) -> str:
     tags = item.get("tags", [])
     notes = item.get("notes", "").replace("'", "\\'")
     date_added = item.get("date_added", "2026-08-18")
+    location = item.get("location", "").replace("'", "\\'")
+    prize_pool = item.get("prize_pool", "").replace("'", "\\'")
+    participants = item.get("participants", "")
+    organizer = item.get("organizer", "").replace("'", "\\'")
 
     tags_str = ", ".join(f"'{t}'" for t in tags) if tags else ""
+    participants_str = f"'{participants}'" if participants else ""
+    location_str = f"'{location}'" if location else ""
+    prize_pool_str = f"'{prize_pool}'" if prize_pool else ""
+    organizer_str = f"'{organizer}'" if organizer else ""
 
     return f"""  {{
     id: '{id_str}',
@@ -93,6 +101,10 @@ def generate_seed_entry(item: dict, seed_id: int) -> str:
     status: 'Not Started',
     notes: '{notes}',
     date_added: '{date_added}',
+    location: {location_str},
+    prize_pool: {prize_pool_str},
+    participants: {participants_str},
+    organizer: {organizer_str},
   }},"""
 
 
@@ -141,12 +153,6 @@ def main():
         if link and link in existing_links:
             skipped += 1
             continue
-
-        # Skip if deadline is empty or in the past
-        deadline = item.get("deadline", "")
-        if not deadline:
-            # Keep it — some items don't have deadlines yet
-            pass
 
         new_items.append(item)
 

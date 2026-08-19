@@ -13,8 +13,18 @@
     "validate:links": "node scripts/validate-data.mjs --check-links",
     "test": "node tests/migration.test.mjs",
     "scrape": "python scripts/scrapers/run_all.py",
+    "scrape:quick": "python scripts/scrapers/run_all.py --quick",
+    "scrape:detailed": "python scripts/scrapers/run_all.py --detailed",
     "scrape:devfolio": "python scripts/scrapers/run_all.py --devfolio",
+    "scrape:devpost": "python scripts/scrapers/run_all.py --devpost",
+    "scrape:unstop": "python scripts/scrapers/run_all.py --unstop",
+    "scrape:hackerearth": "python scripts/scrapers/run_all.py --hackerearth",
+    "scrape:internshala": "python scripts/scrapers/run_all.py --internshala",
+    "scrape:multi": "python scripts/scrapers/run_all.py --multi",
+    "scrape:enrich": "python scripts/scrapers/run_all.py --enrich",
+    "scrape:quality": "python scripts/scrapers/run_all.py --quality",
     "scrape:validate": "python scripts/scrapers/run_all.py --validate",
+    "scrape:sources": "python scripts/scrapers/multi_source.py --list",
     "merge:seeds": "python scripts/merge_seeds.py"
   },
   "dependencies": {

@@ -8,6 +8,7 @@ from .base import ScrapeItem, parse_deadline, clean_text, deduplicate
 from .devfolio import scrape_devfolio
 from .devpost import scrape_devpost
 from .unstop import scrape_unstop
+from .hackerearth import scrape_hackerearth
 from .internshala import scrape_internshala
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "scrape_devfolio",
     "scrape_devpost",
     "scrape_unstop",
+    "scrape_hackerearth",
     "scrape_internshala",
 ]
