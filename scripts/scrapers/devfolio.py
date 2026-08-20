@@ -39,7 +39,12 @@ def _parse_devfolio_date(text: str) -> str:
 
 
 def _extract_json_from_devfolio(page) -> dict | None:
-    """Extract the hackathon-specific JSON from a Devfolio detail page."""
+    """Extract the hackathon-specific JSON from a Devfolio detail page.
+
+    Returns a dict with hackathon data from __NEXT_DATA__ including:
+      name, starts_at, ends_at, team_min, team_max, themes, online, city, country,
+      aggregatePrizeValue, aggregatePrizeCurrency, participants_count, organizer
+    """
     try:
         body = str(page.body) if page.body else ""
 
@@ -47,31 +52,60 @@ def _extract_json_from_devfolio(page) -> dict | None:
         scripts = page.css('script#__NEXT_DATA__')
         if scripts:
             script_text = scripts[0].text or ""
-            data = json.loads(script_text)
-            page_props = data.get("props", {}).get("pageProps", {})
-            if page_props:
-                return page_props
-
-        # Try dehydratedState — find the FIRST hackathon query (the current one)
-        match = re.search(r'"dehydratedState":\s*\{[^}]*"queries":\s*\[(\{.*?\})\]', body, re.DOTALL)
-        if match:
+            script_text = script_text.replace('\\/', '/')
             try:
-                queries_str = "[" + match.group(1) + "]"
-                queries = json.loads(queries_str)
+                data = json.loads(script_text)
+                page_props = data.get("props", {}).get("pageProps", {})
+                if not page_props:
+                    return None
+
+                result = {}
+
+                # 1. Main hackathon object (has name, dates, team sizes)
+                hackathon = page_props.get("hackathon", {})
+                if hackathon and hackathon.get("name"):
+                    result.update(hackathon)
+
+                # 2. Themes from dehydratedState (React Query cache)
+                #    This is the only reliable source for the CURRENT hackathon's themes
+                dehydrated = page_props.get("dehydratedState", {})
+                queries = dehydrated.get("queries", [])
                 for query in queries:
-                    state = query.get("state", {})
-                    data = state.get("data", {})
-                    hackathon = data.get("hackathon", {})
-                    if hackathon and hackathon.get("name"):
-                        return hackathon
-            except json.JSONDecodeError:
-                pass
+                    state_data = query.get("state", {}).get("data")
+                    if isinstance(state_data, list):
+                        for entry in state_data:
+                            if isinstance(entry, dict) and "hackathons" in entry:
+                                hackathons_list = entry["hackathons"]
+                                if isinstance(hackathons_list, list) and hackathons_list:
+                                    themes_raw = hackathons_list[0].get("themes", [])
+                                    if themes_raw:
+                                        names = [
+                                            t["theme"]["name"]
+                                            for t in themes_raw
+                                            if isinstance(t, dict)
+                                            and isinstance(t.get("theme"), dict)
+                                            and t["theme"].get("name")
+                                            and t["theme"]["name"] != "No Restrictions"
+                                        ]
+                                        if names:
+                                            result["themes"] = names[:5]
+                                        # Also grab fields not in pageProps.hackathon
+                                        if not result.get("online") and "online" in hackathons_list[0]:
+                                            result["online"] = hackathons_list[0]["online"]
+                                        if not result.get("organizer") and "organizer" in hackathons_list[0]:
+                                            org = hackathons_list[0]["organizer"]
+                                            if isinstance(org, dict):
+                                                result["organizer"] = org.get("name", "")
+                                            elif isinstance(org, str):
+                                                result["organizer"] = org
+                                        if not result.get("city") and "city" in hackathons_list[0]:
+                                            result["city"] = hackathons_list[0]["city"]
+                                        if not result.get("country") and "country" in hackathons_list[0]:
+                                            result["country"] = hackathons_list[0]["country"]
 
-        # Fallback: look for the hackathon JSON blob with name + themes
-        match = re.search(r'"hackathon":\s*(\{[^}]*"name":"[^"]+"[^}]*"themes":\[[^\]]+\][^}]*\})', body)
-        if match:
-            try:
-                return json.loads(match.group(1))
+                if result.get("name"):
+                    return result
+
             except json.JSONDecodeError:
                 pass
 
@@ -102,91 +136,51 @@ def _scrape_detail_page(link: str) -> dict:
         json_data = _extract_json_from_devfolio(page)
 
         if json_data:
-            # Check if this is a hackathon dict directly or wrapped in queries
-            hackathon = json_data
-            if "hackathon" in json_data and isinstance(json_data["hackathon"], dict):
-                hackathon = json_data["hackathon"]
-            elif "queries" in json_data:
-                # Extract from queries
-                for query in json_data.get("queries", []):
-                    state = query.get("state", {})
-                    data = state.get("data", {})
-                    h = data.get("hackathon", {})
-                    if h and h.get("name"):
-                        hackathon = h
-                        break
-
-            # Themes/tags
-            themes = hackathon.get("themes", [])
-            if themes:
-                tag_names = [t.get("theme", {}).get("name", "") for t in themes if t.get("theme", {}).get("name")]
-                if tag_names and tag_names != ["No Restrictions"]:
-                    updates["tags"] = tag_names
-
-            # Prize pool
-            prize_details = hackathon.get("prizeDetails", [])
-            if prize_details:
-                total = 0
-                currency = ""
-                for track in prize_details:
-                    for prize in track.get("prizes", []):
-                        amt = prize.get("amount", 0)
-                        if amt:
-                            total += amt
-                            currency = prize.get("currency", "USD")
-                if total > 0:
-                    symbol = "$" if currency == "USD" else "₹" if currency == "INR" else currency + " "
-                    updates["prize_pool"] = f"{symbol}{total:,}"
+            # Themes
+            if json_data.get("themes"):
+                updates["tags"] = json_data["themes"]
 
             # Organizer
-            organizer = hackathon.get("organizer", {})
-            if organizer and isinstance(organizer, dict):
-                org_name = organizer.get("name", "")
-                if org_name:
-                    updates["organizer"] = org_name
-
-            # Participants
-            participants = hackathon.get("participants_count")
-            if participants:
-                updates["participants"] = str(participants)
-
-            # Team size
-            team_min = hackathon.get("team_min")
-            team_max = hackathon.get("team_max")
-            if team_min and team_max:
-                updates["notes_extra"] = f"Team size: {team_min}-{team_max}"
+            if json_data.get("organizer"):
+                updates["organizer"] = json_data["organizer"]
 
             # Online/offline
-            online = hackathon.get("online")
-            if online is True:
-                updates["location"] = "Online"
-            elif online is False:
-                city = hackathon.get("city", "")
-                country = hackathon.get("country", "")
-                if city or country:
-                    updates["location"] = f"{city}, {country}" if city else country
+            if "online" in json_data:
+                if json_data["online"]:
+                    updates["location"] = "Online"
+                else:
+                    city = json_data.get("city", "")
+                    country = json_data.get("country", "")
+                    if city or country:
+                        updates["location"] = f"{city}, {country}" if city else country
 
-            # Dates
-            starts_at = hackathon.get("starts_at", "")
-            ends_at = hackathon.get("ends_at", "")
+            # Dates from starts_at
+            starts_at = json_data.get("starts_at", "")
             if starts_at:
                 date_match = re.match(r'(\d{4}-\d{2}-\d{2})', starts_at)
                 if date_match:
                     updates["deadline"] = date_match.group(1)
+
+            # Participants from body
+            part_match = re.search(r'"participants_count"\s*:\s*(\d+)', body)
+            if part_match:
+                updates["participants"] = part_match.group(1)
+
+            # Prize from aggregatePrizeValue
+            prize_match = re.search(r'"aggregatePrizeValue"\s*:\s*(\d+)', body)
+            currency_match = re.search(r'"aggregatePrizeCurrency"\s*:\s*"([^"]+)"', body)
+            if prize_match:
+                amount = int(prize_match.group(1))
+                if amount > 0:
+                    currency = currency_match.group(1) if currency_match else "USD"
+                    symbol = "$" if currency == "USD" else "₹" if currency == "INR" else currency + " "
+                    updates["prize_pool"] = f"{symbol}{amount:,}"
 
         # Fallback: HTML-based extraction for missing fields
         if not updates.get("deadline"):
             deadline_match = re.search(r'(\d{4}-\d{2}-\d{2})', body)
             if deadline_match:
                 updates["deadline"] = deadline_match.group(1)
-
-        if not updates.get("tags"):
-            # Look for theme/tag labels in HTML
-            tag_matches = re.findall(r'"name":"([^"]+)".*?"theme":\{"name":"([^"]+)"\}', body)
-            if tag_matches:
-                tags = list(set(t[1] for t in tag_matches if t[1] != "No Restrictions"))
-                if tags:
-                    updates["tags"] = tags[:5]
 
         # Eligibility from page text
         elig_parts = []
