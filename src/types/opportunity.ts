@@ -18,7 +18,7 @@ export interface Opportunity {
   quality_score?: number;
 }
 
-export type OpportunityType = 'Hackathon' | 'Internship' | 'Certification';
+export type OpportunityType = 'Hackathon' | 'Internship' | 'Certification' | 'Competition';
 
 export type OpportunityStatus =
   | 'Not Started'

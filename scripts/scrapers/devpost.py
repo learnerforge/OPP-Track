@@ -1,15 +1,15 @@
 """
 Devpost hackathon scraper — ENHANCED.
-Fixes:
-  1. Extract real eligibility from page text on detail pages
-  2. Better tag extraction
+Tier-2 detail page scraping for eligibility, duration, tags from JSON-LD.
 """
 
 from __future__ import annotations
 
 import re
+import json
 import logging
 import time
+from datetime import datetime
 from scrapling.fetchers import StealthyFetcher
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
 
@@ -36,18 +36,71 @@ def _parse_date_range(text: str) -> str:
     return ""
 
 
-def _extract_eligibility_from_page(page) -> str:
-    """Extract real eligibility from a Devpost detail page."""
+def _compute_duration(start_iso: str, end_iso: str) -> str:
+    """Compute human-readable duration from ISO datetime strings."""
+    if not start_iso or not end_iso:
+        return ""
+    try:
+        start = datetime.fromisoformat(start_iso)
+        end = datetime.fromisoformat(end_iso)
+        delta = end - start
+        hours = int(delta.total_seconds() / 3600)
+        days = delta.days
+        if hours <= 0:
+            return ""
+        if hours < 24:
+            return f"{hours} Hours"
+        if days == 1:
+            return "1 Day"
+        if days < 7:
+            return f"{days} Days"
+        weeks = days // 7
+        remaining = days % 7
+        if remaining:
+            return f"{weeks} Weeks {remaining} Days"
+        return f"{weeks} Weeks"
+    except (ValueError, TypeError):
+        return ""
+
+
+def _extract_detail_data(page) -> dict:
+    """Extract rich data from a Devpost detail page: eligibility, duration, tags from JSON-LD."""
+    updates = {}
     try:
         body_text = ""
         if page.body:
             body_text = re.sub(r'<[^>]+>', ' ', str(page.body))
             body_text = re.sub(r'\s+', ' ', body_text).strip()
 
-        elig_parts = []
         body_lower = body_text.lower()
 
-        # Check for specific eligibility criteria
+        # JSON-LD extraction
+        scripts = page.css('script[type="application/ld+json"]')
+        for script in scripts:
+            text = script.text or ""
+            try:
+                ld = json.loads(text)
+                if ld.get("@type") == "Event":
+                    # Duration from startDate/endDate
+                    start = ld.get("startDate", "")
+                    end = ld.get("endDate", "")
+                    duration = _compute_duration(start, end)
+                    if duration:
+                        updates["duration"] = duration
+
+                    # Organizer
+                    org = ld.get("organizer", {})
+                    if isinstance(org, dict):
+                        org_name = org.get("name", "")
+                        if org_name and org_name != "Devpost, Inc.":
+                            updates["organizer"] = org_name
+
+                    break
+            except json.JSONDecodeError:
+                continue
+
+        # Eligibility from page text
+        elig_parts = []
         if "student" in body_lower:
             elig_parts.append("Students")
         if "open to all" in body_lower or "everyone" in body_lower or "anyone" in body_lower:
@@ -60,8 +113,10 @@ def _extract_eligibility_from_page(page) -> str:
             elig_parts.append("Designers")
         if "beginner" in body_lower:
             elig_parts.append("Beginners welcome")
+        if "college" in body_lower or "university" in body_lower:
+            elig_parts.append("Students")
 
-        # Look for "Eligibility" or "Who can participate" section
+        # Look for "Who can participate" section
         elig_match = re.search(
             r'(?:eligibility|who\s+can\s+participate|requirements?)[:\s]*([^.]*(?:student|developer|open|anyone|everyone)[^.]*)',
             body_text[:3000], re.IGNORECASE
@@ -72,14 +127,27 @@ def _extract_eligibility_from_page(page) -> str:
                 elig_parts.append(elig_text[:100])
 
         if elig_parts:
-            return ", ".join(list(set(elig_parts)))
+            updates["eligibility"] = ", ".join(list(set(elig_parts)))
+
+        # Location from page text
+        if not updates.get("location"):
+            for loc in ("online", "hybrid", "in person", "offline"):
+                if f"location:{loc}" in body_lower or f"location: {loc}" in body_lower:
+                    updates["location"] = loc.title()
+                    break
+
+        # Team size
+        team_match = re.search(r'(?:team|group)\s+(?:of\s+)?(?:up\s+to\s+)?(\d+)', body_lower)
+        if team_match:
+            updates["notes_extra"] = f"Team size: up to {team_match.group(1)}"
+
     except Exception as e:
-        logger.debug(f"  Eligibility extraction error: {e}")
-    return ""
+        logger.debug(f"  Detail extraction error: {e}")
+    return updates
 
 
 def scrape_devpost() -> list[ScrapeItem]:
-    """Scrape upcoming and open hackathons from Devpost with enhanced eligibility."""
+    """Scrape upcoming and open hackathons from Devpost with enhanced Tier-2 enrichment."""
     items: list[ScrapeItem] = []
 
     for url in DEVPOST_URLS:
@@ -103,13 +171,11 @@ def scrape_devpost() -> list[ScrapeItem]:
                 continue
 
             for card in cards:
-                # Title
                 title_el = card.css('h3')
                 title = clean_text(title_el[0].text if title_el else "")
                 if not title or len(title) < 3:
                     continue
 
-                # Link
                 link_el = card.css('a.tile-anchor[href]')
                 href = link_el[0].attrib.get("href", "") if link_el else ""
                 link = href if href.startswith("http") else f"https://devpost.com{href}" if href else ""
@@ -117,16 +183,13 @@ def scrape_devpost() -> list[ScrapeItem]:
                 if not link:
                     continue
 
-                # Date range
                 date_el = card.css('.submission-period')
                 date_text = clean_text(date_el[0].text if date_el else "")
                 deadline = _parse_date_range(date_text)
 
-                # Tags
                 tag_els = card.css('.theme-label')
                 tags = [clean_text(t.attrib.get('title', '')) for t in tag_els if clean_text(t.attrib.get('title', ''))]
 
-                # Location
                 location = ""
                 for info_icon in card.css('.info-with-icon'):
                     spans = info_icon.css('span')
@@ -138,11 +201,9 @@ def scrape_devpost() -> list[ScrapeItem]:
                     if location:
                         break
 
-                # Host
                 host_el = card.css('.host-label') or card.css('.host')
                 host = clean_text(host_el[0].attrib.get('title', '') if host_el else "")
 
-                # Prize
                 prize_el = card.css('.prize-amount')
                 if prize_el:
                     prize_html = str(prize_el[0])
@@ -151,11 +212,9 @@ def scrape_devpost() -> list[ScrapeItem]:
                 else:
                     prize = ""
 
-                # Participants
                 participants_el = card.css('.participants strong')
                 participants = clean_text(participants_el[0].text if participants_el else "")
 
-                # Status
                 status_el = card.css('.hackathon-status')
                 status = clean_text(status_el[0].text if status_el else "")
 
@@ -171,7 +230,6 @@ def scrape_devpost() -> list[ScrapeItem]:
                 if status:
                     notes_parts.append(f"Status: {status}.")
 
-                # Default eligibility — will be enriched by Tier-2
                 eligibility = "Open to all developers"
 
                 item = ScrapeItem(
@@ -196,12 +254,12 @@ def scrape_devpost() -> list[ScrapeItem]:
 
     logger.info(f"Devpost: scraped {len(items)} hackathons")
 
-    # Tier-2: Visit detail pages for better eligibility (sample first 10)
-    logger.info("Running Tier-2 detail enrichment for Devpost items...")
-    for i, item in enumerate(items[:10]):
+    # Tier-2: Visit ALL detail pages for eligibility + duration
+    logger.info(f"Running Tier-2 detail enrichment for all {len(items)} Devpost items...")
+    for i, item in enumerate(items):
         if i > 0:
             time.sleep(REQUEST_DELAY)
-        logger.info(f"  [{i+1}/{min(10, len(items))}] Enriching: {item.title}")
+        logger.info(f"  [{i+1}/{len(items)}] Enriching: {item.title}")
         try:
             page = StealthyFetcher.fetch(
                 item.link,
@@ -211,10 +269,18 @@ def scrape_devpost() -> list[ScrapeItem]:
                 timeout=20000,
             )
             if page.status == 200:
-                elig = _extract_eligibility_from_page(page)
-                if elig and elig != "Open to all developers":
-                    item.eligibility = elig
-                    logger.info(f"    -> eligibility: {elig}")
+                detail = _extract_detail_data(page)
+                if detail.get("eligibility") and detail["eligibility"] != "Open to all developers":
+                    item.eligibility = detail["eligibility"]
+                if detail.get("duration") and not item.duration:
+                    item.duration = detail["duration"]
+                if detail.get("organizer") and not item.organizer:
+                    item.organizer = detail["organizer"]
+                if detail.get("location") and not item.location:
+                    item.location = detail["location"]
+                if detail.get("notes_extra"):
+                    item.notes = f"{item.notes} {detail['notes_extra']}".strip()
+                logger.info(f"    -> elig={item.eligibility[:50]} duration={item.duration}")
         except Exception as e:
             logger.debug(f"    Enrichment error: {e}")
 
@@ -225,4 +291,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_devpost()
     for item in results:
-        print(f"  {item.title} | {item.deadline} | {item.eligibility[:60]} | {item.link}")
+        print(f"  {item.title} | {item.deadline} | duration={item.duration} | {item.eligibility[:60]} | {item.link}")

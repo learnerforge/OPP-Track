@@ -1,184 +1,269 @@
 """
-Unstop hackathon and internship scraper — ENHANCED.
-Fixes:
-  1. Extract real eligibility from tags/chips
-  2. Better location extraction
-  3. Extract organizer from page
+Unstop hackathon and internship scraper — API-based.
+Uses the public Unstop API for reliable, structured data extraction.
+No authentication required. Returns rich JSON with all fields.
 """
 
 from __future__ import annotations
 
 import re
+import json
 import logging
-from scrapling.fetchers import StealthyFetcher
+import requests
+from datetime import datetime
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, classify_location
 
 logger = logging.getLogger(__name__)
 
-UNSTOP_URLS = [
-    ("https://unstop.com/competitions?oppstatus=open&usertype=students&domain=2", "Hackathon"),
-    ("https://unstop.com/hackathons", "Hackathon"),
+UNSTOP_API = "https://unstop.com/api/public/opportunity/search-result"
+
+ENDPOINTS = [
+    {"opportunity": "hackathons", "oppstatus": "open", "label": "Hackathon"},
+    {"opportunity": "competitions", "oppstatus": "open", "label": "Competition"},
 ]
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "application/json",
+}
 
-def _extract_deadline_from_days_left(days_text: str) -> str:
-    """Parse '5 days left' into an approximate YYYY-MM-DD date."""
-    match = re.search(r'(\d+)\s+days?\s+left', days_text.lower())
-    if match:
-        from datetime import datetime, timedelta
-        days = int(match.group(1))
-        target = datetime.now() + timedelta(days=days)
-        return target.strftime("%Y-%m-%d")
+
+def _parse_iso_date(iso_str: str) -> str:
+    """Parse ISO datetime string to YYYY-MM-DD."""
+    if not iso_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("+05:30", "+05:30"))
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        return parse_deadline(iso_str)
+
+
+def _compute_duration(start_iso: str, end_iso: str) -> str:
+    """Compute human-readable duration from two ISO dates."""
+    if not start_iso or not end_iso:
+        return ""
+    try:
+        start = datetime.fromisoformat(start_iso)
+        end = datetime.fromisoformat(end_iso)
+        delta = end - start
+        days = delta.days
+        if days <= 0:
+            return ""
+        if days == 1:
+            return "1 Day"
+        if days < 7:
+            return f"{days} Days"
+        weeks = days // 7
+        remaining = days % 7
+        if remaining:
+            return f"{weeks} Weeks {remaining} Days"
+        return f"{weeks} Weeks"
+    except (ValueError, TypeError):
+        return ""
+
+
+def _sum_prizes(prizes: list[dict]) -> str:
+    """Sum all prize amounts and format as currency string."""
+    if not prizes:
+        return ""
+    total = 0
+    currency_symbol = ""
+    for prize in prizes:
+        if not isinstance(prize, dict):
+            continue
+        cash = prize.get("cash") or 0
+        if isinstance(cash, (int, float)):
+            total += int(cash)
+        curr = prize.get("currency", "")
+        if curr == "fa-rupee" or curr == "INR":
+            currency_symbol = "\u20b9"
+        elif curr == "USD":
+            currency_symbol = "$"
+        others = prize.get("others", "")
+        if others and not total:
+            return str(others)
+    if total > 0:
+        if not currency_symbol:
+            currency_symbol = "\u20b9"
+        return f"{currency_symbol}{total:,}"
     return ""
 
 
-def _extract_deadline_from_text(text: str) -> str:
-    """Extract deadline from text like 'Posted Aug 19, 2026' or '5 days left'."""
-    if not text:
-        return ""
-    text_lower = text.lower()
-    if any(w in text_lower for w in ("ended", "past", "closed")):
-        return ""
-    if "days left" in text_lower or "day left" in text_lower:
-        return _extract_deadline_from_days_left(text)
-    return parse_deadline(text)
-
-
-def _determine_type(title: str, hint: str) -> str:
-    title_lower = title.lower()
-    if "intern" in title_lower or "internship" in title_lower:
-        return "Internship"
-    if "certif" in title_lower:
-        return "Certification"
-    return hint
-
-
-def _build_eligibility_from_tags(tags: list[str], title: str) -> str:
-    """Build real eligibility text from tags and title."""
+def _extract_eligibility(filters: list[dict], title: str = "") -> str:
+    """Extract eligibility from structured filter data."""
+    if not filters:
+        return "Check Unstop for eligibility details"
     elig_parts = []
-    title_lower = title.lower()
-
-    # Check tags for eligibility hints
-    for tag in tags:
-        tag_lower = tag.lower()
-        if any(kw in tag_lower for kw in ["student", "college", "university", "bachelor", "master", "phd"]):
-            elig_parts.append("Students")
-        elif any(kw in tag_lower for kw in ["professional", "experienced", "working"]):
-            elig_parts.append("Professionals")
-        elif any(kw in tag_lower for kw in ["beginner", "fresher", "entry"]):
-            elig_parts.append("Beginners welcome")
-        elif any(kw in tag_lower for kw in ["open", "all", "everyone"]):
-            elig_parts.append("Open to all")
-
-    # Check title for hints
-    if "student" in title_lower or "college" in title_lower:
-        elig_parts.append("Students")
-    if "beginner" in title_lower or "fresher" in title_lower:
-        elig_parts.append("Beginners welcome")
-    if "open" in title_lower:
-        elig_parts.append("Open to all")
-
+    for f in filters:
+        if not isinstance(f, dict):
+            continue
+        ftype = f.get("type", "")
+        fname = f.get("name", "")
+        if ftype == "eligible" and fname:
+            elig_parts.append(fname)
     if not elig_parts:
-        elig_parts.append("Check Unstop for eligibility details")
+        return "Check Unstop for eligibility details"
+    return ", ".join(elig_parts[:6])
 
-    return ", ".join(list(set(elig_parts)))
+
+def _extract_tags(item: dict) -> list[str]:
+    """Extract tags from workfunction, required_skills, and filters."""
+    tags = []
+    # Skills
+    for skill in item.get("required_skills", []):
+        if isinstance(skill, dict):
+            name = skill.get("skill") or skill.get("skill_name", "")
+            if name:
+                tags.append(name)
+    # Work functions
+    for wf in item.get("workfunction", []):
+        if isinstance(wf, dict):
+            name = wf.get("name", "")
+            if name:
+                tags.append(name)
+    # Deduplicate and limit
+    seen = set()
+    result = []
+    for t in tags:
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            result.append(t)
+    return result[:8]
+
+
+def _extract_location(item: dict) -> str:
+    """Extract location from region and address data."""
+    region = item.get("region", "")
+    address = item.get("address_with_country_logo", {})
+    if isinstance(address, dict):
+        parts = []
+        for key in ("city", "state", "country"):
+            val = address.get(key)
+            if val:
+                parts.append(str(val))
+        if parts:
+            return ", ".join(parts)
+    if region:
+        return region.capitalize()
+    return ""
 
 
 def scrape_unstop() -> list[ScrapeItem]:
-    """Scrape competitions from Unstop with enhanced eligibility extraction."""
+    """Scrape hackathons and competitions from Unstop via public API."""
     items: list[ScrapeItem] = []
+    seen_titles: set[str] = set()
 
-    for url, hint_type in UNSTOP_URLS:
-        logger.info(f"Fetching Unstop: {url}")
-        try:
-            page = StealthyFetcher.fetch(
-                url,
-                headless=True,
-                disable_resources=True,
-                network_idle=True,
-                timeout=30000,
-            )
+    for endpoint in ENDPOINTS:
+        page_num = 1
+        label = endpoint["label"]
+        logger.info(f"Fetching Unstop ({label}): page {page_num}")
 
-            if page.status != 200:
-                logger.warning(f"Unstop returned status {page.status} for {url}")
-                continue
+        while True:
+            params = {
+                "opportunity": endpoint["opportunity"],
+                "page": page_num,
+                "per_page": 100,
+                "oppstatus": endpoint["oppstatus"],
+            }
 
-            # Unstop competition cards use <a class="item opp_{ID}">
-            cards = page.css('a[class*="opp_"]')
-            if not cards:
-                cards = (
-                    page.css('a[class*="item"]') or
-                    page.css('[class*="card"]')
-                )
+            try:
+                resp = requests.get(UNSTOP_API, params=params, headers=HEADERS, timeout=15)
+                resp.raise_for_status()
+                data = resp.json().get("data", {})
+                page_items = data.get("data", [])
+                last_page = data.get("last_page", 1)
+            except Exception as e:
+                logger.error(f"Unstop API error for {label} page {page_num}: {e}")
+                break
 
-            seen_titles: set[str] = set()
-            for card in cards:
-                # Title
-                title_el = card.css('h3[itemprop="name"]') or card.css('h3.double-wrap') or card.css('h3')
-                title = clean_text(title_el[0].text if title_el else "")
-                if not title or len(title) < 3 or title in seen_titles:
+            if not page_items:
+                break
+
+            for item in page_items:
+                title = item.get("title", "").strip()
+                if not title or title in seen_titles:
                     continue
                 seen_titles.add(title)
 
-                # Link
-                href = card.attrib.get("href", "")
-                link = href if href.startswith("http") else f"https://unstop.com{href}" if href else ""
+                link = item.get("public_url", "")
+                if link and not link.startswith("http"):
+                    link = f"https://unstop.com/{link}"
+                short_url = item.get("short_url", "")
+                if not link and short_url:
+                    link = short_url
 
-                # Organization
-                org_el = card.css("p.single-wrap")
-                org = clean_text(org_el[0].text if org_el else "")
+                if not link:
+                    continue
 
-                # Deadline
-                dates_div = card.css("div.dates-fields")
-                deadline = ""
-                posted_date = ""
-                if dates_div:
-                    date_labels = dates_div[0].css("label.tag-text")
-                    for dl in date_labels:
-                        dt_text = clean_text(dl.text)
-                        if "left" in dt_text.lower() or "day" in dt_text.lower():
-                            deadline = _extract_deadline_from_days_left(dt_text)
-                        elif "posted" in dt_text.lower():
-                            posted_date = dt_text
-                        elif not deadline:
-                            deadline = _extract_deadline_from_text(dt_text)
+                # Dates
+                regn = item.get("regnRequirements", {}) if isinstance(item.get("regnRequirements"), dict) else {}
+                regn_start = regn.get("start_regn_dt", "")
+                regn_end = regn.get("end_regn_dt", "")
+                end_date = item.get("end_date", "")
+                deadline = _parse_iso_date(regn_end or end_date)
+
+                # Duration
+                duration = _compute_duration(regn_start, end_date)
+
+                # Organizer
+                org = item.get("organisation", {})
+                organizer = org.get("name", "") if isinstance(org, dict) else str(org) if org else ""
+
+                # Prize
+                prize_pool = _sum_prizes(item.get("prizes", []))
+
+                # Participants
+                register_count = item.get("registerCount", 0)
+                participants = str(register_count) if register_count else ""
 
                 # Tags
-                tag_els = card.css("span.chip_text")
-                tags = [clean_text(t.text) for t in tag_els if clean_text(t.text)]
+                tags = _extract_tags(item)
+
+                # Eligibility
+                eligibility = _extract_eligibility(item.get("filters", []), title)
 
                 # Location
-                loc_el = card.css("span.location_text")
-                location = clean_text(loc_el[0].text if loc_el else "")
+                raw_location = _extract_location(item)
+                location = classify_location(raw_location) if raw_location else ""
+                detailed_location = raw_location
 
-                opp_type = _determine_type(title, hint_type)
+                # Type
+                opp_type = "Hackathon" if "hackathon" in endpoint["opportunity"] else "Competition"
 
-                # Build real eligibility from tags
-                eligibility = _build_eligibility_from_tags(tags, title)
+                # Notes
+                notes_parts = [f"Source: Unstop."]
+                if organizer:
+                    notes_parts.append(f"Org: {organizer}.")
+                if detailed_location:
+                    notes_parts.append(f"Location: {detailed_location}.")
+                if participants:
+                    notes_parts.append(f"Registered: {participants}.")
+                if duration:
+                    notes_parts.append(f"Duration: {duration}.")
 
-                notes_parts = ["Source: Unstop."]
-                if org:
-                    notes_parts.append(f"Org: {org}.")
-                if location:
-                    notes_parts.append(f"Location: {location}.")
-
-                item = ScrapeItem(
+                item_obj = ScrapeItem(
                     title=title,
                     type=opp_type,
                     source="Unstop",
-                    link=link or f"https://unstop.com/search?q={title.replace(' ', '+')}",
+                    link=link,
                     deadline=deadline,
                     eligibility=eligibility,
                     tags=tags,
                     notes=" ".join(notes_parts),
-                    location=classify_location(location) if location else "",
-                    organizer=org,
+                    location=location,
+                    organizer=organizer,
+                    prize_pool=prize_pool,
+                    participants=participants,
+                    duration=duration,
                 )
-                items.append(item)
-                logger.info(f"  Found: {title} | {opp_type} | {deadline} | elig={eligibility[:50]}")
+                items.append(item_obj)
+                logger.info(f"  Found: {title} | deadline={deadline} | prize={prize_pool} | participants={participants}")
 
-        except Exception as e:
-            logger.error(f"Error scraping Unstop {url}: {e}")
+            if page_num >= last_page:
+                break
+            page_num += 1
+            logger.info(f"Fetching Unstop ({label}): page {page_num}")
 
     logger.info(f"Unstop: scraped {len(items)} opportunities")
     return items
@@ -188,4 +273,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_unstop()
     for item in results:
-        print(f"  {item.title} | {item.type} | {item.deadline} | {item.eligibility[:60]} | {item.link}")
+        print(f"  {item.title} | {item.type} | deadline={item.deadline} | prize={item.prize_pool} | participants={item.participants} | duration={item.duration}")

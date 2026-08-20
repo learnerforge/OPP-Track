@@ -1,14 +1,12 @@
 """
 Internshala internship scraper — ENHANCED.
-Fixes:
-  1. Tier-2 detail page scraping for deadline, company, duration
-  2. Better URL construction from listing page
-  3. More robust card selectors
+Tier-2 detail page scraping for deadline, company, duration via JSON-LD.
 """
 
 from __future__ import annotations
 
 import re
+import json
 import logging
 import time
 from scrapling.fetchers import StealthyFetcher
@@ -21,7 +19,8 @@ INTERNSHALA_URLS = [
     "https://internshala.com/internships/work-from-home-internships",
 ]
 
-REQUEST_DELAY = 1.5
+REQUEST_DELAY = 1.0
+DETAIL_LIMIT = 50
 
 
 def _extract_stipend(text: str) -> str:
@@ -40,6 +39,17 @@ def _extract_duration_from_text(text: str) -> str:
     return ""
 
 
+def _extract_company_from_url(url: str) -> str:
+    """Extract company name from Internshala URL slug.
+    e.g., /internship/detail/marketing-internship-at-sportskeeda123456 -> sportskeeda
+    """
+    match = re.search(r'-at-([a-z0-9]+?)(\d{10,})$', url.lower())
+    if match:
+        name = match.group(1).replace("-", " ").title()
+        return name
+    return ""
+
+
 def _scrape_detail_page(link: str) -> dict:
     """Fetch an Internshala detail page and extract data from JSON-LD schema."""
     updates = {}
@@ -54,13 +64,12 @@ def _scrape_detail_page(link: str) -> dict:
         if page.status != 200:
             return updates
 
-        # Extract JSON-LD JobPosting schema (most reliable data source)
+        # Extract JSON-LD JobPosting schema
         scripts = page.css('script')
         for script in scripts:
             text = script.text or ""
             if '"@type":"JobPosting"' in text or '"@type": "JobPosting"' in text:
                 try:
-                    import json
                     data = json.loads(text)
                 except json.JSONDecodeError:
                     match = re.search(r'(\{.*"@type"\s*:\s*"JobPosting".*\})', text, re.DOTALL)
@@ -112,7 +121,6 @@ def _scrape_detail_page(link: str) -> dict:
                 if elig_match:
                     elig_text = elig_match.group(1).strip()[:300]
                     if len(elig_text) > 10:
-                        # Clean up eligibility text
                         elig_text = re.sub(r'only those candidates can apply who:?\s*', '', elig_text)
                         elig_text = re.sub(r'\d+\.\s*', '', elig_text)
                         updates["eligibility"] = elig_text.strip()[:200]
@@ -133,11 +141,24 @@ def _scrape_detail_page(link: str) -> dict:
                         max_val = value.get("maxValue", 0)
                         currency = salary.get("currency", "INR")
                         if min_val and max_val:
-                            symbol = "₹" if currency == "INR" else "$" if currency == "USD" else currency + " "
+                            symbol = "\u20b9" if currency == "INR" else "$" if currency == "USD" else currency + " "
                             updates["stipend"] = f"{symbol}{min_val:,} - {max_val:,} /month"
                         elif min_val:
-                            symbol = "₹" if currency == "INR" else "$" if currency == "USD" else currency + " "
+                            symbol = "\u20b9" if currency == "INR" else "$" if currency == "USD" else currency + " "
                             updates["stipend"] = f"{symbol}{min_val:,} /month"
+
+                # Employment type and industry (bonus fields)
+                emp_type = data.get("employmentType", "")
+                if emp_type:
+                    updates["employment_type"] = emp_type
+
+                industry = data.get("industry", "")
+                if industry:
+                    updates["industry"] = industry
+
+                total_openings = data.get("totalJobOpenings", 0)
+                if total_openings:
+                    updates["total_openings"] = str(total_openings)
 
                 break
 
@@ -177,8 +198,6 @@ def scrape_internshala() -> list[ScrapeItem]:
                 logger.warning(f"Internshala returned status {page.status} for {url}")
                 continue
 
-            # Strategy 1: Look for internship listing cards with links
-            # Internshala uses <a href="/internship/detail/..."> for each listing
             detail_links = page.css('a[href*="/internship/detail/"]')
             seen_links: set[str] = set()
             card_data = []
@@ -190,10 +209,8 @@ def scrape_internshala() -> list[ScrapeItem]:
                 full_link = href if href.startswith("http") else f"https://internshala.com{href}"
                 seen_links.add(href)
 
-                # Get title from the link text or nearby heading
                 title = clean_text(link_el.text)
                 if not title or len(title) < 3:
-                    # Try parent card
                     parent = getattr(link_el, "parent", None)
                     if parent:
                         h3 = parent.css("h3")
@@ -202,7 +219,6 @@ def scrape_internshala() -> list[ScrapeItem]:
                 if not title or len(title) < 3:
                     continue
 
-                # Get company from nearby elements
                 card = getattr(link_el, "parent", None)
                 company = ""
                 stipend = ""
@@ -210,31 +226,31 @@ def scrape_internshala() -> list[ScrapeItem]:
                 duration = ""
 
                 if card:
-                    # Company: look for company name element
                     company_el = card.css("[class*='company']") or card.css("a[class*='company']")
                     if company_el:
                         company = clean_text(company_el[0].text)
 
-                    # Stipend
                     for el in card.css("*"):
                         text = clean_text(el.text)
-                        if "₹" in text:
+                        if "\u20b9" in text:
                             stipend = _extract_stipend(text)
                             if stipend:
                                 break
 
-                    # Location
                     loc_el = card.css("[class*='location']")
                     if loc_el:
                         location = clean_text(loc_el[0].text)
 
-                    # Duration
                     for el in card.css("*"):
                         text = clean_text(el.text)
                         dur = _extract_duration_from_text(text)
                         if dur:
                             duration = dur
                             break
+
+                # Fallback company from URL
+                if not company:
+                    company = _extract_company_from_url(full_link)
 
                 card_data.append({
                     "title": title,
@@ -247,11 +263,9 @@ def scrape_internshala() -> list[ScrapeItem]:
 
             logger.info(f"  Found {len(card_data)} internship cards")
 
-            # Tier-2: Visit detail pages for missing data (max 10 to avoid timeout)
-            detail_limit = min(10, len(card_data))
+            detail_limit = min(DETAIL_LIMIT, len(card_data))
             for i, card in enumerate(card_data):
                 if i >= detail_limit:
-                    # Skip detail page, use listing data only
                     eligibility_parts = []
                     if card["company"]:
                         eligibility_parts.append(f"Company: {card['company']}")
@@ -276,12 +290,12 @@ def scrape_internshala() -> list[ScrapeItem]:
                     )
                     items.append(item)
                     continue
+
                 detail_updates = {}
                 if i > 0:
                     time.sleep(REQUEST_DELAY)
                 detail_updates = _scrape_detail_page(card["link"])
 
-                # Build eligibility
                 eligibility_parts = []
                 if card["company"]:
                     eligibility_parts.append(f"Company: {card['company']}")
@@ -300,12 +314,23 @@ def scrape_internshala() -> list[ScrapeItem]:
                 if detail_updates.get("eligibility"):
                     eligibility_parts.append(detail_updates["eligibility"])
 
-                # Notes
                 notes_parts = ["Source: Internshala."]
                 if card["stipend"]:
                     notes_parts.append(card["stipend"])
+                elif detail_updates.get("stipend"):
+                    notes_parts.append(detail_updates["stipend"])
                 if card["duration"]:
                     notes_parts.append(card["duration"])
+                elif detail_updates.get("duration"):
+                    notes_parts.append(detail_updates["duration"])
+                if detail_updates.get("industry"):
+                    notes_parts.append(f"Industry: {detail_updates['industry']}.")
+                if detail_updates.get("total_openings"):
+                    notes_parts.append(f"Openings: {detail_updates['total_openings']}.")
+
+                final_organizer = detail_updates.get("organizer", "") or card["company"]
+                final_location = detail_updates.get("location", "") or card["location"]
+                final_duration = detail_updates.get("duration", "") or card["duration"]
 
                 item = ScrapeItem(
                     title=card["title"],
@@ -316,9 +341,9 @@ def scrape_internshala() -> list[ScrapeItem]:
                     eligibility=". ".join(eligibility_parts) if eligibility_parts else "Check Internshala for details",
                     tags=["Internship"],
                     notes=" ".join(notes_parts),
-                    location=detail_updates.get("location", ""),
-                    organizer=detail_updates.get("organizer", card["company"]),
-                    duration=detail_updates.get("duration", card["duration"]),
+                    location=final_location,
+                    organizer=final_organizer,
+                    duration=final_duration,
                 )
                 items.append(item)
                 logger.info(f"  [{i+1}/{len(card_data)}] {card['title']} | deadline={item.deadline or '(none)'} | org={item.organizer}")
@@ -334,4 +359,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_internshala()
     for item in results:
-        print(f"  {item.title} | {item.deadline or '(no deadline)'} | {item.organizer} | {item.link}")
+        print(f"  {item.title} | {item.deadline or '(no deadline)'} | {item.organizer} | {item.duration} | {item.link}")

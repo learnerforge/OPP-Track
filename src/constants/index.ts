@@ -6,6 +6,7 @@ export const TYPE_OPTIONS: readonly OpportunityType[] = [
   'Hackathon',
   'Internship',
   'Certification',
+  'Competition',
 ] as const;
 
 export const STATUS_OPTIONS: readonly OpportunityStatus[] = [
@@ -32,12 +33,14 @@ export const TYPE_COLORS: Record<OpportunityType, string> = {
   Hackathon: 'bg-purple-100 text-purple-800',
   Internship: 'bg-blue-100 text-blue-800',
   Certification: 'bg-teal-100 text-teal-800',
+  Competition: 'bg-orange-100 text-orange-800',
 };
 
 export const TYPE_ICONS: Record<OpportunityType, string> = {
   Hackathon: '🏆',
   Internship: '💼',
   Certification: '📜',
+  Competition: '🎯',
 };
 
 export const STATUS_COLORS: Record<OpportunityStatus, string> = {

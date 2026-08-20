@@ -46,7 +46,7 @@ class ScrapeItem:
         errors = []
         if not self.title.strip():
             errors.append("title is empty")
-        if self.type not in ("Hackathon", "Internship", "Certification"):
+        if self.type not in ("Hackathon", "Internship", "Certification", "Competition"):
             errors.append(f"invalid type: {self.type}")
         if not self.source.strip():
             errors.append("source is empty")
