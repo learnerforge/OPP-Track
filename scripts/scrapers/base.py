@@ -139,6 +139,30 @@ def deduplicate(items: list[ScrapeItem]) -> list[ScrapeItem]:
     return result
 
 
+def deduplicate_by_link(items: list[ScrapeItem]) -> list[ScrapeItem]:
+    """Remove duplicates by link URL, keeping the item with more data."""
+    link_map: dict[str, ScrapeItem] = {}
+    result: list[ScrapeItem] = []
+    for item in items:
+        link_key = item.link.rstrip("/").lower()
+        if not link_key:
+            result.append(item)
+            continue
+        if link_key in link_map:
+            existing = link_map[link_key]
+            existing_score = sum(1 for v in [existing.deadline, existing.eligibility, existing.location, existing.prize_pool, existing.organizer, existing.participants] if v)
+            new_score = sum(1 for v in [item.deadline, item.eligibility, item.location, item.prize_pool, item.organizer, item.participants] if v)
+            if new_score > existing_score:
+                # Replace existing with richer item
+                result = [x for x in result if x.link.rstrip("/").lower() != link_key]
+                result.append(item)
+                link_map[link_key] = item
+        else:
+            link_map[link_key] = item
+            result.append(item)
+    return result
+
+
 _OFFLINE_KEYWORDS = re.compile(
     r'\b(in[- ]?person|on[- ]?site|campus|onsite|physical|venue)\b', re.I
 )

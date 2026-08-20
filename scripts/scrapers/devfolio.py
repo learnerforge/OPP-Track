@@ -1,13 +1,15 @@
 """
-Devfolio hackathon scraper.
-Devfolio is a Next.js SPA — uses StealthyFetcher for JS rendering.
-Extracts titles, links, dates, and themes using positional matching.
+Devfolio hackathon scraper — ENHANCED.
+Extracts JSON payload from detail pages for rich data:
+  themes (tags), organizer, prize, participants, dates, online/offline.
 """
 
 from __future__ import annotations
 
 import re
+import json
 import logging
+import time
 from scrapling.fetchers import StealthyFetcher
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
 
@@ -22,6 +24,8 @@ SKIP_TITLES = {
     "all open hackathons", "all upcoming hackathons",
 }
 
+REQUEST_DELAY = 1.5
+
 
 def _parse_devfolio_date(text: str) -> str:
     """Parse 'Starts 27/08/26' into YYYY-MM-DD."""
@@ -32,6 +36,150 @@ def _parse_devfolio_date(text: str) -> str:
             year = "20" + year
         return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
     return ""
+
+
+def _extract_json_from_devfolio(page) -> dict | None:
+    """Extract the dehydratedState JSON from a Devfolio detail page."""
+    try:
+        body = str(page.body) if page.body else ""
+        # Look for __NEXT_DATA__ or dehydratedState JSON
+        match = re.search(r'"dehydratedState":\s*(\{.*?\})\s*,\s*"(?:moreHackathons|hackathon_partnership|judges")', body, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Try alternative: find the hackathon JSON blob
+        match = re.search(r'"hackathon":\s*(\{[^}]*"name"[^}]*"themes"[^}]*\})', body)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Try finding the full page data as a script tag
+        scripts = page.css('script#__NEXT_DATA__')
+        if scripts:
+            script_text = scripts[0].text or ""
+            data = json.loads(script_text)
+            return data.get("props", {}).get("pageProps", {})
+
+    except Exception as e:
+        logger.debug(f"  JSON extraction error: {e}")
+    return None
+
+
+def _scrape_detail_page(link: str) -> dict:
+    """Fetch a Devfolio detail page and extract rich data from JSON/HTML."""
+    updates = {}
+    try:
+        page = StealthyFetcher.fetch(
+            link,
+            headless=True,
+            disable_resources=True,
+            network_idle=True,
+            timeout=25000,
+        )
+        if page.status != 200:
+            return updates
+
+        body = str(page.body) if page.body else ""
+        body_text = re.sub(r'<[^>]+>', ' ', body)
+        body_text = re.sub(r'\s+', ' ', body_text).strip()
+
+        # Extract JSON payload
+        json_data = _extract_json_from_devfolio(page)
+
+        if json_data:
+            # Themes/tags
+            themes = json_data.get("themes", [])
+            if themes:
+                tag_names = [t.get("theme", {}).get("name", "") for t in themes if t.get("theme", {}).get("name")]
+                if tag_names and tag_names != ["No Restrictions"]:
+                    updates["tags"] = tag_names
+
+            # Prize pool
+            prize_details = json_data.get("prizeDetails", [])
+            if prize_details:
+                total = 0
+                currency = ""
+                for track in prize_details:
+                    for prize in track.get("prizes", []):
+                        amt = prize.get("amount", 0)
+                        if amt:
+                            total += amt
+                            currency = prize.get("currency", "USD")
+                if total > 0:
+                    symbol = "$" if currency == "USD" else "₹" if currency == "INR" else currency + " "
+                    updates["prize_pool"] = f"{symbol}{total:,}"
+
+            # Organizer
+            organizer = json_data.get("organizer", {})
+            if organizer and isinstance(organizer, dict):
+                org_name = organizer.get("name", "")
+                if org_name:
+                    updates["organizer"] = org_name
+
+            # Participants
+            participants = json_data.get("participants_count")
+            if participants:
+                updates["participants"] = str(participants)
+
+            # Team size
+            team_min = json_data.get("team_min")
+            team_max = json_data.get("team_max")
+            if team_min and team_max:
+                updates["notes_extra"] = f"Team size: {team_min}-{team_max}"
+
+            # Online/offline
+            online = json_data.get("online")
+            if online is True:
+                updates["location"] = "Online"
+            elif online is False:
+                city = json_data.get("city", "")
+                country = json_data.get("country", "")
+                if city or country:
+                    updates["location"] = f"{city}, {country}" if city else country
+
+            # Dates
+            starts_at = json_data.get("starts_at", "")
+            ends_at = json_data.get("ends_at", "")
+            if ends_at:
+                # Parse ISO date
+                date_match = re.match(r'(\d{4}-\d{2}-\d{2})', starts_at)
+                if date_match:
+                    updates["deadline"] = date_match.group(1)
+
+        # Fallback: HTML-based extraction for missing fields
+        if not updates.get("deadline"):
+            deadline_match = re.search(r'(\d{4}-\d{2}-\d{2})', body)
+            if deadline_match:
+                updates["deadline"] = deadline_match.group(1)
+
+        if not updates.get("tags"):
+            # Look for theme/tag labels in HTML
+            tag_matches = re.findall(r'"name":"([^"]+)".*?"theme":\{"name":"([^"]+)"\}', body)
+            if tag_matches:
+                tags = list(set(t[1] for t in tag_matches if t[1] != "No Restrictions"))
+                if tags:
+                    updates["tags"] = tags[:5]
+
+        # Eligibility from page text
+        elig_parts = []
+        if "student" in body_text.lower():
+            elig_parts.append("Students")
+        if "open to all" in body_text.lower() or "everyone" in body_text.lower():
+            elig_parts.append("Open to all")
+        if "developer" in body_text.lower():
+            elig_parts.append("Developers")
+        if elig_parts:
+            updates["eligibility"] = ", ".join(elig_parts)
+
+    except Exception as e:
+        logger.debug(f"  Detail page error for {link}: {e}")
+
+    return updates
 
 
 def _scrape_page(url: str) -> list[ScrapeItem]:
@@ -74,14 +222,7 @@ def _scrape_page(url: str) -> list[ScrapeItem]:
     part_els = page.find_by_regex(re.compile(r'\+\d+\s*participat', re.IGNORECASE), first_match=False)
     participations = [clean_text(el.text) for el in part_els]
 
-    # --- Extract Online/Offline status in page order ---
-    online_els = page.find_by_text("Online", first_match=False, case_sensitive=True)
-    offline_els = page.find_by_text("Offline", first_match=False, case_sensitive=True)
-    # Build ordered location list by checking which appears first per card
-    # Since we can't reliably order them, we'll skip location for now
-
     # --- Match by position ---
-    # Some cards may not have a date (e.g. "Live" cards). We match what we can.
     for i, card in enumerate(card_data):
         deadline = dates[i] if i < len(dates) else ""
         participation = participations[i] if i < len(participations) else ""
@@ -107,7 +248,7 @@ def _scrape_page(url: str) -> list[ScrapeItem]:
 
 
 def scrape_devfolio() -> list[ScrapeItem]:
-    """Scrape open and upcoming hackathons from Devfolio."""
+    """Scrape open and upcoming hackathons from Devfolio with Tier-2 enrichment."""
     items: list[ScrapeItem] = []
     for url in [DEVFOLIO_OPEN, DEVFOLIO_UPCOMING]:
         try:
@@ -115,7 +256,39 @@ def scrape_devfolio() -> list[ScrapeItem]:
         except Exception as e:
             logger.error(f"Error scraping Devfolio {url}: {e}")
 
-    logger.info(f"Devfolio: scraped {len(items)} hackathons")
+    # Tier-2: Visit detail pages for items missing tags or with low quality
+    logger.info(f"Devfolio: scraped {len(items)} hackathons from listings")
+    logger.info("Running Tier-2 detail enrichment for Devfolio items...")
+
+    for i, item in enumerate(items):
+        if item.tags and item.organizer and item.deadline:
+            continue  # Already has good data
+
+        if i > 0:
+            time.sleep(REQUEST_DELAY)
+
+        logger.info(f"  [{i+1}/{len(items)}] Enriching: {item.title}")
+        updates = _scrape_detail_page(item.link)
+
+        if updates.get("tags"):
+            item.tags = updates["tags"]
+        if updates.get("prize_pool"):
+            item.prize_pool = updates["prize_pool"]
+        if updates.get("organizer"):
+            item.organizer = updates["organizer"]
+        if updates.get("participants"):
+            item.participants = updates["participants"]
+        if updates.get("deadline") and not item.deadline:
+            item.deadline = updates["deadline"]
+        if updates.get("location"):
+            item.location = updates["location"]
+        if updates.get("eligibility"):
+            item.eligibility = updates["eligibility"]
+        if updates.get("notes_extra"):
+            item.notes = f"{item.notes} {updates['notes_extra']}".strip()
+
+        logger.info(f"    -> tags={item.tags} organizer={item.organizer} prize={item.prize_pool}")
+
     return items
 
 
@@ -123,4 +296,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_devfolio()
     for item in results:
-        print(f"  {item.title} | {item.deadline} | {item.link}")
+        print(f"  {item.title} | {item.deadline} | tags={item.tags} | {item.link}")

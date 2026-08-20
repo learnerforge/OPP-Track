@@ -1,12 +1,15 @@
 """
-Devpost hackathon scraper.
-Devpost is a Rails app with server-rendered HTML — uses StealthyFetcher for reliability.
+Devpost hackathon scraper — ENHANCED.
+Fixes:
+  1. Extract real eligibility from page text on detail pages
+  2. Better tag extraction
 """
 
 from __future__ import annotations
 
 import re
 import logging
+import time
 from scrapling.fetchers import StealthyFetcher
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
 
@@ -17,24 +20,66 @@ DEVPOST_URLS = [
     "https://devpost.com/hackathons?status[]=open",
 ]
 
+REQUEST_DELAY = 1.5
+
 
 def _parse_date_range(text: str) -> str:
     """Parse Devpost date range like 'Aug 29 - Sep 01, 2026' into end date."""
     if not text:
         return ""
-    # "Aug 29 - Sep 01, 2026" → take the end date
     match = re.search(r'-\s*(\w+\s+\d{1,2},?\s*\d{4})', text)
     if match:
         return parse_deadline(match.group(1))
-    # "Aug 29, 2026"
     match = re.search(r'(\w+\s+\d{1,2},?\s*\d{4})', text)
     if match:
         return parse_deadline(match.group(1))
     return ""
 
 
+def _extract_eligibility_from_page(page) -> str:
+    """Extract real eligibility from a Devpost detail page."""
+    try:
+        body_text = ""
+        if page.body:
+            body_text = re.sub(r'<[^>]+>', ' ', str(page.body))
+            body_text = re.sub(r'\s+', ' ', body_text).strip()
+
+        elig_parts = []
+        body_lower = body_text.lower()
+
+        # Check for specific eligibility criteria
+        if "student" in body_lower:
+            elig_parts.append("Students")
+        if "open to all" in body_lower or "everyone" in body_lower or "anyone" in body_lower:
+            elig_parts.append("Open to all")
+        if "developer" in body_lower and "student" not in body_lower:
+            elig_parts.append("Developers")
+        if "18" in body_lower and ("year" in body_lower or "age" in body_lower):
+            elig_parts.append("18+")
+        if "designer" in body_lower:
+            elig_parts.append("Designers")
+        if "beginner" in body_lower:
+            elig_parts.append("Beginners welcome")
+
+        # Look for "Eligibility" or "Who can participate" section
+        elig_match = re.search(
+            r'(?:eligibility|who\s+can\s+participate|requirements?)[:\s]*([^.]*(?:student|developer|open|anyone|everyone)[^.]*)',
+            body_text[:3000], re.IGNORECASE
+        )
+        if elig_match:
+            elig_text = elig_match.group(1).strip()[:200]
+            if len(elig_text) > 10 and not any(p.lower() in elig_text.lower() for p in elig_parts):
+                elig_parts.append(elig_text[:100])
+
+        if elig_parts:
+            return ", ".join(list(set(elig_parts)))
+    except Exception as e:
+        logger.debug(f"  Eligibility extraction error: {e}")
+    return ""
+
+
 def scrape_devpost() -> list[ScrapeItem]:
-    """Scrape upcoming and open hackathons from Devpost."""
+    """Scrape upcoming and open hackathons from Devpost with enhanced eligibility."""
     items: list[ScrapeItem] = []
 
     for url in DEVPOST_URLS:
@@ -52,20 +97,19 @@ def scrape_devpost() -> list[ScrapeItem]:
                 logger.warning(f"Devpost returned status {page.status} for {url}")
                 continue
 
-            # Devpost cards: div.hackathon-tile
             cards = page.css('.hackathon-tile')
             if not cards:
                 logger.warning(f"No .hackathon-tile found for {url}")
                 continue
 
             for card in cards:
-                # Title: h3 inside the card
+                # Title
                 title_el = card.css('h3')
                 title = clean_text(title_el[0].text if title_el else "")
                 if not title or len(title) < 3:
                     continue
 
-                # Link: a.tile-anchor[href]
+                # Link
                 link_el = card.css('a.tile-anchor[href]')
                 href = link_el[0].attrib.get("href", "") if link_el else ""
                 link = href if href.startswith("http") else f"https://devpost.com{href}" if href else ""
@@ -73,16 +117,16 @@ def scrape_devpost() -> list[ScrapeItem]:
                 if not link:
                     continue
 
-                # Date range: div.submission-period
+                # Date range
                 date_el = card.css('.submission-period')
                 date_text = clean_text(date_el[0].text if date_el else "")
                 deadline = _parse_date_range(date_text)
 
-                # Tags: span.theme-label
+                # Tags
                 tag_els = card.css('.theme-label')
                 tags = [clean_text(t.attrib.get('title', '')) for t in tag_els if clean_text(t.attrib.get('title', ''))]
 
-                # Location: look for Online/Offline/Hybrid in info-with-icon spans
+                # Location
                 location = ""
                 for info_icon in card.css('.info-with-icon'):
                     spans = info_icon.css('span')
@@ -94,11 +138,11 @@ def scrape_devpost() -> list[ScrapeItem]:
                     if location:
                         break
 
-                # Host: div.host / .host-label
+                # Host
                 host_el = card.css('.host-label') or card.css('.host')
                 host = clean_text(host_el[0].attrib.get('title', '') if host_el else "")
 
-                # Prize: div.prize-amount — use str() to get full nested text
+                # Prize
                 prize_el = card.css('.prize-amount')
                 if prize_el:
                     prize_html = str(prize_el[0])
@@ -107,11 +151,11 @@ def scrape_devpost() -> list[ScrapeItem]:
                 else:
                     prize = ""
 
-                # Participants: div.participants strong
+                # Participants
                 participants_el = card.css('.participants strong')
                 participants = clean_text(participants_el[0].text if participants_el else "")
 
-                # Status: div.hackathon-status
+                # Status
                 status_el = card.css('.hackathon-status')
                 status = clean_text(status_el[0].text if status_el else "")
 
@@ -127,15 +171,22 @@ def scrape_devpost() -> list[ScrapeItem]:
                 if status:
                     notes_parts.append(f"Status: {status}.")
 
+                # Default eligibility — will be enriched by Tier-2
+                eligibility = "Open to all developers"
+
                 item = ScrapeItem(
                     title=title,
                     type="Hackathon",
                     source="Devpost",
                     link=link,
                     deadline=deadline,
-                    eligibility="Open to all developers",
+                    eligibility=eligibility,
                     tags=tags,
                     notes=" ".join(notes_parts),
+                    location=location,
+                    organizer=host,
+                    prize_pool=prize,
+                    participants=participants,
                 )
                 items.append(item)
                 logger.info(f"  Found: {title} | {deadline} | {link}")
@@ -144,6 +195,29 @@ def scrape_devpost() -> list[ScrapeItem]:
             logger.error(f"Error scraping Devpost {url}: {e}")
 
     logger.info(f"Devpost: scraped {len(items)} hackathons")
+
+    # Tier-2: Visit detail pages for better eligibility (sample first 10)
+    logger.info("Running Tier-2 detail enrichment for Devpost items...")
+    for i, item in enumerate(items[:10]):
+        if i > 0:
+            time.sleep(REQUEST_DELAY)
+        logger.info(f"  [{i+1}/{min(10, len(items))}] Enriching: {item.title}")
+        try:
+            page = StealthyFetcher.fetch(
+                item.link,
+                headless=True,
+                disable_resources=True,
+                network_idle=True,
+                timeout=20000,
+            )
+            if page.status == 200:
+                elig = _extract_eligibility_from_page(page)
+                if elig and elig != "Open to all developers":
+                    item.eligibility = elig
+                    logger.info(f"    -> eligibility: {elig}")
+        except Exception as e:
+            logger.debug(f"    Enrichment error: {e}")
+
     return items
 
 
@@ -151,4 +225,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_devpost()
     for item in results:
-        print(f"  {item.title} | {item.deadline} | {item.link}")
+        print(f"  {item.title} | {item.deadline} | {item.eligibility[:60]} | {item.link}")

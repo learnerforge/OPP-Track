@@ -1,8 +1,6 @@
 """
-enrich.py — Tier-2 detail page scraper.
-
-Visits individual event pages to fill in missing data (deadline, location,
-prize, eligibility, participants) for items with quality_score < 50.
+enrich.py — Tier-2 detail page scraper — ENHANCED.
+Adds Internshala support, improves Devfolio JSON extraction, better all extractors.
 
 Usage:
     python scripts/scrapers/enrich.py              # Enrich low-quality items
@@ -35,7 +33,6 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_FILE = PROJECT_ROOT / "data" / "scraped_opportunities.json"
 
-# Delay between requests to avoid rate-limiting
 REQUEST_DELAY = 2.0
 
 
@@ -51,83 +48,181 @@ def _detect_source(link: str) -> str:
         return "devpost"
     if "hackerearth.com" in host:
         return "hackerearth"
+    if "internshala.com" in host:
+        return "internshala"
+    if "unstop.com" in host:
+        return "unstop"
     return "unknown"
+
+
+# ── Internshala detail page extraction ──────────────────────────────
+
+
+def _extract_internshala(page, item: dict) -> dict:
+    """Extract enrichment data from an Internshala detail page."""
+    updates: dict = {}
+    body = str(page.body) if page.body else ""
+    body_text = re.sub(r'<[^>]+>', ' ', body)
+    body_text = re.sub(r'\s+', ' ', body_text).strip()
+    body_lower = body_text.lower()
+
+    # Deadline
+    if not item.get("deadline"):
+        deadline_patterns = [
+            r'(?:deadline|last\s+date\s+to\s+apply|apply\s+by)[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
+            r'(\w+\s+\d{1,2},?\s*\d{4})\s*(?:\||\n|$)',
+        ]
+        for pattern in deadline_patterns:
+            match = re.search(pattern, body_text, re.IGNORECASE)
+            if match:
+                parsed = parse_deadline(match.group(1))
+                if parsed:
+                    updates["deadline"] = parsed
+                    break
+
+    # Duration
+    if not item.get("duration"):
+        dur_match = re.search(r'(\d+)\s*(month|week|day)s?', body_lower)
+        if dur_match:
+            updates["duration"] = dur_match.group(0).title()
+
+    # Eligibility
+    elig_parts = []
+    if "student" in body_lower:
+        elig_parts.append("Students")
+    if "who can apply" in body_lower:
+        # Try to extract the actual eligibility text
+        elig_match = re.search(r'who\s+can\s+apply[:\s]*([^.]*(?:student|graduate|fresher|bachelor|master|degree)[^.]*)', body_text, re.IGNORECASE)
+        if elig_match:
+            elig_text = elig_match.group(1).strip()[:200]
+            if len(elig_text) > 10:
+                elig_parts.append(elig_text[:100])
+    if "fresher" in body_lower:
+        elig_parts.append("Freshers welcome")
+    if elig_parts:
+        updates["eligibility"] = ", ".join(elig_parts)
+
+    # Organizer
+    if not item.get("organizer"):
+        org_match = re.search(r'at\s+([\w\s&]+?)(?:\s*[-–|]|$)', body_text[:500])
+        if org_match:
+            org = org_match.group(1).strip()
+            if 2 < len(org) < 60:
+                updates["organizer"] = org
+
+    # Location
+    if not item.get("location"):
+        loc_match = re.search(r'(?:location|city)[:\s]*(\w[\w\s,]+?)(?:\s*[-–|.]|$)', body_text[:1000], re.IGNORECASE)
+        if loc_match:
+            updates["location"] = classify_location(loc_match.group(1).strip())
+
+    return updates
 
 
 # ── Devfolio detail page extraction ─────────────────────────────────
 
 
 def _extract_devfolio(page, item: dict) -> dict:
-    """Extract enrichment data from a Devfolio detail page."""
+    """Extract enrichment data from a Devfolio detail page using JSON payload."""
     updates: dict = {}
-    page_text = page.get_all_text() if hasattr(page, "get_all_text") else ""
-    if not page_text:
-        page_text = clean_text(str(page.html_content)) if hasattr(page, "html_content") else ""
+    body = str(page.body) if page.body else ""
+    body_text = re.sub(r'<[^>]+>', ' ', body)
+    body_text = re.sub(r'\s+', ' ', body_text).strip()
+    body_lower = body_text.lower()
 
-    page_lower = page_text.lower()
+    # Try to extract JSON payload
+    try:
+        # Look for dehydratedState or hackathon JSON
+        json_match = re.search(r'"dehydratedState":\s*(\{.*?\})\s*,\s*"(?:moreHackathons|hackathon_partnership|judges")', body, re.DOTALL)
+        if json_match:
+            json_data = json.loads(json_match.group(1))
+            queries = json_data.get("queries", [])
+            for query in queries:
+                state = query.get("state", {})
+                data = state.get("data", {})
+                hackathon = data.get("hackathon", {})
+                if hackathon:
+                    # Themes/tags
+                    themes = hackathon.get("themes", [])
+                    if themes:
+                        tag_names = [t.get("theme", {}).get("name", "") for t in themes if t.get("theme", {}).get("name")]
+                        if tag_names and tag_names != ["No Restrictions"]:
+                            updates["tags"] = tag_names
 
-    # ── Deadline ──────────────────────────────────────────────────
-    if not item.get("deadline"):
-        # Devfolio pages often show "Application Deadline" or "Submissions Due"
-        deadline_patterns = [
-            r'(?:deadline|due|closes?|ends?)\s*(?:on|:)?\s*(\w+\s+\d{1,2},?\s*\d{4})',
-            r'(\w+\s+\d{1,2},?\s*\d{4})\s*(?:\||\n|$)',
-            r'(\d{1,2})/(\d{1,2})/(\d{2,4})',
-            r'(\d{4}-\d{2}-\d{2})',
-        ]
-        for pattern in deadline_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE)
-            if match:
-                raw = match.group(0) if not match.groups() else match.group(1)
-                parsed = parse_deadline(raw)
-                if parsed:
-                    updates["deadline"] = parsed
+                    # Prize
+                    prize_details = hackathon.get("prizeDetails", [])
+                    if prize_details:
+                        total = 0
+                        currency = ""
+                        for track in prize_details:
+                            for prize in track.get("prizes", []):
+                                amt = prize.get("amount", 0)
+                                if amt:
+                                    total += amt
+                                    currency = prize.get("currency", "USD")
+                        if total > 0:
+                            symbol = "$" if currency == "USD" else "₹" if currency == "INR" else currency + " "
+                            updates["prize_pool"] = f"{symbol}{total:,}"
+
+                    # Organizer
+                    organizer = hackathon.get("organizer", {})
+                    if organizer and isinstance(organizer, dict):
+                        org_name = organizer.get("name", "")
+                        if org_name:
+                            updates["organizer"] = org_name
+
+                    # Participants
+                    participants = hackathon.get("participants_count")
+                    if participants:
+                        updates["participants"] = str(participants)
+
+                    # Online/offline
+                    online = hackathon.get("online")
+                    if online is True:
+                        updates["location"] = "Online"
+                    elif online is False:
+                        city = hackathon.get("city", "")
+                        country = hackathon.get("country", "")
+                        if city or country:
+                            updates["location"] = f"{city}, {country}" if city else country
+
+                    # Dates
+                    starts_at = hackathon.get("starts_at", "")
+                    if starts_at:
+                        date_match = re.match(r'(\d{4}-\d{2}-\d{2})', starts_at)
+                        if date_match and not item.get("deadline"):
+                            updates["deadline"] = date_match.group(1)
                     break
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        logger.debug(f"  JSON parse error: {e}")
 
-    # ── Location ──────────────────────────────────────────────────
-    if not item.get("location"):
-        if "online" in page_lower and ("offline" in page_lower or "in-person" in page_lower or "on-site" in page_lower):
-            updates["location"] = "Hybrid"
-        elif "offline" in page_lower or "in-person" in page_lower or "on-site" in page_lower:
-            updates["location"] = "Offline"
-        elif "online" in page_lower or "virtual" in page_lower or "remote" in page_lower:
-            updates["location"] = "Online"
+    # Fallback: HTML-based extraction
+    if not updates.get("deadline"):
+        deadline_match = re.search(r'(\d{4}-\d{2}-\d{2})', body)
+        if deadline_match:
+            updates["deadline"] = deadline_match.group(1)
 
-    # ── Prize pool ────────────────────────────────────────────────
-    if not item.get("prize_pool") or item.get("prize_pool") in ("$", "€", "₹", ""):
-        prize_match = re.search(
-            r'(?:prize|pool|total|worth|worth\s+of)\s*(?:pool|:)?\s*\$\s*([\d,]+(?:\.\d+)?)',
-            page_text, re.IGNORECASE,
-        )
-        if not prize_match:
-            prize_match = re.search(
-                r'\$\s*([\d,]+(?:\.\d+)?)\s*(?:in\s+)?prize',
-                page_text, re.IGNORECASE,
-            )
-        if not prize_match:
-            prize_match = re.search(
-                r'(?:prize|pool|total)\s*(?:pool)?\s*(?:worth|:)?\s*([\d,]+(?:\.\d+)?)\s*(?:usd|\$)',
-                page_text, re.IGNORECASE,
-            )
-        if prize_match:
-            updates["prize_pool"] = f"${prize_match.group(1)}"
+    if not updates.get("tags"):
+        tag_matches = re.findall(r'"name":"([^"]+)".*?"theme":\{"name":"([^"]+)"\}', body)
+        if tag_matches:
+            tags = list(set(t[1] for t in tag_matches if t[1] != "No Restrictions"))
+            if tags:
+                updates["tags"] = tags[:5]
 
-    # ── Eligibility ───────────────────────────────────────────────
-    eligibility_parts = []
-    if "student" in page_lower:
-        eligibility_parts.append("Students")
-    if "open to all" in page_lower or "everyone" in page_lower:
-        eligibility_parts.append("Open to all")
-    if "18" in page_lower and ("year" in page_lower or "age" in page_lower):
-        eligibility_parts.append("18+")
-    if "India" in page_text or "indian" in page_lower:
-        eligibility_parts.append("India-focused")
-    if eligibility_parts:
-        updates["eligibility"] = ", ".join(eligibility_parts)
+    # Eligibility
+    elig_parts = []
+    if "student" in body_lower:
+        elig_parts.append("Students")
+    if "open to all" in body_lower or "everyone" in body_lower:
+        elig_parts.append("Open to all")
+    if "developer" in body_lower:
+        elig_parts.append("Developers")
+    if elig_parts:
+        updates["eligibility"] = ", ".join(elig_parts)
 
-    # ── Participants ──────────────────────────────────────────────
-    if not item.get("participants") or item.get("participants") in ("0", ""):
-        part_match = re.search(r'([\d,]+)\s*(?:\+?\s*)?(?:teams?|participants?|registr)', page_text, re.IGNORECASE)
+    # Participants fallback
+    if not updates.get("participants"):
+        part_match = re.search(r'([\d,]+)\s*(?:\+?\s*)?(?:teams?|participants?|registr)', body_text, re.IGNORECASE)
         if part_match:
             updates["participants"] = part_match.group(1)
 
@@ -140,73 +235,70 @@ def _extract_devfolio(page, item: dict) -> dict:
 def _extract_devpost(page, item: dict) -> dict:
     """Extract enrichment data from a Devpost detail page."""
     updates: dict = {}
-    page_text = page.get_all_text() if hasattr(page, "get_all_text") else ""
-    if not page_text:
-        page_text = clean_text(str(page.html_content)) if hasattr(page, "html_content") else ""
+    body = str(page.body) if page.body else ""
+    body_text = re.sub(r'<[^>]+>', ' ', body)
+    body_text = re.sub(r'\s+', ' ', body_text).strip()
+    body_lower = body_text.lower()
 
-    page_lower = page_text.lower()
-
-    # ── Deadline ──────────────────────────────────────────────────
+    # Deadline
     if not item.get("deadline"):
-        # Devpost shows "Submission Period: Aug 29 – Sep 01, 2026"
         deadline_patterns = [
             r'(?:submission\s+period|deadline|due|ends?|closes?)\s*(?:on|:)?\s*(\w+\s+\d{1,2},?\s*\d{4})',
             r'(?:to|through|until)\s+(\w+\s+\d{1,2},?\s*\d{4})',
             r'(\w+\s+\d{1,2})\s*[-–]\s*(\w+\s+\d{1,2},?\s*\d{4})',
         ]
         for pattern in deadline_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE)
+            match = re.search(pattern, body_text, re.IGNORECASE)
             if match:
-                # For date ranges, take the last date (end of submission)
                 raw = match.group(2) if match.lastindex and match.lastindex >= 2 else match.group(1)
                 parsed = parse_deadline(raw)
                 if parsed:
                     updates["deadline"] = parsed
                     break
 
-    # ── Location ──────────────────────────────────────────────────
+    # Location
     if not item.get("location"):
         loc_match = re.search(
             r'(?:location|format|mode)\s*(?::)?\s*(Online|Offline|Hybrid|In[- ]?Person)',
-            page_text, re.IGNORECASE,
+            body_text, re.IGNORECASE,
         )
         if loc_match:
             updates["location"] = classify_location(loc_match.group(1))
         else:
-            updates["location"] = classify_location(page_text[:2000])
+            updates["location"] = classify_location(body_text[:2000])
 
-    # ── Prize ─────────────────────────────────────────────────────
+    # Prize
     if not item.get("prize_pool") or item.get("prize_pool") in ("$", "€", "₹", ""):
-        # Look for total prize pool
         prize_patterns = [
             r'(?:total|grand|prize\s*pool|worth)\s*(?:prize\s*)?(?:pool)?\s*(?:worth)?\s*\$\s*([\d,]+(?:\.\d+)?)',
             r'\$\s*([\d,]+(?:\.\d+)?)\s*(?:in\s+)?(?:prize|awards?|total)',
-            r'([\d,]+)\s*(?:in\s+)?(?:prize|awards?|total)\s*(?:money)?',
         ]
         for pattern in prize_patterns:
-            prize_match = re.search(pattern, page_text, re.IGNORECASE)
+            prize_match = re.search(pattern, body_text, re.IGNORECASE)
             if prize_match:
                 amount = prize_match.group(1).replace(",", "")
                 if amount.replace(".", "").isdigit() and float(amount) > 0:
                     updates["prize_pool"] = f"${prize_match.group(1)}"
                     break
 
-    # ── Eligibility ───────────────────────────────────────────────
-    eligibility_parts = []
-    if "student" in page_lower:
-        eligibility_parts.append("Students")
-    if "open to all" in page_lower or "everyone" in page_lower or "anyone" in page_lower:
-        eligibility_parts.append("Open to all")
-    if "18" in page_lower and ("year" in page_lower or "age" in page_lower):
-        eligibility_parts.append("18+")
-    if "developer" in page_lower and "student" not in page_lower:
-        eligibility_parts.append("Developers")
-    if eligibility_parts:
-        updates["eligibility"] = ", ".join(eligibility_parts)
+    # Eligibility
+    elig_parts = []
+    if "student" in body_lower:
+        elig_parts.append("Students")
+    if "open to all" in body_lower or "everyone" in body_lower or "anyone" in body_lower:
+        elig_parts.append("Open to all")
+    if "developer" in body_lower and "student" not in body_lower:
+        elig_parts.append("Developers")
+    if "designer" in body_lower:
+        elig_parts.append("Designers")
+    if "beginner" in body_lower:
+        elig_parts.append("Beginners welcome")
+    if elig_parts:
+        updates["eligibility"] = ", ".join(elig_parts)
 
-    # ── Participants ──────────────────────────────────────────────
-    if not item.get("participants") or item.get("participants") in ("0", ""):
-        part_match = re.search(r'([\d,]+)\s*(?:\+?\s*)?(?:teams?|participants?|registr)', page_text, re.IGNORECASE)
+    # Participants
+    if not item.get("participants"):
+        part_match = re.search(r'([\d,]+)\s*(?:\+?\s*)?(?:teams?|participants?|registr)', body_text, re.IGNORECASE)
         if part_match:
             updates["participants"] = part_match.group(1)
 
@@ -219,37 +311,33 @@ def _extract_devpost(page, item: dict) -> dict:
 def _extract_hackerearth(page, item: dict) -> dict:
     """Extract enrichment data from a HackerEarth detail page."""
     updates: dict = {}
-    page_text = page.get_all_text() if hasattr(page, "get_all_text") else ""
-    if not page_text:
-        page_text = clean_text(str(page.html_content)) if hasattr(page, "html_content") else ""
+    body = str(page.body) if page.body else ""
+    body_text = re.sub(r'<[^>]+>', ' ', body)
+    body_text = re.sub(r'\s+', ' ', body_text).strip()
+    body_lower = body_text.lower()
 
-    page_lower = page_text.lower()
-
-    # ── Deadline ──────────────────────────────────────────────────
+    # Deadline
     if not item.get("deadline"):
         deadline_patterns = [
             r'(?:deadline|ends?|closes?|due|submission\s+deadline)\s*(?:on|:)?\s*(\w+\s+\d{1,2},?\s*\d{4})',
             r'(\w+\s+\d{1,2},?\s*\d{4})',
-            r'(\d{4}-\d{2}-\d{2})',
         ]
         for pattern in deadline_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE)
+            match = re.search(pattern, body_text, re.IGNORECASE)
             if match:
                 parsed = parse_deadline(match.group(1))
                 if parsed:
                     updates["deadline"] = parsed
                     break
 
-    # ── Prize ─────────────────────────────────────────────────────
+    # Prize
     if not item.get("prize_pool") or item.get("prize_pool") in ("$", "€", "₹", ""):
         prize_patterns = [
             r'(?:prize|pool|total|worth)\s*(?:pool)?\s*(?:worth)?\s*\$\s*([\d,]+(?:\.\d+)?)',
-            r'\$\s*([\d,]+(?:\.\d+)?)\s*(?:in\s+)?(?:prize|awards?|total)',
             r'(?:prize|reward)\s*(?:worth)?\s*(?:INR|₹)\s*([\d,]+(?:\.\d+)?)',
-            r'(?:INR|₹)\s*([\d,]+(?:\.\d+)?)\s*(?:in\s+)?(?:prize|awards?)',
         ]
         for pattern in prize_patterns:
-            prize_match = re.search(pattern, page_text, re.IGNORECASE)
+            prize_match = re.search(pattern, body_text, re.IGNORECASE)
             if prize_match:
                 amount = prize_match.group(1).replace(",", "")
                 if amount.replace(".", "").isdigit() and float(amount) > 0:
@@ -257,22 +345,77 @@ def _extract_hackerearth(page, item: dict) -> dict:
                     updates["prize_pool"] = f"{prefix}{prize_match.group(1)}"
                     break
 
-    # ── Participants ──────────────────────────────────────────────
-    if not item.get("participants") or item.get("participants") in ("0", ""):
-        part_match = re.search(r'([\d,]+\.?\d*[Kk]?)\s*(?:\+?\s*)?(?:teams?|participants?|registr)', page_text, re.IGNORECASE)
+    # Participants
+    if not item.get("participants"):
+        part_match = re.search(r'([\d,]+\.?\d*[Kk]?)\s*(?:\+?\s*)?(?:teams?|participants?|registr)', body_text, re.IGNORECASE)
         if part_match:
             updates["participants"] = part_match.group(1)
 
-    # ── Eligibility ───────────────────────────────────────────────
-    eligibility_parts = []
-    if "student" in page_lower:
-        eligibility_parts.append("Students")
-    if "open to all" in page_lower or "everyone" in page_lower:
-        eligibility_parts.append("Open to all")
-    if "developer" in page_lower:
-        eligibility_parts.append("Developers")
-    if eligibility_parts:
-        updates["eligibility"] = ", ".join(eligibility_parts)
+    # Tags from themes
+    if not item.get("tags"):
+        theme_matches = re.findall(r'(?:theme|tag|category)[:\s]*([A-Z][\w\s/&]+)', body_text[:2000])
+        if theme_matches:
+            updates["tags"] = list(set(t.strip() for t in theme_matches if len(t.strip()) < 30))[:5]
+
+    # Eligibility
+    elig_parts = []
+    if "student" in body_lower:
+        elig_parts.append("Students")
+    if "open to all" in body_lower or "everyone" in body_lower:
+        elig_parts.append("Open to all")
+    if "developer" in body_lower:
+        elig_parts.append("Developers")
+    if elig_parts:
+        updates["eligibility"] = ", ".join(elig_parts)
+
+    return updates
+
+
+# ── Unstop detail page extraction ───────────────────────────────────
+
+
+def _extract_unstop(page, item: dict) -> dict:
+    """Extract enrichment data from an Unstop detail page."""
+    updates: dict = {}
+    body = str(page.body) if page.body else ""
+    body_text = re.sub(r'<[^>]+>', ' ', body)
+    body_text = re.sub(r'\s+', ' ', body_text).strip()
+    body_lower = body_text.lower()
+
+    # Deadline
+    if not item.get("deadline"):
+        deadline_patterns = [
+            r'(?:deadline|last\s+date|apply\s+by|registration\s+ends?)[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
+            r'(\w+\s+\d{1,2},?\s*\d{4})',
+        ]
+        for pattern in deadline_patterns:
+            match = re.search(pattern, body_text, re.IGNORECASE)
+            if match:
+                parsed = parse_deadline(match.group(1))
+                if parsed:
+                    updates["deadline"] = parsed
+                    break
+
+    # Eligibility
+    elig_parts = []
+    if "student" in body_lower:
+        elig_parts.append("Students")
+    if "open to all" in body_lower or "everyone" in body_lower:
+        elig_parts.append("Open to all")
+    if "college" in body_lower or "university" in body_lower:
+        elig_parts.append("College students")
+    if "professional" in body_lower:
+        elig_parts.append("Professionals")
+    if elig_parts:
+        updates["eligibility"] = ", ".join(elig_parts)
+
+    # Organizer
+    if not item.get("organizer"):
+        org_match = re.search(r'(?:organized|hosted|by)\s+(?:by)?\s*([\w\s&]+?)(?:\s*[-–|.]|$)', body_text[:1000], re.IGNORECASE)
+        if org_match:
+            org = org_match.group(1).strip()
+            if 2 < len(org) < 60:
+                updates["organizer"] = org
 
     return updates
 
@@ -320,14 +463,7 @@ def _needs_enrichment(item: dict, threshold: int) -> bool:
 
 
 def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
-    """Main enrichment pipeline.
-
-    1. Load scraped_opportunities.json
-    2. Identify items below the quality threshold
-    3. Visit each detail page and extract missing fields
-    4. Update the item (or preview in dry-run mode)
-    5. Write back to disk
-    """
+    """Main enrichment pipeline."""
     if not DATA_FILE.exists():
         logger.error(f"Data file not found: {DATA_FILE}")
         sys.exit(1)
@@ -337,7 +473,6 @@ def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
 
     logger.info(f"Loaded {len(items)} items from {DATA_FILE}")
 
-    # Filter to items needing enrichment
     candidates = [
         (i, item) for i, item in enumerate(items)
         if _needs_enrichment(item, threshold)
@@ -367,7 +502,6 @@ def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
             skipped_count += 1
             continue
 
-        # Rate limit
         if idx > 0:
             time.sleep(REQUEST_DELAY)
 
@@ -376,11 +510,12 @@ def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
             failed_count += 1
             continue
 
-        # Dispatch to source-specific extractor
         extractor = {
             "devfolio": _extract_devfolio,
             "devpost": _extract_devpost,
             "hackerearth": _extract_hackerearth,
+            "internshala": _extract_internshala,
+            "unstop": _extract_unstop,
         }.get(source)
 
         if extractor is None:
@@ -394,7 +529,6 @@ def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
             logger.info(f"  No new data found for: {title}")
             continue
 
-        # Log what we found
         for field, value in updates.items():
             old = item.get(field, "")
             logger.info(f"  {field}: {old!r} -> {value!r}")
@@ -407,7 +541,6 @@ def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
             enriched_count += 1
             logger.info(f"  Updated {len(updates)} field(s)")
 
-    # Summary
     logger.info("\n─── Enrichment Summary ───")
     logger.info(f"  Total candidates: {len(candidates)}")
     logger.info(f"  Enriched:         {enriched_count}")
@@ -418,7 +551,6 @@ def enrich_items(dry_run: bool = False, threshold: int = 50) -> None:
         logger.info("\n[DRY RUN] No changes written to disk.")
         return
 
-    # Write back
     if enriched_count > 0:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(items, f, indent=2, ensure_ascii=False)

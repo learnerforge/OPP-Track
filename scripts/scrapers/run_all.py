@@ -34,7 +34,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.scrapers.base import ScrapeItem, deduplicate, quality_score, classify_location
+from scripts.scrapers.base import ScrapeItem, deduplicate, deduplicate_by_link, quality_score, classify_location
 from scripts.scrapers.devfolio import scrape_devfolio
 from scripts.scrapers.devpost import scrape_devpost
 from scripts.scrapers.unstop import scrape_unstop
@@ -324,7 +324,9 @@ def main():
 
     # ── Deduplicate ────────────────────────────────────────────────
     all_items = deduplicate(all_items)
-    logging.info(f"After deduplication: {len(all_items)} items")
+    logging.info(f"After fingerprint dedup: {len(all_items)} items")
+    all_items = deduplicate_by_link(all_items)
+    logging.info(f"After link dedup: {len(all_items)} items")
 
     # ── Quality score + location classification ────────────────────
     all_items = score_items(all_items)
