@@ -39,31 +39,41 @@ def _parse_devfolio_date(text: str) -> str:
 
 
 def _extract_json_from_devfolio(page) -> dict | None:
-    """Extract the dehydratedState JSON from a Devfolio detail page."""
+    """Extract the hackathon-specific JSON from a Devfolio detail page."""
     try:
         body = str(page.body) if page.body else ""
-        # Look for __NEXT_DATA__ or dehydratedState JSON
-        match = re.search(r'"dehydratedState":\s*(\{.*?\})\s*,\s*"(?:moreHackathons|hackathon_partnership|judges")', body, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group(1))
-            except json.JSONDecodeError:
-                pass
 
-        # Try alternative: find the hackathon JSON blob
-        match = re.search(r'"hackathon":\s*(\{[^}]*"name"[^}]*"themes"[^}]*\})', body)
-        if match:
-            try:
-                return json.loads(match.group(1))
-            except json.JSONDecodeError:
-                pass
-
-        # Try finding the full page data as a script tag
+        # Try __NEXT_DATA__ first (most reliable)
         scripts = page.css('script#__NEXT_DATA__')
         if scripts:
             script_text = scripts[0].text or ""
             data = json.loads(script_text)
-            return data.get("props", {}).get("pageProps", {})
+            page_props = data.get("props", {}).get("pageProps", {})
+            if page_props:
+                return page_props
+
+        # Try dehydratedState — find the FIRST hackathon query (the current one)
+        match = re.search(r'"dehydratedState":\s*\{[^}]*"queries":\s*\[(\{.*?\})\]', body, re.DOTALL)
+        if match:
+            try:
+                queries_str = "[" + match.group(1) + "]"
+                queries = json.loads(queries_str)
+                for query in queries:
+                    state = query.get("state", {})
+                    data = state.get("data", {})
+                    hackathon = data.get("hackathon", {})
+                    if hackathon and hackathon.get("name"):
+                        return hackathon
+            except json.JSONDecodeError:
+                pass
+
+        # Fallback: look for the hackathon JSON blob with name + themes
+        match = re.search(r'"hackathon":\s*(\{[^}]*"name":"[^"]+"[^}]*"themes":\[[^\]]+\][^}]*\})', body)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
 
     except Exception as e:
         logger.debug(f"  JSON extraction error: {e}")
@@ -92,15 +102,29 @@ def _scrape_detail_page(link: str) -> dict:
         json_data = _extract_json_from_devfolio(page)
 
         if json_data:
+            # Check if this is a hackathon dict directly or wrapped in queries
+            hackathon = json_data
+            if "hackathon" in json_data and isinstance(json_data["hackathon"], dict):
+                hackathon = json_data["hackathon"]
+            elif "queries" in json_data:
+                # Extract from queries
+                for query in json_data.get("queries", []):
+                    state = query.get("state", {})
+                    data = state.get("data", {})
+                    h = data.get("hackathon", {})
+                    if h and h.get("name"):
+                        hackathon = h
+                        break
+
             # Themes/tags
-            themes = json_data.get("themes", [])
+            themes = hackathon.get("themes", [])
             if themes:
                 tag_names = [t.get("theme", {}).get("name", "") for t in themes if t.get("theme", {}).get("name")]
                 if tag_names and tag_names != ["No Restrictions"]:
                     updates["tags"] = tag_names
 
             # Prize pool
-            prize_details = json_data.get("prizeDetails", [])
+            prize_details = hackathon.get("prizeDetails", [])
             if prize_details:
                 total = 0
                 currency = ""
@@ -115,38 +139,37 @@ def _scrape_detail_page(link: str) -> dict:
                     updates["prize_pool"] = f"{symbol}{total:,}"
 
             # Organizer
-            organizer = json_data.get("organizer", {})
+            organizer = hackathon.get("organizer", {})
             if organizer and isinstance(organizer, dict):
                 org_name = organizer.get("name", "")
                 if org_name:
                     updates["organizer"] = org_name
 
             # Participants
-            participants = json_data.get("participants_count")
+            participants = hackathon.get("participants_count")
             if participants:
                 updates["participants"] = str(participants)
 
             # Team size
-            team_min = json_data.get("team_min")
-            team_max = json_data.get("team_max")
+            team_min = hackathon.get("team_min")
+            team_max = hackathon.get("team_max")
             if team_min and team_max:
                 updates["notes_extra"] = f"Team size: {team_min}-{team_max}"
 
             # Online/offline
-            online = json_data.get("online")
+            online = hackathon.get("online")
             if online is True:
                 updates["location"] = "Online"
             elif online is False:
-                city = json_data.get("city", "")
-                country = json_data.get("country", "")
+                city = hackathon.get("city", "")
+                country = hackathon.get("country", "")
                 if city or country:
                     updates["location"] = f"{city}, {country}" if city else country
 
             # Dates
-            starts_at = json_data.get("starts_at", "")
-            ends_at = json_data.get("ends_at", "")
-            if ends_at:
-                # Parse ISO date
+            starts_at = hackathon.get("starts_at", "")
+            ends_at = hackathon.get("ends_at", "")
+            if starts_at:
                 date_match = re.match(r'(\d{4}-\d{2}-\d{2})', starts_at)
                 if date_match:
                     updates["deadline"] = date_match.group(1)
@@ -256,12 +279,14 @@ def scrape_devfolio() -> list[ScrapeItem]:
         except Exception as e:
             logger.error(f"Error scraping Devfolio {url}: {e}")
 
-    # Tier-2: Visit detail pages for items missing tags or with low quality
+    # Tier-2: Visit detail pages for items missing tags (max 10)
+    need_enrichment = [item for item in items if not item.tags or not item.organizer]
+    enrich_limit = min(10, len(need_enrichment))
     logger.info(f"Devfolio: scraped {len(items)} hackathons from listings")
-    logger.info("Running Tier-2 detail enrichment for Devfolio items...")
+    logger.info(f"Running Tier-2 detail enrichment for {enrich_limit} Devfolio items missing tags...")
 
-    for i, item in enumerate(items):
-        if item.tags and item.organizer and item.deadline:
+    for i, item in enumerate(need_enrichment[:enrich_limit]):
+        if item.tags and item.organizer:
             continue  # Already has good data
 
         if i > 0:

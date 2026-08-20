@@ -41,7 +41,7 @@ def _extract_duration_from_text(text: str) -> str:
 
 
 def _scrape_detail_page(link: str) -> dict:
-    """Fetch an Internshala detail page and extract deadline, company, duration, eligibility."""
+    """Fetch an Internshala detail page and extract data from JSON-LD schema."""
     updates = {}
     try:
         page = StealthyFetcher.fetch(
@@ -54,47 +54,103 @@ def _scrape_detail_page(link: str) -> dict:
         if page.status != 200:
             return updates
 
-        body_text = ""
-        if page.body:
-            body_text = re.sub(r'<[^>]+>', ' ', str(page.body))
-            body_text = re.sub(r'\s+', ' ', body_text).strip()
+        # Extract JSON-LD JobPosting schema (most reliable data source)
+        scripts = page.css('script')
+        for script in scripts:
+            text = script.text or ""
+            if '"@type":"JobPosting"' in text or '"@type": "JobPosting"' in text:
+                try:
+                    import json
+                    data = json.loads(text)
+                except json.JSONDecodeError:
+                    match = re.search(r'(\{.*"@type"\s*:\s*"JobPosting".*\})', text, re.DOTALL)
+                    if match:
+                        try:
+                            data = json.loads(match.group(1))
+                        except json.JSONDecodeError:
+                            continue
+                    else:
+                        continue
 
-        # Deadline: look for "Deadline" or "Last date to apply"
-        deadline_match = re.search(
-            r'(?:deadline|last\s+date\s+to\s+apply|apply\s+by)[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
-            body_text, re.IGNORECASE
-        )
-        if deadline_match:
-            parsed = parse_deadline(deadline_match.group(1))
-            if parsed:
-                updates["deadline"] = parsed
+                # Deadline from validThrough
+                valid_through = data.get("validThrough", "")
+                if valid_through:
+                    parsed = parse_deadline(valid_through.split(" ")[0])
+                    if parsed:
+                        updates["deadline"] = parsed
 
-        # Duration
-        dur_match = re.search(r'(\d+)\s*(month|week|day)s?', body_text.lower())
-        if dur_match:
-            updates["duration"] = dur_match.group(0).title()
+                # Company from hiringOrganization
+                org = data.get("hiringOrganization", {})
+                if org and isinstance(org, dict):
+                    org_name = org.get("name", "")
+                    if org_name:
+                        updates["organizer"] = org_name
 
-        # Eligibility: look for "Who can apply" or "Eligibility" section
-        elig_match = re.search(
-            r'(?:who\s+can\s+apply|eligibility|requirements?)[:\s]*([^.]*(?:student|graduate|fresher|bachelor|master|degree)[^.]*)',
-            body_text, re.IGNORECASE
-        )
-        if elig_match:
-            elig_text = elig_match.group(1).strip()[:200]
-            if len(elig_text) > 10:
-                updates["eligibility"] = elig_text
+                # Location from jobLocation
+                locations = data.get("jobLocation", [])
+                if locations and isinstance(locations, list):
+                    for loc in locations:
+                        addr = loc.get("address", {})
+                        city = addr.get("addressLocality", "")
+                        region = addr.get("addressRegion", "")
+                        if city:
+                            updates["location"] = f"{city}, {region}" if region else city
+                            break
 
-        # Company from page title or heading
-        company_match = re.search(r'at\s+([\w\s&]+?)(?:\s*[-–|]|$)', body_text[:500])
-        if company_match:
-            company = company_match.group(1).strip()
-            if len(company) > 2 and len(company) < 60:
-                updates["organizer"] = company
+                # Duration and eligibility from description
+                desc = data.get("description", "")
+                desc_text = re.sub(r'<[^>]+>', ' ', desc)
+                desc_text = re.sub(r'\s+', ' ', desc_text).strip()
 
-        # Location from page
-        loc_match = re.search(r'(?:location|city)[:\s]*(\w[\w\s,]+?)(?:\s*[-–|.]|$)', body_text[:1000], re.IGNORECASE)
-        if loc_match:
-            updates["location"] = loc_match.group(1).strip()[:50]
+                # Duration
+                dur_match = re.search(r'duration\s+of\s+(\d+)\s*(month|week|day)s?', desc_text.lower())
+                if dur_match:
+                    updates["duration"] = dur_match.group(0).title()
+
+                # Eligibility from "Who can apply" section
+                elig_match = re.search(r'who\s+can\s+apply[:\s]*(.*?)(?=\s*stipend|\s*other|\s*$)', desc_text.lower())
+                if elig_match:
+                    elig_text = elig_match.group(1).strip()[:300]
+                    if len(elig_text) > 10:
+                        # Clean up eligibility text
+                        elig_text = re.sub(r'only those candidates can apply who:?\s*', '', elig_text)
+                        elig_text = re.sub(r'\d+\.\s*', '', elig_text)
+                        updates["eligibility"] = elig_text.strip()[:200]
+
+                # Skills from description
+                skills_match = re.search(r'skills?\s+required[:\s]*(.*?)(?=\s*other|\s*$)', desc_text.lower())
+                if skills_match:
+                    skills = skills_match.group(1).strip()[:200]
+                    if skills:
+                        updates["notes_extra"] = f"Skills: {skills}"
+
+                # Stipend from baseSalary
+                salary = data.get("baseSalary", {})
+                if salary and isinstance(salary, dict):
+                    value = salary.get("value", {})
+                    if value and isinstance(value, dict):
+                        min_val = value.get("minValue", 0)
+                        max_val = value.get("maxValue", 0)
+                        currency = salary.get("currency", "INR")
+                        if min_val and max_val:
+                            symbol = "₹" if currency == "INR" else "$" if currency == "USD" else currency + " "
+                            updates["stipend"] = f"{symbol}{min_val:,} - {max_val:,} /month"
+                        elif min_val:
+                            symbol = "₹" if currency == "INR" else "$" if currency == "USD" else currency + " "
+                            updates["stipend"] = f"{symbol}{min_val:,} /month"
+
+                break
+
+        # Fallback: meta tags if JSON-LD not found
+        if not updates.get("deadline"):
+            meta_desc = page.css('meta[name="description"]')
+            if meta_desc:
+                content = meta_desc[0].attrib.get("content", "")
+                deadline_match = re.search(r'(\w+\s+\d{1,2},?\s*\d{4})', content)
+                if deadline_match:
+                    parsed = parse_deadline(deadline_match.group(1))
+                    if parsed:
+                        updates["deadline"] = parsed
 
     except Exception as e:
         logger.debug(f"  Detail page error for {link}: {e}")
@@ -191,8 +247,35 @@ def scrape_internshala() -> list[ScrapeItem]:
 
             logger.info(f"  Found {len(card_data)} internship cards")
 
-            # Tier-2: Visit detail pages for missing data
+            # Tier-2: Visit detail pages for missing data (max 10 to avoid timeout)
+            detail_limit = min(10, len(card_data))
             for i, card in enumerate(card_data):
+                if i >= detail_limit:
+                    # Skip detail page, use listing data only
+                    eligibility_parts = []
+                    if card["company"]:
+                        eligibility_parts.append(f"Company: {card['company']}")
+                    if card["location"]:
+                        eligibility_parts.append(f"Location: {card['location']}")
+                    if card["duration"]:
+                        eligibility_parts.append(f"Duration: {card['duration']}")
+                    if card["stipend"]:
+                        eligibility_parts.append(f"Stipend: {card['stipend']}")
+
+                    item = ScrapeItem(
+                        title=card["title"],
+                        type="Internship",
+                        source="Internshala",
+                        link=card["link"],
+                        deadline="",
+                        eligibility=". ".join(eligibility_parts) if eligibility_parts else "Check Internshala for details",
+                        tags=["Internship"],
+                        notes=f"Source: Internshala. {card['stipend']} {card['duration']}".strip(),
+                        organizer=card["company"],
+                        duration=card["duration"],
+                    )
+                    items.append(item)
+                    continue
                 detail_updates = {}
                 if i > 0:
                     time.sleep(REQUEST_DELAY)

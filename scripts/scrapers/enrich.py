@@ -59,62 +59,75 @@ def _detect_source(link: str) -> str:
 
 
 def _extract_internshala(page, item: dict) -> dict:
-    """Extract enrichment data from an Internshala detail page."""
+    """Extract enrichment data from an Internshala detail page using JSON-LD schema."""
     updates: dict = {}
-    body = str(page.body) if page.body else ""
-    body_text = re.sub(r'<[^>]+>', ' ', body)
-    body_text = re.sub(r'\s+', ' ', body_text).strip()
-    body_lower = body_text.lower()
 
-    # Deadline
-    if not item.get("deadline"):
-        deadline_patterns = [
-            r'(?:deadline|last\s+date\s+to\s+apply|apply\s+by)[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
-            r'(\w+\s+\d{1,2},?\s*\d{4})\s*(?:\||\n|$)',
-        ]
-        for pattern in deadline_patterns:
-            match = re.search(pattern, body_text, re.IGNORECASE)
-            if match:
-                parsed = parse_deadline(match.group(1))
-                if parsed:
-                    updates["deadline"] = parsed
-                    break
+    # Extract JSON-LD JobPosting schema
+    scripts = page.css('script')
+    for script in scripts:
+        text = script.text or ""
+        if '"@type":"JobPosting"' in text or '"@type": "JobPosting"' in text:
+            try:
+                import json as json_mod
+                data = json_mod.loads(text)
+            except:
+                match = re.search(r'(\{.*"@type"\s*:\s*"JobPosting".*\})', text, re.DOTALL)
+                if match:
+                    try:
+                        data = json_mod.loads(match.group(1))
+                    except:
+                        continue
+                else:
+                    continue
 
-    # Duration
-    if not item.get("duration"):
-        dur_match = re.search(r'(\d+)\s*(month|week|day)s?', body_lower)
-        if dur_match:
-            updates["duration"] = dur_match.group(0).title()
+            # Deadline
+            if not item.get("deadline"):
+                valid_through = data.get("validThrough", "")
+                if valid_through:
+                    parsed = parse_deadline(valid_through.split(" ")[0])
+                    if parsed:
+                        updates["deadline"] = parsed
 
-    # Eligibility
-    elig_parts = []
-    if "student" in body_lower:
-        elig_parts.append("Students")
-    if "who can apply" in body_lower:
-        # Try to extract the actual eligibility text
-        elig_match = re.search(r'who\s+can\s+apply[:\s]*([^.]*(?:student|graduate|fresher|bachelor|master|degree)[^.]*)', body_text, re.IGNORECASE)
-        if elig_match:
-            elig_text = elig_match.group(1).strip()[:200]
-            if len(elig_text) > 10:
-                elig_parts.append(elig_text[:100])
-    if "fresher" in body_lower:
-        elig_parts.append("Freshers welcome")
-    if elig_parts:
-        updates["eligibility"] = ", ".join(elig_parts)
+            # Company
+            if not item.get("organizer"):
+                org = data.get("hiringOrganization", {})
+                if org and isinstance(org, dict):
+                    org_name = org.get("name", "")
+                    if org_name:
+                        updates["organizer"] = org_name
 
-    # Organizer
-    if not item.get("organizer"):
-        org_match = re.search(r'at\s+([\w\s&]+?)(?:\s*[-–|]|$)', body_text[:500])
-        if org_match:
-            org = org_match.group(1).strip()
-            if 2 < len(org) < 60:
-                updates["organizer"] = org
+            # Location
+            if not item.get("location"):
+                locations = data.get("jobLocation", [])
+                if locations and isinstance(locations, list):
+                    for loc in locations:
+                        addr = loc.get("address", {})
+                        city = addr.get("addressLocality", "")
+                        region = addr.get("addressRegion", "")
+                        if city:
+                            updates["location"] = classify_location(f"{city} {region}")
+                            break
 
-    # Location
-    if not item.get("location"):
-        loc_match = re.search(r'(?:location|city)[:\s]*(\w[\w\s,]+?)(?:\s*[-–|.]|$)', body_text[:1000], re.IGNORECASE)
-        if loc_match:
-            updates["location"] = classify_location(loc_match.group(1).strip())
+            # Duration and eligibility from description
+            desc = data.get("description", "")
+            desc_text = re.sub(r'<[^>]+>', ' ', desc)
+            desc_text = re.sub(r'\s+', ' ', desc_text).strip()
+
+            if not item.get("duration"):
+                dur_match = re.search(r'duration\s+of\s+(\d+)\s*(month|week|day)s?', desc_text.lower())
+                if dur_match:
+                    updates["duration"] = dur_match.group(0).title()
+
+            # Eligibility from "Who can apply" section
+            elig_match = re.search(r'who\s+can\s+apply[:\s]*(.*?)(?=\s*stipend|\s*other|\s*$)', desc_text.lower())
+            if elig_match:
+                elig_text = elig_match.group(1).strip()[:300]
+                if len(elig_text) > 10:
+                    elig_text = re.sub(r'only those candidates can apply who:?\s*', '', elig_text)
+                    elig_text = re.sub(r'\d+\.\s*', '', elig_text)
+                    updates["eligibility"] = elig_text.strip()[:200]
+
+            break
 
     return updates
 
