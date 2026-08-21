@@ -216,8 +216,8 @@ def _scrape_httpx(source: dict) -> list[ScrapeItem]:
         return []
 
     # Parse with scrapling even for httpx-fetched HTML (reuse Adaptor)
-    from scrapling import Adaptor
-    page = Adaptor(resp.text, url=url)
+    from scrapling import Selector
+    page = Selector(resp.text, url=url)
     cards = page.css(card_sel)
     if not cards:
         logger.warning(f"[{source['id']}] No cards matched '{card_sel}'")

@@ -88,7 +88,7 @@ def run_multi_source_scraper(source_id: str, source_config: dict) -> list[Scrape
         from scripts.scrapers.multi_source import scrape_source
         t0 = time.time()
         logging.info(f"--- Running multi-source: {source_config.get('name', source_id)} ---")
-        results = scrape_source(source_id, source_config)
+        results = scrape_source(source_config)
         elapsed = time.time() - t0
         logging.info(f"    {source_id} finished in {elapsed:.1f}s — {len(results)} items")
         return results
