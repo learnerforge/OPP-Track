@@ -40,6 +40,23 @@ from scripts.scrapers.devpost import scrape_devpost
 from scripts.scrapers.unstop import scrape_unstop
 from scripts.scrapers.hackerearth import scrape_hackerearth
 from scripts.scrapers.internshala import scrape_internshala
+from scripts.scrapers.codeforces import scrape_codeforces
+from scripts.scrapers.mlh import scrape_mlh
+from scripts.scrapers.dorahacks import scrape_dorahacks
+from scripts.scrapers.ethglobal import scrape_ethglobal
+from scripts.scrapers.kaggle import scrape_kaggle
+from scripts.scrapers.analytics_vidhya import scrape_analytics_vidhya
+from scripts.scrapers.machinehack import scrape_machinehack
+from scripts.scrapers.hackerrank import scrape_hackerrank
+from scripts.scrapers.coursera import scrape_coursera
+from scripts.scrapers.nptel import scrape_nptel
+from scripts.scrapers.swayam import scrape_swayam
+from scripts.scrapers.hack2skill import scrape_hack2skill
+from scripts.scrapers.techgig import scrape_techgig
+from scripts.scrapers.hackindia import scrape_hackindia
+from scripts.scrapers.angelhack import scrape_angelhack
+from scripts.scrapers.sih import scrape_sih
+from scripts.scrapers.tcs_codevita import scrape_tcs_codevita
 
 OUTPUT_FILE = PROJECT_ROOT / "data" / "scraped_opportunities.json"
 SOURCES_FILE = PROJECT_ROOT / "scripts" / "scrapers" / "sources.json"
@@ -51,6 +68,23 @@ SCRAPERS = {
     "unstop": ("Unstop", scrape_unstop),
     "hackerearth": ("HackerEarth", scrape_hackerearth),
     "internshala": ("Internshala", scrape_internshala),
+    "codeforces": ("Codeforces", scrape_codeforces),
+    "mlh": ("MLH", scrape_mlh),
+    "dorahacks": ("DoraHacks", scrape_dorahacks),
+    "ethglobal": ("ETHGlobal", scrape_ethglobal),
+    "kaggle": ("Kaggle", scrape_kaggle),
+    "analytics_vidhya": ("Analytics Vidhya", scrape_analytics_vidhya),
+    "machinehack": ("MachineHack", scrape_machinehack),
+    "hackerrank": ("HackerRank", scrape_hackerrank),
+    "coursera": ("Coursera", scrape_coursera),
+    "nptel": ("NPTEL", scrape_nptel),
+    "swayam": ("SWAYAM", scrape_swayam),
+    "hack2skill": ("Hack2Skill", scrape_hack2skill),
+    "techgig": ("TechGig", scrape_techgig),
+    "hackindia": ("HackIndia", scrape_hackindia),
+    "angelhack": ("AngelHack", scrape_angelhack),
+    "sih": ("Smart India Hackathon", scrape_sih),
+    "tcs_codevita": ("TCS CodeVita", scrape_tcs_codevita),
 }
 
 
