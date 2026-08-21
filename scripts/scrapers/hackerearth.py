@@ -56,7 +56,11 @@ def _extract_tags_from_card(card) -> list[str]:
 
 
 def _extract_detail_data(page, url: str) -> dict:
-    """Extract rich data from a HackerEarth detail page."""
+    """Extract rich data from a HackerEarth detail page.
+    Supports two page types:
+      1. Native HackerEarth pages (RSC flight data with __next_f.push)
+      2. External redirect pages (basic meta tag extraction)
+    """
     updates = {}
     try:
         body = str(page.body) if page.body else ""
@@ -64,17 +68,78 @@ def _extract_detail_data(page, url: str) -> dict:
         body_text = re.sub(r'\s+', ' ', body_text).strip()
         body_lower = body_text.lower()
 
+        # --- Native HackerEarth page: extract RSC flight data ---
+        rsc_match = re.search(r'self\.__next_f\.push\(\[1,".*?"\]\)', body)
+        has_rsc = bool(rsc_match) or "initialEventData" in body
+
+        if has_rsc:
+            # Try to find the challenge JSON in RSC push calls
+            rsc_chunks = re.findall(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)', body)
+            rsc_text = "".join(rsc_chunks)
+            rsc_text = rsc_text.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+
+            # Extract structured event data
+            event_match = re.search(r'"start_date"\s*:\s*"([^"]*)"', rsc_text)
+            if event_match:
+                parsed = parse_deadline(event_match.group(1).split("T")[0])
+                if parsed:
+                    updates["deadline"] = parsed
+
+            end_match = re.search(r'"end_date"\s*:\s*"([^"]*)"', rsc_text)
+            if end_match:
+                parsed = parse_deadline(end_match.group(1).split("T")[0])
+                if parsed and not updates.get("deadline"):
+                    updates["deadline"] = parsed
+
+            # Organizer from RSC data
+            org_match = re.search(r'"organizer"\s*:\s*\[?\{[^}]*"title"\s*:\s*"([^"]*)"', rsc_text)
+            if org_match:
+                updates["organizer"] = org_match.group(1)
+
+            # Participants from RSC data
+            part_match = re.search(r'"total_registrations"\s*:\s*(\d+)', rsc_text)
+            if part_match:
+                updates["participants"] = str(part_match.group(1))
+
+            # Team size
+            team_match = re.search(r'"max_team_size"\s*:\s*(\d+)', rsc_text)
+            if team_match and int(team_match.group(1)) > 1:
+                updates["notes_extra"] = f"Team size: up to {team_match.group(1)}"
+
+            # Description for tags
+            desc_match = re.search(r'"description_text"\s*:\s*"((?:[^"\\]|\\.)*)"', rsc_text)
+            if desc_match:
+                desc_text = desc_match.group(1).replace('\\n', ' ').replace('\\"', '"')
+                updates["description"] = desc_text[:500]
+                # Extract tags from description
+                tag_keywords = [
+                    "artificial intelligence", "machine learning", "blockchain", "web development",
+                    "mobile", "data science", "cloud", "cybersecurity", "iot", "fintech",
+                    "health", "education", "sustainability", "open innovation", "nlp",
+                    "computer vision", "deep learning", "python", "javascript"
+                ]
+                desc_lower = desc_text.lower()
+                tags = [kw.title() for kw in tag_keywords if kw in desc_lower]
+                if tags:
+                    updates["tags"] = tags[:5]
+
+            # Prize from RSC data
+            prize_match = re.search(r'"prize"\s*:\s*"?([^",}]*)', rsc_text)
+            if prize_match:
+                prize_text = prize_match.group(1).strip()
+                if prize_text and prize_text != "false":
+                    updates["prize_pool"] = prize_text
+
+        # --- External redirect page: extract meta tags ---
         # Meta tags
         og_title = page.css('meta[property="og:title"]')
         og_desc = page.css('meta[property="og:description"]')
 
-        # Title from og:title (more reliable)
-        if og_title:
+        if not updates.get("title") and og_title:
             title = clean_text(og_title[0].attrib.get("content", ""))
             if title:
                 updates["title"] = title.split("|")[0].strip()
 
-        # Description
         description = ""
         if og_desc:
             description = clean_text(og_desc[0].attrib.get("content", ""))
@@ -82,51 +147,54 @@ def _extract_detail_data(page, url: str) -> dict:
             meta_desc = page.css('meta[name="description"]')
             if meta_desc:
                 description = clean_text(meta_desc[0].attrib.get("content", ""))
-        if description:
+        if description and not updates.get("description"):
             updates["description"] = description
 
-        # Deadline from body text
-        date_patterns = [
-            r'(?:deadline|last\s+date|registrations?\s+(?:close|end))[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
-            r'(?:deadline|last\s+date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
-            r'(?:end(?:ing)?\s+date)[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
-        ]
-        for pattern in date_patterns:
-            match = re.search(pattern, body_lower)
-            if match:
-                parsed = parse_deadline(match.group(1))
-                if parsed:
-                    updates["deadline"] = parsed
-                    break
+        # Deadline from body text (fallback for external pages)
+        if not updates.get("deadline"):
+            date_patterns = [
+                r'(?:deadline|last\s+date|registrations?\s+(?:close|end))[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
+                r'(?:deadline|last\s+date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
+                r'(?:end(?:ing)?\s+date)[:\s]*(\w+\s+\d{1,2},?\s*\d{4})',
+            ]
+            for pattern in date_patterns:
+                match = re.search(pattern, body_lower)
+                if match:
+                    parsed = parse_deadline(match.group(1))
+                    if parsed:
+                        updates["deadline"] = parsed
+                        break
 
-        # Prize from body text
-        prize_patterns = [
-            r'(?:prize|reward|worth)[:\s]*(?:total\s+)?(?:inr|₹|usd|\$)\s*([\d,]+)',
-            r'(?:₹|inr)\s*([\d,]+)\s*(?:in\s+prizes?|total|worth)',
-            r'(?:prize|worth)\s+(?:of\s+)?(?:₹|inr|usd|\$)\s*([\d,]+)',
-        ]
-        for pattern in prize_patterns:
-            match = re.search(pattern, body_lower)
-            if match:
-                amount = match.group(1).replace(",", "")
-                if int(amount) > 0:
-                    symbol = "\u20b9" if "inr" in pattern or "₹" in pattern else "$"
-                    updates["prize_pool"] = f"{symbol}{int(amount):,}"
-                    break
+        # Prize from body text (fallback)
+        if not updates.get("prize_pool"):
+            prize_patterns = [
+                r'(?:prize|reward|worth)[:\s]*(?:total\s+)?(?:inr|₹|usd|\$)\s*([\d,]+)',
+                r'(?:₹|inr)\s*([\d,]+)\s*(?:in\s+prizes?|total|worth)',
+                r'(?:prize|worth)\s+(?:of\s+)?(?:₹|inr|usd|\$)\s*([\d,]+)',
+            ]
+            for pattern in prize_patterns:
+                match = re.search(pattern, body_lower)
+                if match:
+                    amount = match.group(1).replace(",", "")
+                    if int(amount) > 0:
+                        symbol = "\u20b9" if "inr" in pattern or "₹" in pattern else "$"
+                        updates["prize_pool"] = f"{symbol}{int(amount):,}"
+                        break
 
-        # Tags from body text
-        tag_keywords = [
-            "artificial intelligence", "machine learning", "blockchain", "web development",
-            "mobile", "data science", "cloud", "cybersecurity", "iot", "fintech",
-            "health", "education", "sustainability", "open innovation", "nlp",
-            "computer vision", "deep learning", "python", "javascript"
-        ]
-        tags = []
-        for kw in tag_keywords:
-            if kw in body_lower:
-                tags.append(kw.title())
-        if tags:
-            updates["tags"] = tags[:5]
+        # Tags from body text (fallback for external pages)
+        if not updates.get("tags"):
+            tag_keywords = [
+                "artificial intelligence", "machine learning", "blockchain", "web development",
+                "mobile", "data science", "cloud", "cybersecurity", "iot", "fintech",
+                "health", "education", "sustainability", "open innovation", "nlp",
+                "computer vision", "deep learning", "python", "javascript"
+            ]
+            tags = []
+            for kw in tag_keywords:
+                if kw in body_lower:
+                    tags.append(kw.title())
+            if tags:
+                updates["tags"] = tags[:5]
 
         # Eligibility from body
         elig_parts = []
@@ -143,10 +211,11 @@ def _extract_detail_data(page, url: str) -> dict:
         if elig_parts:
             updates["eligibility"] = ", ".join(elig_parts)
 
-        # Participants from body
-        part_match = re.search(r'(\d+)\s*(?:\+?\s*)?(?:participants?|developers?|submissions?)', body_lower)
-        if part_match:
-            updates["participants"] = part_match.group(1)
+        # Participants from body (fallback)
+        if not updates.get("participants"):
+            part_match = re.search(r'(\d+)\s*(?:\+?\s*)?(?:participants?|developers?|submissions?)', body_lower)
+            if part_match:
+                updates["participants"] = part_match.group(1)
 
         # Location
         if "online" in body_lower:
@@ -156,12 +225,13 @@ def _extract_detail_data(page, url: str) -> dict:
         elif "hybrid" in body_lower:
             updates["location"] = "Hybrid"
 
-        # Organizer from meta or body
-        author = page.css('meta[name="author"]')
-        if author:
-            org = clean_text(author[0].attrib.get("content", ""))
-            if org and org.lower() not in ("hackerearth", ""):
-                updates["organizer"] = org
+        # Organizer from meta or body (fallback)
+        if not updates.get("organizer"):
+            author = page.css('meta[name="author"]')
+            if author:
+                org = clean_text(author[0].attrib.get("content", ""))
+                if org and org.lower() not in ("hackerearth", ""):
+                    updates["organizer"] = org
 
     except Exception as e:
         logger.debug(f"  Detail extraction error for {url}: {e}")
@@ -324,8 +394,12 @@ def scrape_hackerearth() -> list[ScrapeItem]:
                     item.participants = detail["participants"]
                 if detail.get("organizer") and not item.organizer:
                     item.organizer = detail["organizer"]
-                if detail.get("location"):
+                if detail.get("location") and not item.location:
                     item.location = detail["location"]
+                if detail.get("duration") and not item.duration:
+                    item.duration = detail["duration"]
+                if detail.get("notes_extra"):
+                    item.notes = f"{item.notes} {detail['notes_extra']}".strip()
                 if detail.get("description"):
                     item.notes = f"{item.notes} {detail['description'][:200]}".strip()
                 logger.info(f"    -> deadline={item.deadline} prize={item.prize_pool} tags={item.tags}")

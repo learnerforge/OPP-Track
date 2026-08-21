@@ -88,6 +88,13 @@ def _extract_detail_data(page) -> dict:
                     if duration:
                         updates["duration"] = duration
 
+                    # Deadline from endDate (submission deadline)
+                    if end:
+                        end_date_str = end.split("T")[0] if "T" in end else end
+                        parsed_end = parse_deadline(end_date_str)
+                        if parsed_end:
+                            updates["deadline"] = parsed_end
+
                     # Organizer
                     org = ld.get("organizer", {})
                     if isinstance(org, dict):
@@ -274,6 +281,8 @@ def scrape_devpost() -> list[ScrapeItem]:
                     item.eligibility = detail["eligibility"]
                 if detail.get("duration") and not item.duration:
                     item.duration = detail["duration"]
+                if detail.get("deadline") and not item.deadline:
+                    item.deadline = detail["deadline"]
                 if detail.get("organizer") and not item.organizer:
                     item.organizer = detail["organizer"]
                 if detail.get("location") and not item.location:

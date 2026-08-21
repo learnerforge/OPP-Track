@@ -287,6 +287,7 @@ def scrape_internshala() -> list[ScrapeItem]:
                         notes=f"Source: Internshala. {card['stipend']} {card['duration']}".strip(),
                         organizer=card["company"],
                         duration=card["duration"],
+                        prize_pool=card["stipend"],
                     )
                     items.append(item)
                     continue
@@ -331,6 +332,8 @@ def scrape_internshala() -> list[ScrapeItem]:
                 final_organizer = detail_updates.get("organizer", "") or card["company"]
                 final_location = detail_updates.get("location", "") or card["location"]
                 final_duration = detail_updates.get("duration", "") or card["duration"]
+                # Stipend as prize_pool for internships
+                final_stipend = detail_updates.get("stipend", "") or card["stipend"]
 
                 item = ScrapeItem(
                     title=card["title"],
@@ -344,6 +347,7 @@ def scrape_internshala() -> list[ScrapeItem]:
                     location=final_location,
                     organizer=final_organizer,
                     duration=final_duration,
+                    prize_pool=final_stipend,
                 )
                 items.append(item)
                 logger.info(f"  [{i+1}/{len(card_data)}] {card['title']} | deadline={item.deadline or '(none)'} | org={item.organizer}")

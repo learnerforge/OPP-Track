@@ -140,12 +140,14 @@ def _extract_location(item: dict) -> str:
         parts = []
         for key in ("city", "state", "country"):
             val = address.get(key)
+            if isinstance(val, dict):
+                val = val.get("name", "")
             if val:
                 parts.append(str(val))
         if parts:
             return ", ".join(parts)
     if region:
-        return region.capitalize()
+        return str(region).capitalize()
     return ""
 
 

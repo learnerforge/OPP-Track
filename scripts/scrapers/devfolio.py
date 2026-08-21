@@ -87,14 +87,22 @@ def _extract_json_from_devfolio(page) -> dict | None:
 
                 result = {}
 
+                # aggregatePrizeValue/Currency are at pageProps level, NOT inside hackathon
+                result["_aggregatePrizeValue"] = page_props.get("aggregatePrizeValue", 0)
+                result["_aggregatePrizeCurrency"] = page_props.get("aggregatePrizeCurrency", "USD")
+
                 hackathon = page_props.get("hackathon", {})
                 if hackathon and hackathon.get("name"):
                     result.update(hackathon)
 
-                # Settings for organizer fallback
+                # Settings for organizer fallback and registration deadline
                 settings = hackathon.get("settings", {})
                 if settings:
                     result["settings"] = settings
+                    # Registration deadline (more accurate than starts_at)
+                    reg_end = settings.get("reg_ends_at", "")
+                    if reg_end:
+                        result["_reg_ends_at"] = reg_end
 
                 # Themes from dehydratedState
                 dehydrated = page_props.get("dehydratedState", {})
@@ -199,20 +207,27 @@ def _scrape_detail_page(link: str) -> dict:
             if duration:
                 updates["duration"] = duration
 
-            # Deadline from starts_at (event start = registration deadline)
-            if starts_at:
-                date_match = re.match(r'(\d{4}-\d{2}-\d{2})', starts_at)
+            # Deadline from reg_ends_at (registration close) is more accurate than starts_at
+            reg_ends = json_data.get("_reg_ends_at", "")
+            if reg_ends:
+                date_match = re.match(r'(\d{4}-\d{2}-\d{2})', reg_ends)
                 if date_match:
                     updates["deadline"] = date_match.group(1)
+            if not updates.get("deadline"):
+                starts_at = json_data.get("starts_at", "")
+                if starts_at:
+                    date_match = re.match(r'(\d{4}-\d{2}-\d{2})', starts_at)
+                    if date_match:
+                        updates["deadline"] = date_match.group(1)
 
             # Participants from body
             part_match = re.search(r'"participants_count"\s*:\s*(\d+)', body)
             if part_match:
                 updates["participants"] = part_match.group(1)
 
-            # Prize from aggregatePrizeValue
-            prize_value = json_data.get("aggregatePrizeValue", 0)
-            prize_currency = json_data.get("aggregatePrizeCurrency", "USD")
+            # Prize from aggregatePrizeValue (at pageProps level, not hackathon)
+            prize_value = json_data.get("_aggregatePrizeValue", 0)
+            prize_currency = json_data.get("_aggregatePrizeCurrency", "USD")
             if prize_value:
                 updates["prize_pool"] = _format_prize(int(prize_value), prize_currency)
 
@@ -239,6 +254,20 @@ def _scrape_detail_page(link: str) -> dict:
             elig_parts.append("Beginners welcome")
         if elig_parts:
             updates["eligibility"] = ", ".join(elig_parts)
+
+        # Tags fallback from description keywords when themes are empty
+        if not updates.get("tags"):
+            tag_keywords = [
+                "blockchain", "ai", "machine learning", "web3", "nft", "defi",
+                "cloud", "fintech", "health", "education", "sustainability",
+                "iot", "cybersecurity", "data science", "ar", "vr",
+                "open innovation", "beginner", "hardware", "software",
+            ]
+            desc = json_data.get("desc", "") if json_data else ""
+            desc_lower = desc.lower() if desc else ""
+            found_tags = [kw.title() for kw in tag_keywords if kw in body_lower or kw in desc_lower]
+            if found_tags:
+                updates["tags"] = found_tags[:5]
 
     except Exception as e:
         logger.debug(f"  Detail page error for {link}: {e}")
