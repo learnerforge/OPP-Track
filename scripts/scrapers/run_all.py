@@ -57,6 +57,8 @@ from scripts.scrapers.hackindia import scrape_hackindia
 from scripts.scrapers.angelhack import scrape_angelhack
 from scripts.scrapers.sih import scrape_sih
 from scripts.scrapers.tcs_codevita import scrape_tcs_codevita
+from scripts.scrapers.buddy4study import scrape_buddy4study
+from scripts.scrapers.hackwithinfy import scrape_hackwithinfy
 
 OUTPUT_FILE = PROJECT_ROOT / "data" / "scraped_opportunities.json"
 SOURCES_FILE = PROJECT_ROOT / "scripts" / "scrapers" / "sources.json"
@@ -85,6 +87,8 @@ SCRAPERS = {
     "angelhack": ("AngelHack", scrape_angelhack),
     "sih": ("Smart India Hackathon", scrape_sih),
     "tcs_codevita": ("TCS CodeVita", scrape_tcs_codevita),
+    "buddy4study": ("Buddy4Study", scrape_buddy4study),
+    "hackwithinfy": ("HackWithInfy", scrape_hackwithinfy),
 }
 
 
