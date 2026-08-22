@@ -1211,6 +1211,117 @@
       "priority": "medium",
       "region": "india",
       "notes": "Corporate-sponsored coding challenges; hiring challenges from Indian companies; formerly Townscript"
+    },
+    {
+      "id": "glassdoor",
+      "name": "Glassdoor",
+      "url": "https://www.glassdoor.com/Job/internships-SRCH_KO0,12.htm",
+      "type": "internship",
+      "category": "aggregator",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": ".job-card, [class*='job-card']",
+        "title": ".job-title, [class*='job-title']",
+        "link": "a.job-title",
+        "deadline": null,
+        "location": ".job-location, [class*='location']",
+        "prize": ".salary, [class*='salary']",
+        "participants": null,
+        "tags": ".employer-name",
+        "company": ".employer-name"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "us",
+      "notes": "Major job review platform; internship listings with salary data and company reviews"
+    },
+    {
+      "id": "apple_jobs",
+      "name": "Apple Jobs",
+      "url": "https://jobs.apple.com/en-us/search?search=intern",
+      "type": "internship",
+      "category": "corporate",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": ".job-listing, [class*='job-card']",
+        "title": ".job-title, [class*='job-title']",
+        "link": "a[href*='/requisitions/']",
+        "deadline": null,
+        "location": ".job-location, [class*='location']",
+        "prize": null,
+        "participants": null,
+        "tags": ".job-team"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "us",
+      "notes": "Apple internship and full-time positions; Cupertino and remote"
+    },
+    {
+      "id": "meta_careers",
+      "name": "Meta Careers",
+      "url": "https://www.metacareers.com/students",
+      "type": "internship",
+      "category": "corporate",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": ".job-card, [class*='job-card']",
+        "title": ".job-title, [class*='job-title']",
+        "link": "a[href*='/jobs/']",
+        "deadline": null,
+        "location": ".job-location, [class*='location']",
+        "prize": null,
+        "participants": null,
+        "tags": ".job-team"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "us",
+      "notes": "Meta Facebook internships; SWE PM Data Science"
+    },
+    {
+      "id": "fastweb",
+      "name": "Fastweb",
+      "url": "https://www.fastweb.com/college-scholarships",
+      "type": "scholarship",
+      "category": "aggregator",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": ".scholarship-card, [class*='scholarship']",
+        "title": ".scholarship-title, [class*='title']",
+        "link": "a[href*='/scholarships/']",
+        "deadline": ".deadline, [class*='deadline']",
+        "location": null,
+        "prize": ".award-amount, [class*='amount']",
+        "participants": null,
+        "tags": ".category-tag"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "us",
+      "notes": "Largest US scholarship search engine with matching algorithm"
+    },
+    {
+      "id": "scholarshipowl",
+      "name": "ScholarshipOwl",
+      "url": "https://scholarshipowl.com/scholarships",
+      "type": "scholarship",
+      "category": "aggregator",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": ".scholarship-card, [class*='scholarship']",
+        "title": ".scholarship-title, [class*='title']",
+        "link": "a[href*='/scholarship/']",
+        "deadline": ".deadline, [class*='deadline']",
+        "location": null,
+        "prize": ".amount, [class*='amount']",
+        "participants": null,
+        "tags": ".category-tag"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "us",
+      "notes": "Scholarship matching platform with no-essay scholarships"
     }
   ],
   "scrape_methods": {

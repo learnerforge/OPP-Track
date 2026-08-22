@@ -59,6 +59,77 @@ from scripts.scrapers.sih import scrape_sih
 from scripts.scrapers.tcs_codevita import scrape_tcs_codevita
 from scripts.scrapers.buddy4study import scrape_buddy4study
 from scripts.scrapers.hackwithinfy import scrape_hackwithinfy
+# Phase 2A - Competitive Programming
+from scripts.scrapers.atcoder import scrape_atcoder
+from scripts.scrapers.codechef import scrape_codechef
+from scripts.scrapers.topcoder import scrape_topcoder
+from scripts.scrapers.leetcode_contest import scrape_leetcode_contest
+from scripts.scrapers.meta_hacker_cup import scrape_meta_hacker_cup
+from scripts.scrapers.advent_of_code import scrape_advent_of_code
+# Phase 2B - AI/ML Competitions
+from scripts.scrapers.aicrowd import scrape_aicrowd
+from scripts.scrapers.codabench import scrape_codabench
+from scripts.scrapers.zindi import scrape_zindi
+from scripts.scrapers.drivendata import scrape_drivendata
+from scripts.scrapers.signate import scrape_signate
+# Phase 2C - Bug Bounty
+from scripts.scrapers.hackerone import scrape_hackerone
+from scripts.scrapers.bugcrowd import scrape_bugcrowd
+from scripts.scrapers.immunefi import scrape_immunefi
+# Phase 2D - Hackathon Platforms
+from scripts.scrapers.lablab_ai import scrape_lablab_ai
+from scripts.scrapers.hackclub import scrape_hackclub
+from scripts.scrapers.hackathon_dotcom import scrape_hackathon_dotcom
+from scripts.scrapers.qureka import scrape_qureka
+from scripts.scrapers.codegladiators import scrape_codegladiators
+# Phase 2E - Certifications
+from scripts.scrapers.edx import scrape_edx
+from scripts.scrapers.udacity import scrape_udacity
+from scripts.scrapers.aws_training import scrape_aws_training
+from scripts.scrapers.ibm_skills import scrape_ibm_skills
+from scripts.scrapers.google_cloud_skills import scrape_google_cloud_skills
+# Phase 4 - Niche Sources
+from scripts.scrapers.outreachy import scrape_outreachy
+from scripts.scrapers.mlh_fellowship import scrape_mlh_fellowship
+from scripts.scrapers.gsoc import scrape_gsoc
+from scripts.scrapers.prepbytes import scrape_prepbytes
+from scripts.scrapers.interviewbit import scrape_interviewbit
+from scripts.scrapers.codingninjas import scrape_codingninjas
+from scripts.scrapers.remotive import scrape_remotive
+from scripts.scrapers.himalayas import scrape_himalayas
+from scripts.scrapers.console_dev import scrape_console_dev
+from scripts.scrapers.simplifyjobs import scrape_simplify_internships
+from scripts.scrapers.turing import scrape_turing
+# Tier 1 - Corporate Careers
+from scripts.scrapers.leetcode_problems import scrape_leetcode_problems
+from scripts.scrapers.google_careers import scrape_google_careers
+from scripts.scrapers.amazon_jobs import scrape_amazon_jobs
+from scripts.scrapers.microsoft_careers import scrape_microsoft_careers
+from scripts.scrapers.apple_jobs import scrape_apple_jobs
+from scripts.scrapers.meta_careers import scrape_meta_careers
+from scripts.scrapers.goldman_sachs import scrape_goldman_sachs
+from scripts.scrapers.jpmorgan import scrape_jpmorgan
+from scripts.scrapers.flipkart import scrape_flipkart
+from scripts.scrapers.aiesec import scrape_aiesec
+# Tier 2 - Government/Institutional
+from scripts.scrapers.nasa_internships import scrape_nasa_internships
+from scripts.scrapers.usajobs import scrape_usajobs
+from scripts.scrapers.challenge_gov import scrape_challenge_gov
+from scripts.scrapers.nsf_reu import scrape_nsf_reu
+from scripts.scrapers.cern_internships import scrape_cern_internships
+from scripts.scrapers.mitacs import scrape_mitacs
+from scripts.scrapers.daad_rise import scrape_daad_rise
+# Tier 3 - Job Aggregators & Scholarships
+from scripts.scrapers.linkedin_jobs import scrape_linkedin_jobs
+from scripts.scrapers.indeed import scrape_indeed
+from scripts.scrapers.wellfound import scrape_wellfound
+from scripts.scrapers.yc_jobs import scrape_yc_jobs
+from scripts.scrapers.handshake import scrape_handshake
+from scripts.scrapers.forage import scrape_forage
+from scripts.scrapers.virtual_internships import scrape_virtual_internships
+from scripts.scrapers.fastweb import scrape_fastweb
+from scripts.scrapers.scholarshipowl import scrape_scholarshipowl
+from scripts.scrapers.reskilll import scrape_reskilll
 
 OUTPUT_FILE = PROJECT_ROOT / "data" / "scraped_opportunities.json"
 SOURCES_FILE = PROJECT_ROOT / "scripts" / "scrapers" / "sources.json"
@@ -89,6 +160,77 @@ SCRAPERS = {
     "tcs_codevita": ("TCS CodeVita", scrape_tcs_codevita),
     "buddy4study": ("Buddy4Study", scrape_buddy4study),
     "hackwithinfy": ("HackWithInfy", scrape_hackwithinfy),
+    # Phase 2A - Competitive Programming
+    "atcoder": ("AtCoder", scrape_atcoder),
+    "codechef": ("CodeChef", scrape_codechef),
+    "topcoder": ("Topcoder", scrape_topcoder),
+    "leetcode_contest": ("LeetCode Contests", scrape_leetcode_contest),
+    "meta_hacker_cup": ("Meta Hacker Cup", scrape_meta_hacker_cup),
+    "advent_of_code": ("Advent of Code", scrape_advent_of_code),
+    # Phase 2B - AI/ML Competitions
+    "aicrowd": ("AIcrowd", scrape_aicrowd),
+    "codabench": ("CodaBench", scrape_codabench),
+    "zindi": ("Zindi", scrape_zindi),
+    "drivendata": ("DrivenData", scrape_drivendata),
+    "signate": ("SIGNATE", scrape_signate),
+    # Phase 2C - Bug Bounty
+    "hackerone": ("HackerOne", scrape_hackerone),
+    "bugcrowd": ("Bugcrowd", scrape_bugcrowd),
+    "immunefi": ("Immunefi", scrape_immunefi),
+    # Phase 2D - Hackathon Platforms
+    "lablab_ai": ("lablab.ai", scrape_lablab_ai),
+    "hackclub": ("Hack Club", scrape_hackclub),
+    "hackathon_dotcom": ("Hackathon.com", scrape_hackathon_dotcom),
+    "qureka": ("Qureka", scrape_qureka),
+    "codegladiators": ("CodeGladiators", scrape_codegladiators),
+    # Phase 2E - Certifications
+    "edx": ("edX", scrape_edx),
+    "udacity": ("Udacity", scrape_udacity),
+    "aws_training": ("AWS Training", scrape_aws_training),
+    "ibm_skills": ("IBM Skills", scrape_ibm_skills),
+    "google_cloud_skills": ("Google Cloud Skills", scrape_google_cloud_skills),
+    # Phase 4 - Niche Sources
+    "outreachy": ("Outreachy", scrape_outreachy),
+    "mlh_fellowship": ("MLH Fellowship", scrape_mlh_fellowship),
+    "gsoc": ("Google Summer of Code", scrape_gsoc),
+    "prepbytes": ("PrepBytes", scrape_prepbytes),
+    "interviewbit": ("InterviewBit", scrape_interviewbit),
+    "codingninjas": ("CodingNinjas", scrape_codingninjas),
+    "remotive": ("Remotive", scrape_remotive),
+    "himalayas": ("Himalayas", scrape_himalayas),
+    "console_dev": ("Console.dev", scrape_console_dev),
+    "simplifyjobs": ("SimplifyJobs", scrape_simplify_internships),
+    "turing": ("Turing", scrape_turing),
+    # Tier 1 - Corporate Careers
+    "leetcode_problems": ("LeetCode Problems", scrape_leetcode_problems),
+    "google_careers": ("Google Careers", scrape_google_careers),
+    "amazon_jobs": ("Amazon Jobs", scrape_amazon_jobs),
+    "microsoft_careers": ("Microsoft Careers", scrape_microsoft_careers),
+    "apple_jobs": ("Apple Jobs", scrape_apple_jobs),
+    "meta_careers": ("Meta Careers", scrape_meta_careers),
+    "goldman_sachs": ("Goldman Sachs", scrape_goldman_sachs),
+    "jpmorgan": ("JPMorgan", scrape_jpmorgan),
+    "flipkart": ("Flipkart", scrape_flipkart),
+    "aiesec": ("AIESEC", scrape_aiesec),
+    # Tier 2 - Government/Institutional
+    "nasa_internships": ("NASA Internships", scrape_nasa_internships),
+    "usajobs": ("USAJobs", scrape_usajobs),
+    "challenge_gov": ("Challenge.gov", scrape_challenge_gov),
+    "nsf_reu": ("NSF REU", scrape_nsf_reu),
+    "cern_internships": ("CERN Internships", scrape_cern_internships),
+    "mitacs": ("Mitacs", scrape_mitacs),
+    "daad_rise": ("DAAD RISE", scrape_daad_rise),
+    # Tier 3 - Job Aggregators & Scholarships
+    "linkedin_jobs": ("LinkedIn Jobs", scrape_linkedin_jobs),
+    "indeed": ("Indeed", scrape_indeed),
+    "wellfound": ("Wellfound", scrape_wellfound),
+    "yc_jobs": ("YC Jobs", scrape_yc_jobs),
+    "handshake": ("Handshake", scrape_handshake),
+    "forage": ("Forage", scrape_forage),
+    "virtual_internships": ("Virtual Internships", scrape_virtual_internships),
+    "fastweb": ("Fastweb", scrape_fastweb),
+    "scholarshipowl": ("ScholarshipOwl", scrape_scholarshipowl),
+    "reskilll": ("Reskilll", scrape_reskilll),
 }
 
 
