@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "last_updated": "2026-08-20",
-  "total_sources": 50,
+  "last_updated": "2026-08-29",
+  "total_sources": 58,
   "sources": [
     {
       "id": "devpost",
@@ -1322,6 +1322,124 @@
       "priority": "medium",
       "region": "us",
       "notes": "Scholarship matching platform with no-essay scholarships"
+    },
+    {
+      "id": "atcoder",
+      "name": "AtCoder",
+      "url": "https://atcoder.jp/contests/",
+      "type": "hackathon",
+      "category": "direct_host",
+      "scrape_method": "httpx",
+      "selectors": {
+        "item": "#contest-table-upcoming tr",
+        "title": "td:nth-child(2) a",
+        "link": "td:nth-child(2) a",
+        "deadline": "td:nth-child(1) time.fixtime",
+        "location": null,
+        "prize": null,
+        "participants": null,
+        "tags": null,
+        "duration": "td:nth-child(3)",
+        "rated_range": "td:nth-child(4)",
+        "status": ".contest-table"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "global",
+      "notes": "Japanese competitive programming platform; server-rendered tables; filter to upcoming ABC/AGC/ARC ladder contests"
+    },
+    {
+      "id": "meta_hacker_cup",
+      "name": "Meta Hacker Cup",
+      "url": "https://www.facebook.com/codingcompetitions/hacker-cup",
+      "type": "hackathon",
+      "category": "direct_host",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": "a[href*='hacker-cup/'][href*='round']",
+        "title": "[role='heading'][aria-level='2']",
+        "link": "a[href*='round']",
+        "deadline": ".ellipsis",
+        "location": null,
+        "prize": null,
+        "participants": null,
+        "tags": null,
+        "status": "span",
+        "season": "div[role='heading'][aria-level='1']"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "global",
+      "notes": "Meta's annual programming competition; facebook.com blocks plain HTTP (400) so StealthyFetcher is required; seasonal Oct-Dec; rounds only emitted when start date is in the future"
+    },
+    {
+      "id": "advent_of_code",
+      "name": "Advent of Code",
+      "url": "https://adventofcode.com/events",
+      "type": "hackathon",
+      "category": "direct_host",
+      "scrape_method": "httpx",
+      "selectors": {
+        "item": "article.event a",
+        "title": "a",
+        "link": "a",
+        "deadline": null,
+        "location": null,
+        "prize": null,
+        "participants": null,
+        "tags": null,
+        "status": "event"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "global",
+      "notes": "Annual December programming puzzle challenge; fixed schedule Dec 1-25; events page lists past years; current-year entry added when its page is not yet live"
+    },
+    {
+      "id": "hackclub",
+      "name": "Hack Club",
+      "url": "https://hackathons.hackclub.com",
+      "type": "hackathon",
+      "category": "direct_host",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": "props.pageProps.events (__NEXT_DATA__)",
+        "title": "name",
+        "link": "website",
+        "deadline": "start (ISO)",
+        "location": "virtual/hybrid flags",
+        "prize": null,
+        "participants": null,
+        "tags": "mlhAssociated / hack_club_event",
+        "status": "end (ISO)"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "global",
+      "notes": "Hack Club staff-maintained calendar of high-school hackathons worldwide; Next.js page with the event list embedded in __NEXT_DATA__ (name, website, start/end, city/state/country, virtual/hybrid). Deadline = event start; only not-yet-ended events are kept"
+    },
+    {
+      "id": "hackathon_dotcom",
+      "name": "Hackathon.com",
+      "url": "https://www.hackathon.com/online",
+      "type": "hackathon",
+      "category": "aggregator",
+      "scrape_method": "scrapling",
+      "selectors": {
+        "item": ".ht-event-card",
+        "title": ".ht-event-card__title",
+        "link": ".ht-event-card__title",
+        "deadline": ".ht-event-card__date",
+        "location": ".ht-event-card__location",
+        "prize": ".ht-event-card__desc",
+        "participants": null,
+        "tags": ".ht-event-topics__tag",
+        "status": ".ht-pagination-info"
+      },
+      "enabled": true,
+      "priority": "medium",
+      "region": "global",
+      "notes": "BeMyApp/Ideation platform; /events path 404s, live listing is /online (plus per-year archives /online/<year>); server-rendered .ht-event-card cards; dates are month/day without year; StealthyFetcher required"
     }
   ],
   "scrape_methods": {

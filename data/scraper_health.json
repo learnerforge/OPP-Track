@@ -1,0 +1,434 @@
+[
+  {
+    "source": "Codeforces",
+    "items": 4,
+    "time_s": 2.0,
+    "status": "OK"
+  },
+  {
+    "source": "DoraHacks",
+    "items": 14,
+    "time_s": 1.8,
+    "status": "OK"
+  },
+  {
+    "source": "ETHGlobal",
+    "items": 3,
+    "time_s": 7.5,
+    "status": "OK"
+  },
+  {
+    "source": "Kaggle",
+    "items": 0,
+    "time_s": 133.0,
+    "status": "EMPTY"
+  },
+  {
+    "source": "HackerRank",
+    "items": 1,
+    "time_s": 7.4,
+    "status": "OK"
+  },
+  {
+    "source": "AngelHack",
+    "items": 0,
+    "time_s": 76.5,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Smart India Hackathon",
+    "items": 1,
+    "time_s": 1.5,
+    "status": "OK"
+  },
+  {
+    "source": "TCS CodeVita",
+    "items": 1,
+    "time_s": 1.7,
+    "status": "OK"
+  },
+  {
+    "source": "Buddy4Study",
+    "items": 0,
+    "time_s": 1.0,
+    "status": "EMPTY"
+  },
+  {
+    "source": "HackWithInfy",
+    "items": 0,
+    "time_s": 1.0,
+    "status": "EMPTY"
+  },
+  {
+    "source": "AtCoder",
+    "items": 7,
+    "time_s": 0.8,
+    "status": "OK"
+  },
+  {
+    "source": "CodeChef",
+    "items": 5,
+    "time_s": 10.6,
+    "status": "OK"
+  },
+  {
+    "source": "Topcoder",
+    "items": 0,
+    "time_s": 116.3,
+    "status": "EMPTY"
+  },
+  {
+    "source": "LeetCode Contests",
+    "items": 4,
+    "time_s": 9.1,
+    "status": "OK"
+  },
+  {
+    "source": "Meta Hacker Cup",
+    "items": 0,
+    "time_s": 161.9,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Advent of Code",
+    "items": 0,
+    "time_s": 12.6,
+    "status": "EMPTY"
+  },
+  {
+    "source": "AIcrowd",
+    "items": 0,
+    "time_s": 12.6,
+    "status": "EMPTY"
+  },
+  {
+    "source": "CodaBench",
+    "items": 0,
+    "time_s": 12.7,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Zindi",
+    "items": 0,
+    "time_s": 139.4,
+    "status": "EMPTY"
+  },
+  {
+    "source": "DrivenData",
+    "items": 0,
+    "time_s": 27.2,
+    "status": "EMPTY"
+  },
+  {
+    "source": "SIGNATE",
+    "items": 0,
+    "time_s": 42.2,
+    "status": "EMPTY"
+  },
+  {
+    "source": "HackerOne",
+    "items": 0,
+    "time_s": 27.7,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Bugcrowd",
+    "items": 0,
+    "time_s": 12.6,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Immunefi",
+    "items": 0,
+    "time_s": 12.6,
+    "status": "EMPTY"
+  },
+  {
+    "source": "lablab.ai",
+    "items": 10,
+    "time_s": 132.1,
+    "status": "OK"
+  },
+  {
+    "source": "Hack Club",
+    "items": 0,
+    "time_s": 69.4,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Hackathon.com",
+    "items": 4,
+    "time_s": 100.4,
+    "status": "OK"
+  },
+  {
+    "source": "Qureka",
+    "items": 0,
+    "time_s": 12.7,
+    "status": "EMPTY"
+  },
+  {
+    "source": "CodeGladiators",
+    "items": 0,
+    "time_s": 12.6,
+    "status": "EMPTY"
+  },
+  {
+    "source": "edX",
+    "items": 0,
+    "time_s": 24.8,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Udacity",
+    "items": 0,
+    "time_s": 12.2,
+    "status": "EMPTY"
+  },
+  {
+    "source": "AWS Training",
+    "items": 10,
+    "time_s": 27.3,
+    "status": "OK"
+  },
+  {
+    "source": "IBM Skills",
+    "items": 0,
+    "time_s": 15.2,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Google Cloud Skills",
+    "items": 10,
+    "time_s": 25.3,
+    "status": "OK"
+  },
+  {
+    "source": "Outreachy",
+    "items": 1,
+    "time_s": 15.3,
+    "status": "OK"
+  },
+  {
+    "source": "MLH Fellowship",
+    "items": 1,
+    "time_s": 16.9,
+    "status": "OK"
+  },
+  {
+    "source": "Google Summer of Code",
+    "items": 1,
+    "time_s": 11.2,
+    "status": "OK"
+  },
+  {
+    "source": "PrepBytes",
+    "items": 0,
+    "time_s": 10.8,
+    "status": "EMPTY"
+  },
+  {
+    "source": "InterviewBit",
+    "items": 76,
+    "time_s": 7.8,
+    "status": "OK"
+  },
+  {
+    "source": "CodingNinjas",
+    "items": 0,
+    "time_s": 4.4,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Remotive",
+    "items": 0,
+    "time_s": 4.0,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Himalayas",
+    "items": 0,
+    "time_s": 3.1,
+    "status": "EMPTY"
+  },
+  {
+    "source": "Console.dev",
+    "items": 0,
+    "time_s": 2.7,
+    "status": "EMPTY"
+  },
+  {
+    "source": "SimplifyJobs",
+    "items": 18,
+    "time_s": 1.7,
+    "status": "OK"
+  },
+  {
+    "source": "Turing",
+    "items": 0,
+    "time_s": 1.2,
+    "status": "EMPTY"
+  },
+  {
+    "source": "LeetCode Problems",
+    "items": 1,
+    "time_s": 3.6,
+    "status": "OK"
+  },
+  {
+    "source": "Google Careers",
+    "items": 1,
+    "time_s": 1.0,
+    "status": "OK"
+  },
+  {
+    "source": "Amazon Jobs",
+    "items": 1,
+    "time_s": 1.8,
+    "status": "OK"
+  },
+  {
+    "source": "Microsoft Careers",
+    "items": 1,
+    "time_s": 1.8,
+    "status": "OK"
+  },
+  {
+    "source": "Apple Jobs",
+    "items": 21,
+    "time_s": 2.6,
+    "status": "OK"
+  },
+  {
+    "source": "Meta Careers",
+    "items": 1,
+    "time_s": 1.2,
+    "status": "OK"
+  },
+  {
+    "source": "Goldman Sachs",
+    "items": 1,
+    "time_s": 1.6,
+    "status": "OK"
+  },
+  {
+    "source": "JPMorgan",
+    "items": 55,
+    "time_s": 4.9,
+    "status": "OK"
+  },
+  {
+    "source": "Flipkart",
+    "items": 1,
+    "time_s": 1.0,
+    "status": "OK"
+  },
+  {
+    "source": "AIESEC",
+    "items": 1,
+    "time_s": 0.7,
+    "status": "OK"
+  },
+  {
+    "source": "NASA Internships",
+    "items": 6,
+    "time_s": 2.9,
+    "status": "OK"
+  },
+  {
+    "source": "USAJobs",
+    "items": 1,
+    "time_s": 1.7,
+    "status": "OK"
+  },
+  {
+    "source": "Challenge.gov",
+    "items": 0,
+    "time_s": 1.1,
+    "status": "EMPTY"
+  },
+  {
+    "source": "NSF REU",
+    "items": 1,
+    "time_s": 1.8,
+    "status": "OK"
+  },
+  {
+    "source": "CERN Internships",
+    "items": 1,
+    "time_s": 2.0,
+    "status": "OK"
+  },
+  {
+    "source": "Mitacs",
+    "items": 13,
+    "time_s": 4.4,
+    "status": "OK"
+  },
+  {
+    "source": "DAAD RISE",
+    "items": 1,
+    "time_s": 2.9,
+    "status": "OK"
+  },
+  {
+    "source": "LinkedIn Jobs",
+    "items": 59,
+    "time_s": 2.2,
+    "status": "OK"
+  },
+  {
+    "source": "Indeed",
+    "items": 1,
+    "time_s": 0.9,
+    "status": "OK"
+  },
+  {
+    "source": "Wellfound",
+    "items": 1,
+    "time_s": 1.8,
+    "status": "OK"
+  },
+  {
+    "source": "YC Jobs",
+    "items": 1,
+    "time_s": 0.7,
+    "status": "OK"
+  },
+  {
+    "source": "Handshake",
+    "items": 31,
+    "time_s": 1.4,
+    "status": "OK"
+  },
+  {
+    "source": "Forage",
+    "items": 1,
+    "time_s": 3.0,
+    "status": "OK"
+  },
+  {
+    "source": "Virtual Internships",
+    "items": 1,
+    "time_s": 3.7,
+    "status": "OK"
+  },
+  {
+    "source": "Fastweb",
+    "items": 131,
+    "time_s": 2.6,
+    "status": "OK"
+  },
+  {
+    "source": "ScholarshipOwl",
+    "items": 1,
+    "time_s": 2.7,
+    "status": "OK"
+  },
+  {
+    "source": "Reskilll",
+    "items": 6,
+    "time_s": 1.2,
+    "status": "OK"
+  }
+]

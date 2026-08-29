@@ -24,15 +24,13 @@ USER_AGENT = (
 )
 
 CONTESTS_QUERY = """
-query contestList {
-  brightTitle
-  containsPremium
-  contests {
-    containsPremium
+query {
+  allContests {
     title
     titleSlug
     startTime
     duration
+    containsPremium
   }
 }
 """
@@ -69,11 +67,12 @@ def scrape_leetcode_contest() -> list[ScrapeItem]:
         logger.warning("LeetCode returned non-JSON")
         return items
 
-    contests = data.get("data", {}).get("contests", [])
+    contests = data.get("data", {}).get("allContests", [])
     if not contests:
         logger.warning("No LeetCode contests found")
         return items
 
+    now = int(datetime.now(timezone.utc).timestamp())
     for entry in contests:
         if not isinstance(entry, dict):
             continue
@@ -87,6 +86,8 @@ def scrape_leetcode_contest() -> list[ScrapeItem]:
 
         # Parse start time (unix timestamp in seconds)
         start_time = entry.get("startTime", 0)
+        if start_time and start_time < now:
+            continue  # skip past contests
         deadline = ""
         if start_time:
             try:

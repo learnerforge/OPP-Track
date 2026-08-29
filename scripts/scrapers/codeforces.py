@@ -65,8 +65,8 @@ def scrape_codeforces() -> list[ScrapeItem]:
             source="Codeforces",
             link=f"https://codeforces.com/contest/{contest_id}",
             deadline=deadline,
-            eligibility="Open to all",
-            tags=["competitive programming", contest_type.lower()],
+            eligibility="Global participants",
+            tags=["competitive programming", "codeforces"],
             location="Online",
             notes=notes,
         )

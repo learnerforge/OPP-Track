@@ -1,137 +1,151 @@
 """
-hackathon.com scraper.
-hackathon.com is a general hackathon aggregator.
-The events page lists upcoming hackathons.
+hackathon.com scraper (BeMyApp / Ideation platform).
+The old listing path (/events) now 404s; the live listing pages are e.g.
+https://www.hackathon.com/online (upcoming online events) with per-year archives
+at /online/<year>. Event cards (.ht-event-card) are server-rendered and expose
+title, link, a displayed date, location, description, topics and prize text.
+We use StealthyFetcher (headless Chromium) to get past the bot protection and
+parse the .ht-event-card elements. The "Showing results N out of N" counter
+tells us whether the whole listing was captured.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import urljoin
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
 
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-HACKATHON_COM_URL = "https://hackathon.com/events"
-HACKATHON_COM_BASE = "https://hackathon.com"
+HACKATHON_COM_URL = "https://www.hackathon.com/online"
+HACKATHON_COM_BASE = "https://www.hackathon.com"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+PRIZE_RE = re.compile(r"\$\s?[\d,]+(?:\s?[kK])?")
+
+# Matches a "01 Jul" / "16 Sep" style month-day (the cards show a single date
+# without a year, e.g. "01 Jul - 12:00 AM").
+MONTH_DAY_RE = re.compile(r"\b(\d{1,2})\s+([A-Za-z]{3,9})\b")
+
+ELIGIBILITY_PATTERNS = [
+    (re.compile(r"university students\s*\d+\s*years", re.I), "University students"),
+    (re.compile(r"university students", re.I), "University students"),
+    (re.compile(r"high school", re.I), "High school students"),
+    (re.compile(r"students", re.I), "Open to students"),
+    (re.compile(r"enterprise developers", re.I), "Open to enterprise developers"),
+    (re.compile(r"\d+\s*years of age", re.I), "18+ (per official rules)"),
+]
+
+DEFAULT_ELIGIBILITY = "Open to all"
+
+
+def _extract_eligibility(desc: str) -> str:
+    for pattern, label in ELIGIBILITY_PATTERNS:
+        if pattern.search(desc):
+            return label
+    return DEFAULT_ELIGIBILITY
+
+
+def _extract_prize(desc: str) -> str:
+    match = PRIZE_RE.search(desc)
+    return match.group(0) if match else ""
+
+
+def _parse_card(card) -> ScrapeItem | None:
+    title_els = card.css(".ht-event-card__title")
+    if not title_els:
+        return None
+    href = title_els[0].attrib.get("href", "")
+    title = clean_text(title_els[0].get_all_text())
+    if not title or not href:
+        return None
+    link = urljoin(HACKATHON_COM_BASE, href)
+
+    date_raw = clean_text(
+        card.css(".ht-event-card__date")[0].get_all_text() if card.css(".ht-event-card__date") else ""
+    )
+    # e.g. "01 Jul - 12:00 AM" or "16 Sep - 10:00 AM"
+    deadline = ""
+    month_day = MONTH_DAY_RE.search(date_raw)
+    if month_day:
+        deadline = parse_deadline(f"{month_day.group(1)} {month_day.group(2)}")
+
+    location_raw = clean_text(
+        card.css(".ht-event-card__location")[0].get_all_text() if card.css(".ht-event-card__location") else ""
+    )
+    loc_lower = location_raw.lower()
+    if any(k in loc_lower for k in ("online", "virtual")):
+        location = "Online"
+    elif "hybrid" in loc_lower:
+        location = "Hybrid"
+    else:
+        location = "Offline" if location_raw else "Online"
+
+    tags = [clean_text(t.get_all_text()) for t in card.css(".ht-event-topics__tag")]
+    tags = [t for t in tags if t] or ["hackathon"]
+
+    desc = clean_text(card.css(".ht-event-card__desc")[0].get_all_text() if card.css(".ht-event-card__desc") else "")
+    prize = _extract_prize(desc)
+    eligibility = _extract_eligibility(desc)
+
+    notes_parts = ["Source: hackathon.com."]
+    if date_raw:
+        notes_parts.append(f"Displayed date: {date_raw}.")
+    if prize:
+        notes_parts.append(f"Prize: {prize}.")
+
+    item = ScrapeItem(
+        title=title,
+        type="Hackathon",
+        source="hackathon.com",
+        link=link,
+        deadline=deadline,
+        eligibility=eligibility,
+        tags=tags,
+        notes=" ".join(notes_parts),
+        location=location,
+        prize_pool=prize,
+    )
+    errors = item.validate()
+    if errors:
+        logger.debug(f"hackathon.com: skipping invalid item {title}: {errors}")
+        return None
+    return item
 
 
 def scrape_hackathon_dotcom() -> list[ScrapeItem]:
-    """Scrape hackathon.com events."""
-    items: list[ScrapeItem] = []
-    logger.info("Fetching hackathon.com events: %s", HACKATHON_COM_URL)
-
+    """Scrape upcoming hackathon.com events."""
+    logger.info(f"Fetching hackathon.com events: {HACKATHON_COM_URL}")
     try:
-        resp = httpx.get(
+        page = StealthyFetcher.fetch(
             HACKATHON_COM_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT},
+            headless=True,
+            disable_resources=True,
+            network_idle=True,
+            timeout=60000,
         )
     except Exception as e:
-        logger.error("hackathon.com request failed: %s", e)
-        return items
+        logger.error(f"hackathon.com fetch failed: {e}")
+        return []
+    if getattr(page, "status", None) != 200:
+        logger.warning(f"hackathon.com returned status {getattr(page, 'status', None)}")
+        return []
 
-    if resp.status_code != 200:
-        logger.warning("hackathon.com returned %d", resp.status_code)
-        return items
+    cards = page.css(".ht-event-card")
+    if not cards:
+        logger.warning("hackathon.com: no .ht-event-card elements found")
+        return []
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=HACKATHON_COM_URL)
-
-    # hackathon.com event cards
-    cards = page.css(".event-card, .card, [class*='event'], article")
-    seen_links = set()
-
+    items: list[ScrapeItem] = []
     for card in cards:
-        link_el = card.css("a[href*='/events/'], a[href*='/hackathon']")
-        if not link_el:
-            link_el = card.css("a")
-
-        if not link_el:
-            continue
-
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title']")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-
-        if not title or len(title) < 5:
-            continue
-
-        full_url = href if href.startswith("http") else f"{HACKATHON_COM_BASE}{href}"
-        if full_url in seen_links:
-            continue
-        seen_links.add(full_url)
-
-        # Try to find deadline
-        deadline_el = card.css("[class*='deadline'], [class*='date'], time, [class*='end']")
-        deadline = ""
-        if deadline_el:
-            deadline_text = clean_text(deadline_el[0].text)
-            deadline = parse_deadline(deadline_text)
-
-        # Try to find prize info
-        prize_el = card.css("[class*='prize'], [class*='reward']")
-        prize_pool = clean_text(prize_el[0].text) if prize_el else ""
-
-        tags = ["hackathon"]
-
-        notes_parts = ["Source: hackathon.com."]
-        if prize_pool:
-            notes_parts.append(f"Prize: {prize_pool}.")
-
-        item = ScrapeItem(
-            title=title,
-            type="Hackathon",
-            source="hackathon.com",
-            link=full_url,
-            deadline=deadline,
-            eligibility="Open to all",
-            tags=tags,
-            location="Online",
-            prize_pool=prize_pool,
-            notes=" ".join(notes_parts),
-        )
-        if not item.validate():
+        item = _parse_card(card)
+        if item:
             items.append(item)
-
-    # Fallback: parse event links
-    if not items:
-        links = page.css("a[href*='/events/']")
-        for link_el in links:
-            href = link_el.attrib.get("href", "")
-            title = clean_text(link_el.text)
-            if not title or len(title) < 5:
-                continue
-            full_url = href if href.startswith("http") else f"{HACKATHON_COM_BASE}{href}"
-            if full_url in seen_links:
-                continue
-            seen_links.add(full_url)
-
-            item = ScrapeItem(
-                title=title,
-                type="Hackathon",
-                source="hackathon.com",
-                link=full_url,
-                deadline="",
-                eligibility="Open to all",
-                tags=["hackathon"],
-                location="Online",
-                notes="Source: hackathon.com.",
-            )
-            if not item.validate():
-                items.append(item)
-
     items = deduplicate_by_link(items)
-    logger.info("hackathon.com: scraped %d events", len(items))
+    logger.info(f"hackathon.com: scraped {len(items)} events")
     return items
 
 
@@ -139,5 +153,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_hackathon_dotcom()
     print(f"hackathon.com: {len(results)} items")
-    for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.deadline} | {item.link[:50]}")
+    for item in results:
+        print(f"  {item.title[:60]} | deadline {item.deadline} | {item.location} | {item.link}")

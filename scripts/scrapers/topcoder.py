@@ -1,126 +1,140 @@
 """
 Topcoder scraper.
-Topcoder has a public API at api.topcoder.com/v5/challenges.
-We fetch active/upcoming challenges that are open for registration.
+Topcoder hosts competitive programming and design challenges.
+The challenges directory at topcoder.com/challenges lists active challenges (React SPA - StealthyFetcher).
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+import re
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
+from scrapling.parser import Selector
 
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-TOPCODER_API = "https://api.topcoder.com/v5/challenges"
-TOPCODER_BASE = "https://www.topcoder.com/challenges"
+TOPCODER_URL = "https://www.topcoder.com/challenges"
+TOPCODER_BASE = "https://www.topcoder.com"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+
+def _parse_ends(text: str) -> str:
+    """Parse 'Ends Sep 02' or 'Ends Sep 02, 2026' into YYYY-MM-DD."""
+    if not text:
+        return ""
+    match = re.search(r'(?:Ends|Due)\s+(\w+\s+\d{1,2},?\s*\d{4})', text)
+    if not match:
+        match = re.search(r'(?:Ends|Due)\s+(\w+\s+\d{1,2})', text)
+    if match:
+        return parse_deadline(match.group(1))
+    return ""
+
+
+def _select_first(node, css: str) -> Selector | None:
+    """Return first element matching css under node, or None."""
+    els = node.css(css)
+    return els[0] if els else None
 
 
 def scrape_topcoder() -> list[ScrapeItem]:
-    """Scrape Topcoder challenges from the public API."""
+    """Scrape active Topcoder challenges via StealthyFetcher (React SPA)."""
     items: list[ScrapeItem] = []
-    logger.info("Fetching Topcoder challenges: %s", TOPCODER_API)
+    logger.info("Fetching Topcoder challenges: %s", TOPCODER_URL)
 
     try:
-        resp = httpx.get(
-            TOPCODER_API,
-            params={
-                "limit": "100",
-                "offset": "0",
-                "status": "active",
-            },
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        page = StealthyFetcher.fetch(
+            TOPCODER_URL,
+            headless=True,
+            disable_resources=True,
+            network_idle=True,
+            timeout=45000,
         )
     except Exception as e:
-        logger.error("Topcoder API request failed: %s", e)
+        logger.error("Topcoder StealthyFetcher failed: %s", e)
         return items
 
-    if resp.status_code != 200:
-        logger.warning("Topcoder API returned %d", resp.status_code)
+    if page.status != 200:
+        logger.warning("Topcoder returned %d", page.status)
         return items
 
-    try:
-        data = resp.json()
-    except Exception:
-        logger.warning("Topcoder API returned non-JSON")
-        return items
+    seen_links = set()
 
-    challenges = data if isinstance(data, list) else data.get("data", data.get("result", {}).get("content", []))
+    title_els = page.css("a.vir_2D[href*='/challenges/']")
+    logger.info("Topcoder: found %d challenge tiles", len(title_els))
 
-    for entry in challenges:
-        if not isinstance(entry, dict):
+    for title_el in title_els:
+        href = title_el.attrib.get("href", "")
+        title = clean_text(title_el.get_all_text())
+        if not title or len(title) < 5:
             continue
 
-        name = entry.get("name", "").strip()
-        if not name:
+        full_url = href if href.startswith("http") else f"{TOPCODER_BASE}{href}"
+        if not full_url.startswith(TOPCODER_BASE):
             continue
 
-        challenge_id = entry.get("id", "")
-        challenge_slug = entry.get("slug", challenge_id)
-        challenge_url = f"{TOPCODER_BASE}/{challenge_slug}" if challenge_slug else entry.get("url", "")
+        if full_url in seen_links:
+            continue
+        seen_links.add(full_url)
 
-        # Parse registration end date
-        reg_end = entry.get("registrationEndDate", "")
-        deadline = parse_deadline(reg_end) if reg_end else ""
+        container = title_el.parent
+        if container is None:
+            container = title_el
+        for _ in range(6):
+            if container is None:
+                break
+            if container.css(".JV6Mui") and container.css('[aria-label^="Purse"]'):
+                break
+            container = container.parent
+        if container is None:
+            container = title_el
 
-        # Parse challenge type and track
-        challenge_type = entry.get("type", "")
-        track = entry.get("track", "")
+        deadline = ""
+        ends_el = _select_first(container, ".JV6Mui")
+        if ends_el is not None:
+            deadline = _parse_ends(clean_text(ends_el.text))
+
+        prize_pool = ""
+        purse_el = _select_first(container, '[aria-label^="Purse"]')
+        if purse_el is not None:
+            raw = re.sub(r'<[^>]+>', '', str(purse_el))
+            prize_pool = clean_text(raw).replace("Purse", "").strip()
 
         tags = ["competitive programming", "topcoder"]
-        if challenge_type:
-            tags.append(challenge_type.lower())
-        if track:
-            tags.append(track.lower())
+        for tag_el in container.css(".UbryEB span"):
+            tag_text = clean_text(tag_el.text)
+            if tag_text and tag_text not in ("+1", "+2", "+3") and len(tag_text) < 40:
+                tags.append(tag_text.lower())
+        tags = list(dict.fromkeys(tags))
 
-        # Determine eligibility
-        eligibility = "Global participants"
-        if entry.get("difficulty"):
-            eligibility += f" ({entry['difficulty']})"
+        participants = ""
+        reg_el = _select_first(container, '[aria-label^="Number of registrants"]')
+        if reg_el is not None:
+            span = _select_first(reg_el, "span")
+            if span is not None:
+                participants = clean_text(span.text)
 
-        # Prize pool
-        prize_pool = ""
-        prize_sets = entry.get("prizeSets", [])
-        if prize_sets:
-            total = sum(p.get("prize", 0) for ps in prize_sets for p in ps.get("prizes", []))
-            if total:
-                prize_pool = f"${total:,}"
-
-        # Status
-        status = entry.get("currentStatus", entry.get("status", ""))
-
-        notes_parts = ["Source: Topcoder."]
-        if status:
-            notes_parts.append(f"Status: {status}.")
-        if challenge_type:
-            notes_parts.append(f"Type: {challenge_type}.")
-        if track:
-            notes_parts.append(f"Track: {track}.")
+        notes_parts = ["Source: topcoder.com."]
+        if participants:
+            notes_parts.append(f"Registrants: {participants}.")
 
         item = ScrapeItem(
-            title=name,
+            title=title,
             type="Competition",
             source="Topcoder",
-            link=challenge_url,
+            link=full_url,
             deadline=deadline,
-            eligibility=eligibility,
+            eligibility="Global participants",
             tags=tags,
             location="Online",
             prize_pool=prize_pool,
+            participants=participants,
             notes=" ".join(notes_parts),
         )
         if not item.validate():
             items.append(item)
+            logger.info("  Found: %s | %s | %s | %s", title[:60], deadline, prize_pool, full_url[:60])
 
     items = deduplicate_by_link(items)
     logger.info("Topcoder: scraped %d challenges", len(items))

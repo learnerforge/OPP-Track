@@ -66,24 +66,28 @@ def scrape_codechef() -> list[ScrapeItem]:
             if not isinstance(entry, dict):
                 continue
 
-            name = entry.get("name", entry.get("code", "")).strip()
-            code = entry.get("code", "")
+            name = entry.get("contest_name", entry.get("name", "")).strip()
+            code = entry.get("contest_code", entry.get("code", "")).strip()
             if not name and not code:
                 continue
 
             contest_url = f"{CODECHEF_BASE}/contests/{code}" if code else entry.get("url", "")
 
-            # Parse start time (format: "2026-08-25T14:30:00+0000" or unix timestamp)
-            start_time = entry.get("start_date", entry.get("start_date2", ""))
+            # Parse start time (format: "2026-08-25T14:30:00+0000" or "31 Aug 2026 19:00:00")
+            start_time = entry.get("contest_start_date_iso", entry.get("start_date", entry.get("start_date2", "")))
             deadline = ""
             if start_time:
                 if isinstance(start_time, (int, float)):
                     from datetime import datetime, timezone
                     deadline = datetime.fromtimestamp(start_time, tz=timezone.utc).strftime("%Y-%m-%d")
                 else:
-                    deadline = parse_deadline(str(start_time))
+                    deadline = parse_deadline(str(start_time).split("T")[0])
 
-            duration_seconds = entry.get("duration", 0)
+            duration_raw = entry.get("contest_duration", entry.get("duration", 0))
+            try:
+                duration_seconds = int(duration_raw)
+            except (TypeError, ValueError):
+                duration_seconds = 0
             duration_hours = duration_seconds // 3600 if duration_seconds else 0
 
             # Determine contest type

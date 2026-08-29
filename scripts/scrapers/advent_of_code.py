@@ -1,18 +1,20 @@
 """
 Advent of Code scraper.
-Advent of Code is an annual Christmas programming challenge.
-The site at adventofcode.com has a static page with event info.
+Advent of Code is an annual Christmas programming challenge (Dec 1-25).
+The /events page lists past years; the current year's event begins on
+Dec 1 regardless of when its page goes live. We emit an item only for
+upcoming events (start date at or after today).
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime
+from datetime import date
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,10 @@ USER_AGENT = (
 
 
 def scrape_advent_of_code() -> list[ScrapeItem]:
-    """Scrape Advent of Code event info."""
+    """Scrape upcoming Advent of Code events."""
     items: list[ScrapeItem] = []
+    today = date.today().isoformat()
+    current_year = date.today().year
     logger.info("Fetching Advent of Code: %s", AOC_EVENTS_URL)
 
     try:
@@ -48,25 +52,23 @@ def scrape_advent_of_code() -> list[ScrapeItem]:
     from scrapling import Selector
     page = Selector(resp.text, url=AOC_EVENTS_URL)
 
-    # Look for year entries - AoC uses <article class="event"><a href="/2025">...</a></article>
-    year_links = page.css("article.event a, .event-list a, a[href*='/20']")
-    seen_years = set()
-
+    years_found: set[str] = set()
+    year_links = page.css("article.event a") or page.css("a[href*='adventofcode.com/20'], a[href*='/20']")
     for link_el in year_links:
         href = link_el.attrib.get("href", "")
         year_match = re.search(r"/(\d{4})", href)
         if not year_match:
             continue
-
         year = year_match.group(1)
-        if year in seen_years:
+        if year in years_found:
             continue
-        seen_years.add(year)
+        years_found.add(year)
 
-        # AoC always starts December 1st
         deadline = f"{year}-12-01"
-        event_url = f"{AOC_URL}/{year}" if href.startswith("/") else f"{AOC_URL}{href}"
+        if deadline < today:
+            continue  # past years are stale
 
+        event_url = f"{AOC_URL}/{year}"
         item = ScrapeItem(
             title=f"Advent of Code {year}",
             type="Competition",
@@ -82,9 +84,9 @@ def scrape_advent_of_code() -> list[ScrapeItem]:
         if not item.validate():
             items.append(item)
 
-    # If no year links found, create entry for current year
-    if not items:
-        current_year = datetime.now().year
+    # The current year's event page isn't published until ~Nov/Dec,
+    # but the schedule is fixed: it always starts Dec 1. Include it.
+    if str(current_year) not in years_found and f"{current_year}-12-01" >= today:
         item = ScrapeItem(
             title=f"Advent of Code {current_year}",
             type="Competition",
@@ -101,7 +103,7 @@ def scrape_advent_of_code() -> list[ScrapeItem]:
             items.append(item)
 
     items = deduplicate_by_link(items)
-    logger.info("Advent of Code: scraped %d items", len(items))
+    logger.info("Advent of Code: scraped %d upcoming items", len(items))
     return items
 
 

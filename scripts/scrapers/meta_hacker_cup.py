@@ -2,119 +2,123 @@
 Meta Hacker Cup scraper.
 Meta's annual open programming competition at
 facebook.com/codingcompetitions/hacker-cup.
-Static page with schedule info.
+JS-rendered page (fb.com) — fetched with StealthyFetcher.
+Emits an item per round whose start date is still in the future;
+a fully concluded season honestly produces zero items.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from datetime import date
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
+from scrapling.parser import Selector
 
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
 HACKER_CUP_URL = "https://www.facebook.com/codingcompetitions/hacker-cup"
+HACKER_CUP_BASE = "https://www.facebook.com"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+ROUND_LINK_RE = re.compile(r"/codingcompetitions/hacker-cup/20\d\d/[\w-]*round")
+ROUND_NAME_RE = re.compile(r"(Practice Round|Round \d+|Final Round)", re.IGNORECASE)
+ROUND_DATE_RE = re.compile(r"(\d{1,2}\s+\w+\s+\d{4})", re.IGNORECASE)
+SEASON_RE = re.compile(r"Current Season[:\s]*(\d{4})")
 
 
 def scrape_meta_hacker_cup() -> list[ScrapeItem]:
-    """Scrape Meta Hacker Cup contest info."""
+    """Scrape Meta Hacker Cup rounds with future start dates."""
     items: list[ScrapeItem] = []
     logger.info("Fetching Meta Hacker Cup: %s", HACKER_CUP_URL)
 
     try:
-        resp = httpx.get(
+        page = StealthyFetcher.fetch(
             HACKER_CUP_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT},
+            headless=True,
+            disable_resources=True,
+            network_idle=True,
+            timeout=60000,
         )
     except Exception as e:
-        logger.error("Meta Hacker Cup request failed: %s", e)
+        logger.error("Meta Hacker Cup StealthyFetcher failed: %s", e)
         return items
 
-    if resp.status_code != 200:
-        logger.warning("Meta Hacker Cup returned %d", resp.status_code)
+    if page.status != 200:
+        logger.warning("Meta Hacker Cup returned %d", page.status)
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=HACKER_CUP_URL)
-    text = page.text or ""
+    body = page.body
+    html = body.decode("utf-8", "replace") if isinstance(body, bytes) else str(body)
+    sel = Selector(html)
 
-    # Extract current season year
-    year_match = re.search(r"(?:Current Season|Season)[:\s]*(\d{4})", text)
-    season_year = year_match.group(1) if year_match else "2025"
+    text = clean_text(sel.get_all_text())
+    season_match = SEASON_RE.search(text)
+    season_year = season_match.group(1) if season_match else ""
+    if season_year:
+        logger.info("Meta Hacker Cup: current season is %s", season_year)
 
-    # Create main entry for the Hacker Cup
-    item = ScrapeItem(
-        title=f"Meta Hacker Cup {season_year}",
-        type="Competition",
-        source="Meta Hacker Cup",
-        link=HACKER_CUP_URL,
-        deadline="",
-        eligibility="Global participants",
-        tags=["competitive programming", "algorithms", "meta", "facebook"],
-        location="Online",
-        notes="Meta's annual open programming competition. Prizes up to $20,000 for winner. "
-              "Source: Meta Hacker Cup.",
-    )
-    if not item.validate():
-        items.append(item)
+    today = date.today().isoformat()
 
-    # Try to extract round details from the page
-    # Look for round names and dates
-    rounds = page.css("[class*='round'], [class*='Round'], tr, .schedule-item")
-    for round_el in rounds:
-        round_text = clean_text(round_el.text)
-        if not round_text or len(round_text) < 10:
+    round_links = sel.css('a[href*="codingcompetitions/hacker-cup/"][href*="round"]')
+    logger.info("Meta Hacker Cup: found %d round cards", len(round_links))
+
+    seen = set()
+    for link_el in round_links:
+        href = link_el.attrib.get("href", "")
+        if not ROUND_LINK_RE.search(href):
             continue
 
-        # Look for round patterns
-        round_match = re.search(
-            r"(Practice Round|Round \d+|Finals? Round|Final Round)",
-            round_text, re.IGNORECASE
-        )
-        if not round_match:
+        full_url = href if href.startswith("http") else f"{HACKER_CUP_BASE}{href}"
+        if full_url in seen:
             continue
 
-        round_name = f"Meta Hacker Cup {season_year} - {round_match.group(1)}"
+        heading = link_el.css('[role="heading"][aria-level="2"]')
+        round_name = clean_text(heading[0].get_all_text()) if heading else clean_text(link_el.get_all_text())
+        if not ROUND_NAME_RE.search(round_name):
+            continue
 
-        # Try to extract date
-        date_match = re.search(
-            r"((?:January|February|March|April|May|June|July|August|September|October|November|December)"
-            r"\s+\d{1,2},?\s+\d{4})",
-            round_text, re.IGNORECASE
-        )
+        status = ""
+        status_el = link_el.css("span")
+        for s in status_el:
+            st = clean_text(s.get_all_text())
+            if st in ("Concluded", "Opened", "Upcoming", "Registration Open", "Registration opens"):
+                status = st
+                break
+
+        card_text = clean_text(link_el.get_all_text())
+        date_match = ROUND_DATE_RE.search(card_text)
         deadline = parse_deadline(date_match.group(1)) if date_match else ""
 
-        # Try to find a link
-        link_el = round_el.css("a")
-        href = ""
-        if link_el:
-            href = link_el[0].attrib.get("href", "")
+        # Only rounds that haven't started yet are actionable
+        if not deadline or deadline < today:
+            continue
 
-        round_url = href if href and href.startswith("http") else HACKER_CUP_URL
+        if status and status != "Concluded":
+            notes = f"Source: Meta Hacker Cup. Status: {status}."
+        else:
+            notes = "Source: Meta Hacker Cup."
 
-        round_item = ScrapeItem(
-            title=round_name,
+        item = ScrapeItem(
+            title=f"Meta Hacker Cup {round_name}",
             type="Competition",
             source="Meta Hacker Cup",
-            link=round_url,
+            link=full_url,
             deadline=deadline,
             eligibility="Global participants",
-            tags=["competitive programming", "algorithms", "meta"],
+            tags=["competitive programming", "algorithms", "meta", "facebook"],
             location="Online",
-            notes=f"Source: Meta Hacker Cup. {round_name.split(' - ')[-1]}.",
+            notes=notes,
         )
-        if not round_item.validate():
-            items.append(round_item)
+        if not item.validate():
+            items.append(item)
+            logger.info("  Found: %s | %s | %s", item.title, deadline, full_url[:70])
+
+    if not items:
+        season_txt = f"season {season_year}" if season_year else "current season"
+        logger.info("Meta Hacker Cup: no upcoming rounds listed (%s) — returning 0 items", season_txt)
 
     items = deduplicate_by_link(items)
     logger.info("Meta Hacker Cup: scraped %d items", len(items))

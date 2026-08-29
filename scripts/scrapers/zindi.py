@@ -1,98 +1,145 @@
 """
 Zindi scraper.
-Zindi is Africa's leading data science competition platform.
-The competitions page at zindi.africa/competitions lists active challenges.
+Zindi is Africa's leading data science competition platform (React SPA - StealthyFetcher).
+The competitions page at zindi.world/competitions lists open challenges.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime, timezone, timedelta
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
+from scrapling.parser import Selector
 
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-ZINDI_URL = "https://zindi.africa/competitions"
-ZINDI_BASE = "https://zindi.africa"
+ZINDI_URL = "https://zindi.world/competitions"
+ZINDI_BASE = "https://zindi.world"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+
+def _select_first(node: Selector, css: str) -> Selector | None:
+    """Return first element matching css under node, or None."""
+    els = node.css(css)
+    return els[0] if els else None
+
+
+def _parse_relative(text: str, today) -> str:
+    """Parse relative Zindi deadline phrases to an absolute date. Returns '' for closed/review."""
+    if not text:
+        return ""
+    low = text.lower()
+    if "completed" in low or "under code review" in low:
+        return ""
+    days = None
+    m = re.search(r'(\d+)\s+days?\s+left', low)
+    if m:
+        days = int(m.group(1))
+    if days is None:
+        m = re.search(r'(\d+)\s+weeks?\s+left', low)
+        if m:
+            days = int(m.group(1)) * 7
+    if days is None:
+        m = re.search(r'(\d+)\s+months?\s+left', low)
+        if m:
+            days = int(m.group(1)) * 30
+    if days is None:
+        m = re.search(r'(\d+)\s+hours?\s+left', low)
+        if m:
+            days = round(int(m.group(1)) / 24)
+    if days is None:
+        return ""
+    return (today + timedelta(days=days)).strftime("%Y-%m-%d")
 
 
 def scrape_zindi() -> list[ScrapeItem]:
-    """Scrape Zindi competitions."""
+    """Scrape open Zindi competitions via StealthyFetcher (React SPA)."""
     items: list[ScrapeItem] = []
     logger.info("Fetching Zindi competitions: %s", ZINDI_URL)
 
     try:
-        resp = httpx.get(
+        page = StealthyFetcher.fetch(
             ZINDI_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT},
+            headless=True,
+            disable_resources=True,
+            network_idle=True,
+            timeout=45000,
         )
     except Exception as e:
-        logger.error("Zindi request failed: %s", e)
+        logger.error("Zindi StealthyFetcher failed: %s", e)
         return items
 
-    if resp.status_code != 200:
-        logger.warning("Zindi returned %d", resp.status_code)
+    if page.status != 200:
+        logger.warning("Zindi returned %d", page.status)
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=ZINDI_URL)
-
-    # Zindi competition cards
-    cards = page.css(".competition-card, .card, [class*='competition'], article")
+    today = datetime.now(timezone.utc).date()
     seen_links = set()
 
-    for card in cards:
-        link_el = card.css("a[href*='/competitions/']")
-        if not link_el:
-            link_el = card.css("a")
+    cards = page.css(".Competition__container___9d8Mz")
+    if not cards:
+        cards = page.css("[class*='Competition__container']")
+    logger.info("Zindi: found %d competition cards", len(cards))
 
-        if not link_el:
+    for card in cards:
+        title_el = _select_first(card, ".Competition__titleLink___FKJO4, [class*='titleLink']")
+        if title_el is None:
             continue
 
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title'], .card-title")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-
+        href = title_el.attrib.get("href", "")
+        inner = _select_first(title_el, "[class*='titleInner']")
+        title = clean_text(inner.get_all_text()) if inner is not None else clean_text(title_el.get_all_text())
         if not title or len(title) < 5:
             continue
 
         full_url = href if href.startswith("http") else f"{ZINDI_BASE}{href}"
+        if not full_url.startswith(ZINDI_BASE):
+            continue
+
         if full_url in seen_links:
             continue
         seen_links.add(full_url)
 
-        # Try to find deadline
-        deadline_el = card.css("[class*='deadline'], [class*='date'], time, [class*='end']")
-        deadline = ""
-        if deadline_el:
-            deadline_text = clean_text(deadline_el[0].text)
-            deadline = parse_deadline(deadline_text)
+        date_el = _select_first(card, ".Competition__dates___G8c48")
+        date_text = clean_text(date_el.text) if date_el is not None else ""
+        status = "open"
+        if "completed" in date_text.lower():
+            status = "completed"
+        elif "under code review" in date_text.lower():
+            status = "review"
 
-        # Try to find prize info
-        prize_el = card.css("[class*='prize'], [class*='reward'], [class*='amount']")
-        prize_pool = clean_text(prize_el[0].text) if prize_el else ""
+        deadline = _parse_relative(date_text, today)
 
-        # Tags
-        tag_els = card.css("[class*='tag'], [class*='category'], .badge")
+        reward = ""
+        reward_el = _select_first(card, '[data-testid="competition-reward-desktop"]')
+        if reward_el is None:
+            reward_el = _select_first(card, '[data-testid="competition-reward-mobile"]')
+        if reward_el is not None:
+            reward = clean_text(reward_el.text)
+
+        badge_el = _select_first(card, ".Competition__badgePill___V9L11")
+        badge = clean_text(badge_el.text) if badge_el is not None else ""
+
+        part_el = _select_first(card, ".Competition__participationsText___RFoIi")
+        part_text = clean_text(part_el.text) if part_el is not None else ""
+
+        counts = re.findall(r'(\d+)\s+participants', part_text)
+        participants = counts[0] if counts else ""
+
         tags = ["machine learning", "data science", "africa"]
-        for tag_el in tag_els[:5]:
-            tag_text = clean_text(tag_el.text)
-            if tag_text and len(tag_text) < 30:
-                tags.append(tag_text.lower())
+        if badge:
+            tags.append(badge.lower())
 
         notes_parts = ["Source: Zindi Africa."]
-        if prize_pool:
-            notes_parts.append(f"Prize: {prize_pool}.")
+        if status != "open":
+            notes_parts.append(f"Status: {date_text}.")
+        if reward:
+            notes_parts.append(f"Prize: {reward}.")
+        if participants:
+            notes_parts.append(f"Participants: {participants}.")
 
         item = ScrapeItem(
             title=title,
@@ -103,38 +150,14 @@ def scrape_zindi() -> list[ScrapeItem]:
             eligibility="Global participants (Africa-focused)",
             tags=tags,
             location="Online",
-            prize_pool=prize_pool,
+            prize_pool=reward,
+            participants=participants,
             notes=" ".join(notes_parts),
         )
         if not item.validate():
             items.append(item)
-
-    # Fallback: parse competition links from page text if no cards found
-    if not items:
-        links = page.css("a[href*='/competitions/']")
-        for link_el in links:
-            href = link_el.attrib.get("href", "")
-            title = clean_text(link_el.text)
-            if not title or len(title) < 5:
-                continue
-            full_url = href if href.startswith("http") else f"{ZINDI_BASE}{href}"
-            if full_url in seen_links:
-                continue
-            seen_links.add(full_url)
-
-            item = ScrapeItem(
-                title=title,
-                type="Competition",
-                source="Zindi",
-                link=full_url,
-                deadline="",
-                eligibility="Global participants (Africa-focused)",
-                tags=["machine learning", "data science", "africa"],
-                location="Online",
-                notes="Source: Zindi Africa.",
-            )
-            if not item.validate():
-                items.append(item)
+            if status == "open":
+                logger.info("  OPEN: %s | %s | %s", title[:60], deadline, reward)
 
     items = deduplicate_by_link(items)
     logger.info("Zindi: scraped %d competitions", len(items))
