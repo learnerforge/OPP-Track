@@ -109,6 +109,18 @@ def _parse_card(card_html: str) -> ScrapeItem | None:
     if not title:
         return None
 
+    # Skip Kaggle's perpetual "Getting Started" training competitions
+    # (Titanic, House Prices, Spaceship Titanic, etc.) — these have no
+    # real deadline and are always "ongoing"; real active ones have deadlines.
+    _perpetual_patterns = (
+        "titanic", "house prices", "digit recognizer", "mnist",
+        "spaceship titanic", "advanced regression",
+        "tutorials", "getting started",
+    )
+    title_lower = title.lower()
+    if any(p in title_lower for p in _perpetual_patterns):
+        return None
+
     # Teams/participants live inside the anchor; prize & countdown after it
     anchor_part, _, tail_part = card_html.partition("</a>")
 
