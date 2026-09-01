@@ -1,29 +1,58 @@
 """
 Outreachy scraper.
-Outreachy provides internships in free and open source software.
-The internships page lists current and upcoming rounds.
+Outreachy provides paid, remote internships in free and open source software,
+running two cohorts a year (May-Aug and Dec-Mar).
+
+The official Applicant Guide page (outreachy.org/docs/applicant/) documents the
+CURRENT round's schedule. As of Sep 2026 that is the December 2026 cohort:
+  - Final application deadline: Nov. 2, 2026
+  - Internships period: Dec. 7, 2026 - March 8, 2027
+The final application deadline is still in the future, so the current round is
+OPEN and we return one real item with the real deadline from the official page.
 """
 
 from __future__ import annotations
 
 import logging
+import re
+from datetime import date
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
 
 logger = logging.getLogger(__name__)
 
-OUTREACHY_URL = "https://www.outreachy.org/apply/"
+OUTREACHY_URL = "https://www.outreachy.org/docs/applicant/"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def _parse_round_label(text: str) -> str:
+    """Extract the cohort label, e.g. 'December 2026 to March 2027'."""
+    m = re.search(
+        r"(?:December|May|June|March|February|January)\s+20\d{2}\s+to\s+\w+\s+20\d{2}",
+        text,
+        re.I,
+    )
+    return m.group(0) if m else ""
+
 
 def scrape_outreachy() -> list[ScrapeItem]:
-    """Scrape Outreachy internship rounds."""
+    """Scrape the current Outreachy internship round.
+
+    Parses the official Applicant Guide page for a round whose final application
+    deadline is still in the future (i.e. currently open) and returns one real
+    item with the real deadline.
+    """
     items: list[ScrapeItem] = []
     logger.info("Fetching Outreachy: %s", OUTREACHY_URL)
 
@@ -44,66 +73,68 @@ def scrape_outreachy() -> list[ScrapeItem]:
 
     from scrapling import Selector
     page = Selector(resp.text, url=OUTREACHY_URL)
+    text = page.text or ""
+    text = re.sub(r"\s+", " ", text)
 
-    # Look for round sections or links
-    sections = page.css("section, .internship-round, .round, article, div[class*='round']")
-    seen_links = set()
-
-    for section in sections:
-        link_el = section.css("a[href*='internship'], a[href*='apply']")
-        title_el = section.css("h2, h3, h4, .title")
-        deadline_el = section.css(".deadline, time, [class*='date'], [class*='deadline']")
-
-        title = clean_text(title_el[0].text) if title_el else ""
-        if not title:
-            continue
-
-        href = ""
-        if link_el:
-            href = link_el[0].attrib.get("href", "")
-
-        deadline_raw = clean_text(deadline_el[0].text) if deadline_el else ""
-        deadline = parse_deadline(deadline_raw)
-
-        if href and not href.startswith("http"):
-            href = f"https://www.outreachy.org{href}"
-
-        if href in seen_links:
-            continue
-        seen_links.add(href)
-
-        item = ScrapeItem(
-            title=f"Outreachy {title}",
-            type="Internship",
-            source="Outreachy",
-            link=href or OUTREACHY_URL,
-            deadline=deadline,
-            eligibility="Open source applicants; focus on underrepresented groups in tech",
-            tags=["internship", "open source", "outreachy", "diversity"],
-            location="Remote",
-            notes="Paid internship in free and open source software. 3-month internships with stipend. Source: outreachy.org.",
+    # Find the current/next round's final application deadline and internship period.
+    # Applicant Guide pages render as e.g.
+    #   "Nov. 2, 2026 at 4pm UTC Final application deadline"
+    # i.e. the date PRECEDES the label.
+    dl_match = re.search(
+        r"([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})[^A-Za-z]*(?:(?:at\s+\d{1,2}:\d{2}\s*[ap]m\s*UTC)|(?:at\s+[^A-Za-z]))?\s*Final application deadline",
+        text,
+        re.I,
+    )
+    if not dl_match:
+        logger.info(
+            "Outreachy: could not find a current-round final application deadline "
+            "on the official page. Returning 0."
         )
-        if not item.validate():
-            items.append(item)
+        return items
 
-    # Fallback: create general entry if no rounds found
-    if not items:
-        item = ScrapeItem(
-            title="Outreachy Internships",
-            type="Internship",
-            source="Outreachy",
-            link=OUTREACHY_URL,
-            deadline="",
-            eligibility="Open source applicants; focus on underrepresented groups in tech",
-            tags=["internship", "open source", "outreachy", "diversity"],
-            location="Remote",
-            notes="Paid internship in free and open source software. Check site for current rounds. Source: outreachy.org.",
+    raw_dl = dl_match.group(1)
+    deadline = parse_deadline(raw_dl)
+    if not deadline:
+        logger.info("Outreachy: found deadline text '%s' but could not parse it.", raw_dl)
+        return items
+
+    today = date.today()
+    if deadline < today.isoformat():
+        logger.info(
+            "Outreachy: the current round's final application deadline (%s) has "
+            "already passed and the next round is not announced yet. Returning 0.",
+            deadline,
         )
-        if not item.validate():
-            items.append(item)
+        return items
 
-    items = deduplicate_by_link(items)
-    logger.info("Outreachy: scraped %d items", len(items))
+    round_label = _parse_round_label(text) or "current"
+    period_match = re.search(
+        r"internships period[:\s]*([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2}\s*to\s*[A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})",
+        text,
+        re.I,
+    )
+    period = period_match.group(1) if period_match else ""
+
+    notes = ["Source: Outreachy."]
+    if period:
+        notes.append(f"Internships: {period}.")
+    notes.append("Paid, remote internship in free and open source software.")
+
+    item = ScrapeItem(
+        title=f"Outreachy {round_label}",
+        type="Internship",
+        source="Outreachy",
+        link="https://www.outreachy.org/apply/",
+        deadline=deadline,
+        eligibility="Open-source applicants; focus on underrepresented groups in tech",
+        tags=["internship", "open source", "outreachy", "diversity", "stipend"],
+        location="Remote",
+        notes=" ".join(notes),
+    )
+    if not item.validate():
+        items.append(item)
+
+    logger.info("Outreachy: scraped %d items (deadline=%s)", len(items), deadline)
     return items
 
 

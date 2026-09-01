@@ -6,11 +6,12 @@ Extracts JSON payload from detail pages for rich data:
 
 from __future__ import annotations
 
+import httpx
 import re
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from scrapling.fetchers import StealthyFetcher
 from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
 
@@ -20,12 +21,32 @@ DEVFOLIO_BASE = "https://devfolio.co"
 DEVFOLIO_OPEN = f"{DEVFOLIO_BASE}/hackathons/open"
 DEVFOLIO_UPCOMING = f"{DEVFOLIO_BASE}/hackathons/upcoming"
 
+# Devfolio's public JSON API backs the /hackathons listing pages (Next.js SPA).
+# It returns full hackathon payloads (name, slug, dates, themes, prizes,
+# participants, location, registration window, ...) and is far more reliable
+# than parsing client-rendered card DOM.
+DEVFOLIO_API = "https://api.devfolio.co/api/hackathons"
+API_LIMIT = 50
+API_PAGES = 2          # page 1-2 cover all future/ongoing hackathons
+API_MAX_ATTEMPTS = 3
+
+_API_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+    "Origin": DEVFOLIO_BASE,
+    "Referer": f"{DEVFOLIO_BASE}/hackathons",
+}
+
 SKIP_TITLES = {
     "applications open", "open", "upcoming", "past",
     "all open hackathons", "all upcoming hackathons",
 }
 
-REQUEST_DELAY = 1.5
+REQUEST_DELAY = 0.5
+MAX_DETAIL_PAGES = 25  # cap Tier-2 detail enrichment so runs stay bounded
 
 
 def _parse_devfolio_date(text: str) -> str:
@@ -44,8 +65,10 @@ def _compute_duration(starts_at: str, ends_at: str) -> str:
     if not starts_at or not ends_at:
         return ""
     try:
-        start = datetime.fromisoformat(starts_at)
-        end = datetime.fromisoformat(ends_at)
+        start = _parse_iso(starts_at)
+        end = _parse_iso(ends_at)
+        if start is None or end is None:
+            return ""
         delta = end - start
         days = delta.days
         if days <= 0:
@@ -70,6 +93,140 @@ def _format_prize(value: int, currency: str) -> str:
     symbols = {"USD": "$", "INR": "\u20b9", "EUR": "\u20ac", "GBP": "\u00a3"}
     symbol = symbols.get(currency, currency + " ")
     return f"{symbol}{value:,}"
+
+
+def _parse_iso(value: str) -> datetime | None:
+    """Parse an ISO-8601 timestamp into an aware datetime (None if invalid)."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+def _is_open_or_upcoming(h: dict) -> bool:
+    """Keep hackathons whose event has not ended yet (open + upcoming)."""
+    ends = _parse_iso(h.get("ends_at"))
+    if ends is not None:
+        return ends >= datetime.now(timezone.utc)
+    starts = _parse_iso(h.get("starts_at"))
+    if starts is not None:
+        return starts >= datetime.now(timezone.utc)
+    return True  # no dates → don't silently drop
+
+
+def _fetch_api_hackathons() -> list[dict]:
+    """Fetch hackathon dicts from Devfolio's public JSON API (no browser)."""
+    for attempt in range(API_MAX_ATTEMPTS):
+        try:
+            aggregated: list[dict] = []
+            with httpx.Client(timeout=30, follow_redirects=True) as client:
+                for page in range(1, API_PAGES + 1):
+                    resp = client.get(
+                        DEVFOLIO_API,
+                        params={"page": page, "limit": API_LIMIT},
+                        headers=_API_HEADERS,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    aggregated.extend(data.get("result", []) or [])
+            if aggregated:
+                return aggregated
+        except Exception as e:
+            logger.warning(f"  Devfolio API request failed (attempt {attempt + 1}): {e}")
+            if attempt < API_MAX_ATTEMPTS - 1:
+                time.sleep(1.5 * (attempt + 1))
+    return []
+
+
+def _prize_pool_from_api(h: dict) -> str:
+    """Sum the non-partner prize amounts from the API payload."""
+    total = 0
+    currency = "USD"
+    for p in h.get("prizes") or []:
+        if not isinstance(p, dict) or p.get("is_partner_prize"):
+            continue
+        try:
+            amount = float(p.get("amount"))
+        except (TypeError, ValueError):
+            continue
+        if amount > 0:
+            total += int(amount)
+            if p.get("currency"):
+                currency = p.get("currency")
+    return _format_prize(total, currency)
+
+
+def _organizer_from_settings(settings: dict) -> str:
+    """Best-effort organizer from registration contact email / site domain."""
+    if not settings:
+        return ""
+    email = settings.get("contact_email", "") or ""
+    if email and "@" in email:
+        domain = email.split("@")[-1]
+        if domain and domain not in ("gmail.com", "yahoo.com", "hotmail.com", "outlook.com"):
+            return domain.split(".")[0].title()
+    site = settings.get("site", "") or ""
+    if site:
+        site_match = re.search(r'://(?:www\.)?([^/]+)', site)
+        if site_match:
+            return site_match.group(1).split(".")[0].title()
+    return ""
+
+
+def _build_item_from_api(h: dict) -> ScrapeItem | None:
+    """Build a rich ScrapeItem directly from the Devfolio API payload."""
+    name = clean_text(h.get("name", ""))
+    slug = h.get("slug", "")
+    if not name or name.lower() in SKIP_TITLES or not slug:
+        return None
+
+    link = f"https://{slug}.devfolio.co/"
+
+    settings = h.get("hackathon_setting") or {}
+    reg_ends = settings.get("reg_ends_at", "") or ""
+    starts_at = h.get("starts_at", "") or ""
+    deadline = ""
+    for ts in (reg_ends, starts_at):
+        date_match = re.match(r'(\d{4}-\d{2}-\d{2})', ts)
+        if date_match:
+            deadline = date_match.group(1)
+            break
+
+    themes = h.get("themes") or []
+    tags = [
+        t.get("name")
+        for t in themes
+        if isinstance(t, dict) and t.get("name") and t["name"] != "No Restrictions"
+    ]
+
+    if h.get("is_online"):
+        location = "Online"
+    else:
+        parts = [p for p in (h.get("city"), h.get("country")) if p]
+        location = ", ".join(parts)
+
+    participants = h.get("participants_count") or 0
+    notes_parts = ["Source: Devfolio."]
+    if participants > 0:
+        notes_parts.append(f"+{participants} participants")
+
+    return ScrapeItem(
+        title=name,
+        type="Hackathon",
+        source="Devfolio",
+        link=link,
+        deadline=deadline,
+        eligibility="Open to all students and developers",
+        tags=tags,
+        notes=" ".join(notes_parts),
+        location=location,
+        prize_pool=_prize_pool_from_api(h),
+        participants=str(participants) if participants else "",
+        organizer=_organizer_from_settings(settings),
+        duration=_compute_duration(starts_at, h.get("ends_at", "") or ""),
+    )
 
 
 def _extract_json_from_devfolio(page) -> dict | None:
@@ -275,22 +432,9 @@ def _scrape_detail_page(link: str) -> dict:
     return updates
 
 
-def _scrape_page(url: str) -> list[ScrapeItem]:
-    """Scrape a single Devfolio listing page."""
+def _parse_listing_page(page) -> list[ScrapeItem]:
+    """Parse rendered listing cards from a browsed Devfolio listing page."""
     items: list[ScrapeItem] = []
-    logger.info(f"Fetching Devfolio: {url}")
-
-    page = StealthyFetcher.fetch(
-        url,
-        headless=True,
-        disable_resources=True,
-        network_idle=True,
-        timeout=30000,
-    )
-
-    if page.status != 200:
-        logger.warning(f"Devfolio returned status {page.status} for {url}")
-        return items
 
     cards = page.css('a[class*="Link__LinkBase"]')
     card_data = []
@@ -305,6 +449,9 @@ def _scrape_page(url: str) -> list[ScrapeItem]:
         if not title or title.lower() in SKIP_TITLES:
             continue
         card_data.append({"title": title, "link": href})
+
+    if not card_data:
+        return items
 
     date_els = page.find_by_regex(re.compile(r'Starts \d{1,2}/\d{1,2}/\d{2,4}'), first_match=False)
     dates = [_parse_devfolio_date(str(el.text)) for el in date_els]
@@ -336,17 +483,91 @@ def _scrape_page(url: str) -> list[ScrapeItem]:
     return items
 
 
-def scrape_devfolio() -> list[ScrapeItem]:
-    """Scrape open and upcoming hackathons from Devfolio with Tier-2 enrichment."""
-    items: list[ScrapeItem] = []
-    for url in [DEVFOLIO_OPEN, DEVFOLIO_UPCOMING]:
-        try:
-            items.extend(_scrape_page(url))
-        except Exception as e:
-            logger.error(f"Error scraping Devfolio {url}: {e}")
+def _scrape_page(url: str) -> list[ScrapeItem]:
+    """Browser fallback for a single Devfolio listing page (API is primary).
 
-    need_enrichment = [item for item in items if not item.tags or not item.organizer or not item.prize_pool or not item.duration]
-    logger.info(f"Devfolio: scraped {len(items)} hackathons from listings")
+    The listing is a Next.js SPA rendered client-side, so cards can
+    intermittently not render when Devfolio's internal API call is slow.
+    Retry up to 3 times until cards are actually found.
+    """
+    items: list[ScrapeItem] = []
+    logger.info(f"[fallback] Fetching Devfolio listing: {url}")
+
+    for attempt in range(1, 4):
+        try:
+            page = StealthyFetcher.fetch(
+                url,
+                headless=True,
+                disable_resources=True,
+                network_idle=True,
+                timeout=30000,
+            )
+        except Exception as e:
+            logger.warning(f"  listing fetch error (attempt {attempt}/3): {e}")
+            time.sleep(1.5)
+            continue
+
+        if page.status != 200:
+            logger.warning(f"Devfolio returned status {page.status} for {url} (attempt {attempt}/3)")
+            time.sleep(1.5)
+            continue
+
+        items = _parse_listing_page(page)
+        if items:
+            return items
+
+        logger.warning(f"  listing rendered no cards (attempt {attempt}/3) for {url}")
+        if attempt < 3:
+            time.sleep(2.0)
+
+    return items
+
+
+def scrape_devfolio() -> list[ScrapeItem]:
+    """Scrape open and upcoming hackathons from Devfolio.
+
+    Primary path uses Devfolio's public JSON API (no browser, no flaky DOM
+    parsing). Falls back to browser-rendered listing parsing if the API is
+    unavailable, then runs capped Tier-2 detail enrichment.
+    """
+    items: list[ScrapeItem] = []
+    seen_links: set[str] = set()
+
+    api_hackathons = _fetch_api_hackathons()
+    if api_hackathons:
+        for h in api_hackathons:
+            if h.get("private") or h.get("status", "publish") != "publish":
+                continue
+            if not _is_open_or_upcoming(h):
+                continue
+            item = _build_item_from_api(h)
+            if item is None:
+                continue
+            link_key = item.link.rstrip("/").lower()
+            if link_key in seen_links:
+                continue
+            seen_links.add(link_key)
+            items.append(item)
+        logger.info(f"Devfolio: {len(items)} open/upcoming hackathons from listing API")
+    else:
+        logger.warning("Devfolio API unavailable — falling back to browser listing parsing")
+        for url in [DEVFOLIO_OPEN, DEVFOLIO_UPCOMING]:
+            try:
+                for item in _scrape_page(url):
+                    link_key = item.link.rstrip("/").lower()
+                    if link_key not in seen_links:
+                        seen_links.add(link_key)
+                        items.append(item)
+            except Exception as e:
+                logger.error(f"Error scraping Devfolio {url}: {e}")
+
+    need_enrichment = [
+        item for item in items
+        if not item.tags or not item.organizer or not item.prize_pool or not item.duration
+    ]
+    # Bound the detail-page loop: it is the slowest, most fragile step and
+    # listing items must be returned even if enrichment is cut short.
+    need_enrichment = need_enrichment[:MAX_DETAIL_PAGES]
     logger.info(f"Running Tier-2 detail enrichment for {len(need_enrichment)} Devfolio items...")
 
     for i, item in enumerate(need_enrichment):

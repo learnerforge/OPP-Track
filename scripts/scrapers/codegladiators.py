@@ -1,22 +1,33 @@
 """
 CodeGladiators scraper.
-CodeGladiators is TechGig's flagship coding competition.
-The main page at codegladiators.com has event info.
+CodeGladiators is TechGig's flagship coding competition — a SEASONAL annual
+event. As of Sep 2026 there is NO live season:
+
+  - The standalone domain www.codegladiators.com is a parked "for sale"
+    GoDaddy domain (an HTTP fetch is redirected to a GoDaddy forsale lander,
+    not to a real contest page).
+  - TechGig's own page (https://www.techgig.com/codegladiators) returns 404,
+    and TechGig's past-events page lists Code Gladiators only as a past event.
+  - The most recent edition was Code Gladiators 2024 (open-coder round ended
+    Jun 17, 2024); no 2025/2026 season has been announced.
+
+The scraper therefore returns 0 items while the competition is not open. If
+TechGig announces a new season at a live URL, update CODEGLADIATORS_URL / the
+candidate-region logic below to scrape it.
 """
 
 from __future__ import annotations
 
 import logging
-import re
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem
 
 logger = logging.getLogger(__name__)
 
-CODEGLADIATORS_URL = "https://www.codegladiators.com/"
-CODEGLADIATORS_BASE = "https://www.codegladiators.com"
+CODEGLADIATORS_URL = "https://www.techgig.com/codegladiators"
+CODEGLADIATORS_BASE = "https://www.techgig.com"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -25,7 +36,13 @@ USER_AGENT = (
 
 
 def scrape_codegladiators() -> list[ScrapeItem]:
-    """Scrape CodeGladiators events."""
+    """Scrape CodeGladiators events.
+
+    CodeGladiators is a seasonal annual competition. As of Sep 2026 no season
+    is open (the standalone domain is parked/for sale and TechGig's page is a
+    404), so the correct result is 0 with a clear reason — not a fabricated
+    entry with no real dates.
+    """
     items: list[ScrapeItem] = []
     logger.info("Fetching CodeGladiators: %s", CODEGLADIATORS_URL)
 
@@ -38,67 +55,47 @@ def scrape_codegladiators() -> list[ScrapeItem]:
         )
     except Exception as e:
         logger.error("CodeGladiators request failed: %s", e)
+        logger.info(
+            "CodeGladiators is seasonal and no live season is currently open "
+            "(standalone domain parked; techgig page not reachable). Returning 0."
+        )
         return items
 
     if resp.status_code != 200:
-        logger.warning("CodeGladiators returned %d", resp.status_code)
+        logger.warning(
+            "CodeGladiators returned %d (no live season at %s) — nothing to "
+            "scrape. The standalone codegladiators.com domain is a parked GoDaddy "
+            "domain and TechGig's page 404s; the last edition ran in 2024.",
+            resp.status_code,
+            CODEGLADIATORS_URL,
+        )
         return items
 
     from scrapling import Selector
     page = Selector(resp.text, url=CODEGLADIATORS_URL)
     text = page.text or ""
 
-    # Extract year
-    year_match = re.search(r"(?:Code\s*Gladiators?\s*)(\d{4})", text, re.IGNORECASE)
-    year = year_match.group(1) if year_match else str(__import__("datetime").datetime.now().year)
-
-    # Create main entry
-    main_url = CODEGLADIATORS_URL
-    link_el = page.css("a[href*='register'], a[href*='sign'], a[href*='join']")
-    if link_el:
-        href = link_el[0].attrib.get("href", "")
-        if href.startswith("http"):
-            main_url = href
+    # Only build an entry if the page actually advertises a live/upcoming season.
+    if not any(kw in text.lower() for kw in ["register", "open", "season", "round 1", "2026", "2027"]):
+        logger.info(
+            "CodeGladiators page contains no active season details; returning 0."
+        )
+        return items
 
     item = ScrapeItem(
-        title=f"CodeGladiators {year}",
+        title="CodeGladiators",
         type="Competition",
         source="CodeGladiators",
-        link=main_url,
+        link=CODEGLADIATORS_URL,
         deadline="",
         eligibility="India (open to all)",
         tags=["competitive programming", "india", "techgig", "hackathon"],
         location="Online",
-        notes="TechGig's flagship coding competition. Multiple rounds including "
-              "speed coding and algorithmic challenges. Source: CodeGladiators.",
+        notes="TechGig's flagship coding competition. Source: CodeGladiators.",
     )
     if not item.validate():
         items.append(item)
 
-    # Look for additional event links
-    links = page.css("a")
-    for link_el in links:
-        href = link_el.attrib.get("href", "")
-        link_text = clean_text(link_el.text)
-        if not link_text or len(link_text) < 5:
-            continue
-        if any(kw in link_text.lower() for kw in ["round", "qualifier", "final", "register", "timeline"]):
-            full_url = href if href.startswith("http") else f"{CODEGLADIATORS_BASE}{href}"
-            sub_item = ScrapeItem(
-                title=f"CodeGladiators {year} - {link_text}",
-                type="Competition",
-                source="CodeGladiators",
-                link=full_url,
-                deadline="",
-                eligibility="India (open to all)",
-                tags=["competitive programming", "india", "techgig"],
-                location="Online",
-                notes="Source: CodeGladiators.",
-            )
-            if not sub_item.validate():
-                items.append(sub_item)
-
-    items = deduplicate_by_link(items)
     logger.info("CodeGladiators: scraped %d items", len(items))
     return items
 

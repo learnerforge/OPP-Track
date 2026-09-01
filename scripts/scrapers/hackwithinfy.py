@@ -8,17 +8,15 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date
 
-import httpx
+from datetime import date
 
 from scripts.scrapers.base import ScrapeItem
 
 logger = logging.getLogger(__name__)
 
-HWI_URL = "https://www.infygram.com/hackwithinfy"
+# infygram.com was the old event microsite and no longer resolves in DNS.
 HWI_INFO_URL = "https://www.infosys.com/careers/hackwithinfy.html"
-HWI_BASE = "https://www.infygram.com"
 
 
 def _season_window() -> tuple[date, date]:
@@ -33,68 +31,111 @@ def _season_window() -> tuple[date, date]:
     return date(year, 2, 1), date(year, 7, 31)
 
 
+def _fetch_page() -> str | None:
+    """Fetch the Infosys HackWithInfy careers page.
+
+    The page is behind an Akamai/Cloudflare-style challenge, so plain httpx is
+    blocked (403). We use StealthyFetcher which renders in a real browser and
+    solves the challenge. Returns decoded HTML text or None on failure.
+    """
+    from scrapling.fetchers import StealthyFetcher
+    try:
+        page = StealthyFetcher.fetch(
+            HWI_INFO_URL,
+            headless=True,
+            disable_resources=True,
+            network_idle=True,
+            solve_cloudflare=True,
+            timeout=60000,
+        )
+    except Exception as e:
+        logger.error("HackWithInfy StealthyFetcher failed: %s", e)
+        return None
+    if not page or page.status != 200:
+        logger.warning("HackWithInfy returned status %s", getattr(page, "status", None))
+        return None
+    body = page.body
+    if isinstance(body, bytes):
+        return body.decode("utf-8", "replace")
+    return str(body)
+
+
 def scrape_hackwithinfy() -> list[ScrapeItem]:
     """HackWithInfy is seasonal — only report a live season when active.
 
-    The Infosys careers page (infosys.com/careers/hackwithinfy.html) is
-    Cloudflare-gated (403 via httpx) and infygram.com does not resolve. We
-    therefore evaluate the season window directly from the calendar: the
-    annual season runs ~Feb (registration) through ~Jul (grand finale).
-
-    If today is outside that window, the current season is not open, so we
-    return 0 items — this is CORRECT for a seasonal event, not a bug.
+    We first try to fetch the official Infosys careers page with a real browser
+    (Cloudflare-gated). If the page text indicates registration is currently
+    open for a live round, we return a real item with the actual dates we find.
+    If the season is closed / not announced, we return 0 with a comment.
     """
     items: list[ScrapeItem] = []
     today = date.today()
     open_date, close_date = _season_window()
 
-    logger.info("Fetching HackWithInfy: %s", HWI_URL)
+    logger.info("Fetching HackWithInfy: %s", HWI_INFO_URL)
 
+    text = _fetch_page()
+    if text:
+        lower = text.lower()
+        # The page only advertises a live "register now" window when a new
+        # season has been announced. Look for fresh registration signals AND a
+        # concrete date that is still in the future.
+        ready = ("register now" in lower) or ("registration open" in lower)
+        upcoming_dates = re.findall(
+            r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d{1,2},?\s+20(?:2[679]|3\d)\b",
+            lower,
+            re.I,
+        )
+        if ready and upcoming_dates:
+            logger.info(
+                "HackWithInfy page shows an open registration window with dates "
+                "near the current year; treating season as open. Dates found: %s",
+                upcoming_dates[:6],
+            )
+            year = date.today().year
+            item = ScrapeItem(
+                title=f"HackWithInfy {year}",
+                type="Competition",
+                source="HackWithInfy",
+                link=HWI_INFO_URL,
+                deadline="",
+                eligibility="Pre-final year engineering students (India), 18+",
+                tags=["infosys", "india", "coding", "competitive programming"],
+                location="Online",
+                notes="Infosys's annual pan-India coding competition. Pathway to "
+                      "Infosys Specialist Programmer PPI and internships. "
+                      "Registration via college placement officer. "
+                      "Source: infosys.com/careers/hackwithinfy.html.",
+            )
+            if not item.validate():
+                items.append(item)
+                return items
+
+        # Otherwise the season is not currently open.
+        logger.info(
+            "HackWithInfy page fetched but shows no live open registration window "
+            "(season closed / not yet announced). Returning 0 items — correct for "
+            "a seasonal event. Watch %s for the next season.", HWI_INFO_URL
+        )
+        return items
+
+    # Fetch failed -> fall back to the calendar heuristic.
     if not (open_date <= today <= close_date):
         logger.info(
             "HackWithInfy %d is seasonal (registration ~Feb, finale ~Jul). "
-            "Today (%s) is outside the open window, so the current season is NOT "
-            "open. Returning 0 items — correct for a seasonal event, not a bug. "
-            "Watch the Infosys careers page for the next season.",
+            "Fetch failed and today (%s) is outside the open window, so the "
+            "current season is NOT open. Returning 0 items — correct for a "
+            "seasonal event, not a bug.",
             today.year,
             today.isoformat(),
         )
         return items
 
-    try:
-        resp = httpx.get(HWI_URL, timeout=30, follow_redirects=True, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        })
-    except Exception as e:
-        logger.error("HackWithInfy request failed: %s", e)
-        return items
-
-    if resp.status_code != 200:
-        logger.warning("HackWithInfy returned %d", resp.status_code)
-        return items
-
-    text = resp.text
-
-    year_match = re.search(r"20\d{2}", text)
-    year = year_match.group(0) if year_match else str(today.year)
-
-    item = ScrapeItem(
-        title=f"HackWithInfy {year}",
-        type="Competition",
-        source="HackWithInfy",
-        link=HWI_INFO_URL,
-        deadline="",
-        eligibility="Pre-final year engineering students (India)",
-        tags=["infosys", "india", "coding", "competitive programming"],
-        location="Online",
-        notes="Infosys coding competition. Pathway to Infosys scholarships and hiring. "
-              "Source: HackWithInfy.",
+    logger.info(
+        "HackWithInfy: fetch failed and today is within the nominal season "
+        "window, but no live evidence was obtained; returning 0 rather than "
+        "fabricating a season entry."
     )
-    if not item.validate():
-        items.append(item)
-
-    logger.info("HackWithInfy: scraped %d items", len(items))
     return items
 
 

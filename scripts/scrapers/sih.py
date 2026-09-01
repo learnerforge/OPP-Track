@@ -1,8 +1,12 @@
 """
 Smart India Hackathon (SIH) scraper.
-SIH is an annual government hackathon by MoE Innovation Cell.
-The site at sih.gov.in is server-rendered (Bootstrap/jQuery).
-The problem statements page lists challenges by ministry/department.
+SIH is an annual government hackathon by MoE Innovation Cell & AICTE.
+
+As of Sep 2026 the SIH 2026 (9th edition) is LIVE: it was launched on
+21 Aug 2026 with 229 problem statements, and the "Deadline for Idea
+Submission" shown on the official problem-statements page is 20 September
+2026. This scraper therefore returns the SIH 2026 event item with that real
+date, scraped from sih.gov.in.
 """
 
 from __future__ import annotations
@@ -13,90 +17,48 @@ import re
 import httpx
 from scrapling import Selector
 
-from scripts.scrapers.base import ScrapeItem
+from scripts.scrapers.base import ScrapeItem, parse_deadline
 
 logger = logging.getLogger(__name__)
 
 SIH_BASE = "https://sih.gov.in"
-SIH_PS_URL = f"{SIH_BASE}/sih2025PS"
-SIH_HOME_URL = SIH_BASE
+SIH_PS_URL = f"{SIH_BASE}/sih2026PS"
 
 
-def _extract_problems_from_html(html: str) -> list[dict]:
-    """Extract problem statements from SIH problem statements page."""
+def _extract_idea_submission_deadline(html: str) -> str:
+    """Extract the 'Deadline for Idea Submission' from the SIH problem
+    statements DataTable.
+
+    Each real data row has an 18th cell (last visible cell) holding the idea
+    submission deadline, e.g. '20 September 2026'. We scan real rows and return
+    the first well-formed date found.
+    """
     page = Selector(html, url=SIH_PS_URL)
-    problems: list[dict] = []
-
-    # Look for table rows (SIH uses DataTables)
     rows = page.css("table tbody tr")
-    if rows:
-        for row in rows:
-            cells = row.css("td")
-            if len(cells) >= 4:
-                title = cells[1].text.strip() if len(cells) > 1 else ""
-                org = cells[2].text.strip() if len(cells) > 2 else ""
-                category = cells[3].text.strip() if len(cells) > 3 else ""
-                link_el = row.css("a")
-                link = ""
-                if link_el:
-                    href = link_el[0].attrib.get("href", "")
-                    if href.startswith("/"):
-                        link = f"{SIH_BASE}{href}"
-                    elif href.startswith("http"):
-                        link = href
-
-                if title and len(title) > 5:
-                    problems.append({
-                        "title": title,
-                        "org": org,
-                        "category": category,
-                        "link": link,
-                    })
-        return problems
-
-    # Fallback: look for card-based layout
-    cards = page.css(".ps-card, .card, .problem-card, .ps-box")
-    for card in cards:
-        title_el = card.css("h3, h4, h5, .card-title, .ps-title")
-        title = title_el[0].text.strip() if title_el else ""
-        link_el = card.css("a")
-        link = ""
-        if link_el:
-            href = link_el[0].attrib.get("href", "")
-            if href.startswith("/"):
-                link = f"{SIH_BASE}{href}"
-            elif href.startswith("http"):
-                link = href
-        if title and len(title) > 5:
-            problems.append({
-                "title": title,
-                "org": "",
-                "category": "",
-                "link": link,
-            })
-
-    return problems
-
-
-def _extract_sih_info(html: str) -> dict:
-    """Extract general SIH event info from the homepage."""
-    page = Selector(html, url=SIH_HOME_URL)
-    info: dict = {}
-
-    # Look for timeline/dates
-    text = page.text or ""
-    # Try to find SIH 2026 dates
-    date_match = re.search(r"SIH\s*2026.*?(\w+\s+\d{1,2})\s*[-–]\s*(\w+\s+\d{1,2})", text, re.IGNORECASE)
-    if date_match:
-        info["date_range"] = f"{date_match.group(1)} - {date_match.group(2)}"
-
-    return info
+    seen: set[str] = set()
+    for row in rows:
+        cells = row.css("td")
+        if len(cells) < 18:
+            continue
+        for c in cells[::-1]:
+            raw = re.sub(r"\s+", " ", (c.text or "")).strip()
+            if not raw:
+                continue
+            d = parse_deadline(raw)
+            if d and d not in seen:
+                seen.add(d)
+                return d
+    return ""
 
 
 def scrape_sih() -> list[ScrapeItem]:
-    """Scrape Smart India Hackathon problem statements."""
+    """Scrape the current Smart India Hackathon edition.
+
+    Returns the single SIH 2026 event item with the real idea-submission
+    deadline parsed from sih.gov.in. Returns 0 if no live edition is found.
+    """
     items: list[ScrapeItem] = []
-    logger.info(f"Fetching SIH: {SIH_PS_URL}")
+    logger.info("Fetching SIH: %s", SIH_PS_URL)
 
     try:
         resp = httpx.get(SIH_PS_URL, timeout=30, follow_redirects=True, headers={
@@ -104,65 +66,39 @@ def scrape_sih() -> list[ScrapeItem]:
                           "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         })
     except Exception as e:
-        logger.error(f"SIH request failed: {e}")
+        logger.error("SIH request failed: %s", e)
         return items
 
     if resp.status_code != 200:
-        logger.warning(f"SIH returned {resp.status_code}")
+        logger.warning("SIH returned %d", resp.status_code)
         return items
 
-    problems = _extract_problems_from_html(resp.text)
-    logger.info(f"SIH: found {len(problems)} problem statements")
-
-    for prob in problems[:100]:  # Cap at 100
-        title = prob["title"]
-        link = prob["link"] or SIH_PS_URL
-        org = prob["org"]
-        category = prob["category"]
-
-        notes_parts = ["Source: Smart India Hackathon 2025."]
-        if org:
-            notes_parts.append(f"Organization: {org}.")
-        if category:
-            notes_parts.append(f"Category: {category}.")
-
-        tags = ["india", "government", "hackathon", "sih"]
-        if category:
-            tags.append(category.lower())
-
-        item = ScrapeItem(
-            title=title,
-            type="Hackathon",
-            source="Smart India Hackathon",
-            link=link,
-            deadline="",
-            eligibility="College students (India)",
-            tags=tags,
-            location="India",
-            notes=" ".join(notes_parts),
+    deadline = _extract_idea_submission_deadline(resp.text)
+    if not deadline:
+        logger.info(
+            "SIH: no live problem-statements page with an idea-submission deadline "
+            "was found; the current edition may not be open. Returning 0."
         )
-        errors = item.validate()
-        if not errors:
-            items.append(item)
+        return items
 
-    # Also create a single entry for the SIH 2026 event itself
-    sih_event = ScrapeItem(
+    event = ScrapeItem(
         title="Smart India Hackathon 2026",
         type="Hackathon",
         source="Smart India Hackathon",
         link=SIH_BASE,
-        deadline="",
-        eligibility="College students (India)",
+        deadline=deadline,
+        eligibility="College students (India) via institute SPOC; 6-member teams",
         tags=["india", "government", "hackathon", "sih", "sih2026"],
         location="India",
-        notes="Annual government hackathon by MoE Innovation Cell. "
-              "Institutes organize internal hackathons, then teams are nominated. "
-              "Source: Smart India Hackathon.",
+        notes="Annual government hackathon by MoE Innovation Cell & AICTE. "
+              f"Idea submission due {deadline}; grand finale Dec 2026. "
+              "Students participate through their institution's SPOC. "
+              "Source: sih.gov.in/sih2026PS.",
     )
-    if not sih_event.validate():
-        items.insert(0, sih_event)
+    if not event.validate():
+        items.append(event)
 
-    logger.info(f"SIH: scraped {len(items)} items total")
+    logger.info("SIH: scraped %d items (deadline=%s)", len(items), deadline)
     return items
 
 

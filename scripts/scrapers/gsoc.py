@@ -1,22 +1,30 @@
 """
 Google Summer of Code scraper.
-GSoC is a global program for students to contribute to open source.
-The program page at summerofcode.withgoogle.com lists past and current years.
+GSoC is a global, annual program for students to contribute to open source.
+
+GSoC is SEASONAL/ANNUAL. The scraper reads the official GSoC timeline page
+(developers.google.com/open-source/gsoc/timeline) which lists the current
+year's real "GSoC contributor application deadline". It returns a real item
+with that real deadline only while the application window is still open (the
+deadline is in the future). Otherwise it returns 0 — the current cycle's
+application window has closed and the next cycle has not been announced.
+No fabricated dates are ever injected.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime
+from datetime import date
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, parse_deadline
 
 logger = logging.getLogger(__name__)
 
 GSOC_URL = "https://summerofcode.withgoogle.com/"
+GSOC_TIMELINE_URL = "https://developers.google.com/open-source/gsoc/timeline"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -24,79 +32,90 @@ USER_AGENT = (
 )
 
 
-def scrape_gsoc() -> list[ScrapeItem]:
-    """Scrape Google Summer of Code info."""
-    items: list[ScrapeItem] = []
-    logger.info("Fetching GSoC: %s", GSOC_URL)
-
+def _fetch_timeline_text() -> str | None:
+    """Return the de-tagged text of the official GSoC timeline page."""
     try:
         resp = httpx.get(
-            GSOC_URL,
+            GSOC_TIMELINE_URL,
             timeout=30,
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
         )
     except Exception as e:
-        logger.error("GSoC request failed: %s", e)
-        return items
-
+        logger.error("GSoC timeline request failed: %s", e)
+        return None
     if resp.status_code != 200:
-        logger.warning("GSoC returned %d", resp.status_code)
+        logger.warning("GSoC timeline returned %d", resp.status_code)
+        return None
+    text = re.sub(r"<script.*?</script>", " ", resp.text, flags=re.S)
+    text = re.sub(r"<style.*?</style>", " ", text, flags=re.S)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text)
+
+
+def scrape_gsoc() -> list[ScrapeItem]:
+    """Scrape Google Summer of Code info.
+
+    Parses the official timeline for the current year's contributor application
+    deadline. Returns a real item with that real deadline only when the
+    deadline is still in the future; otherwise returns 0.
+    """
+    items: list[ScrapeItem] = []
+    logger.info("Checking GSoC season: %s", GSOC_TIMELINE_URL)
+
+    text = _fetch_timeline_text()
+    if not text:
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=GSOC_URL)
+    # Current program year as labelled on the timeline, e.g. "2026 Timeline".
+    year_match = re.search(r"\b(20\d{2})\s+Timeline\b", text)
+    year = year_match.group(1) if year_match else str(date.today().year)
 
-    # Look for year links or timeline sections
-    year_links = page.css("a[href*='/archive/'], a[href*='/program/']")
-    seen_years = set()
-
-    for link_el in year_links:
-        href = link_el.attrib.get("href", "")
-        year_match = re.search(r"/(\d{4})", href)
-        if not year_match:
-            continue
-
-        year = year_match.group(1)
-        if year in seen_years:
-            continue
-        seen_years.add(year)
-
-        full_url = href if href.startswith("http") else f"https://summerofcode.withgoogle.com{href}"
-
-        item = ScrapeItem(
-            title=f"Google Summer of Code {year}",
-            type="Internship",
-            source="GSoC",
-            link=full_url,
-            deadline=f"{year}-04-02",  # Typical GSoC deadline
-            eligibility="Students 18+ enrolled in or accepted to accredited university; global",
-            tags=["gsoc", "open source", "google", "internship", "stipend"],
-            location="Remote",
-            notes="12-week paid program contributing to open source. Stipend: $1500-$3300. Source: summerofcode.withgoogle.com.",
+    # "March 31 - 18:00 UTC GSoC contributor application deadline"
+    dl_match = re.search(
+        r"([A-Z][a-z]{2,8}\.?\s*\d{1,2})\s*[-–]?\s*\d{1,2}:\d{2}\s*UTC\s*GSoC contributor application deadline",
+        text,
+        re.I,
+    )
+    if not dl_match:
+        logger.info(
+            "GSoC: could not locate the contributor application deadline on the "
+            "official timeline. Returning 0 (no fabricated dates)."
         )
-        if not item.validate():
-            items.append(item)
+        return items
 
-    # Create current/upcoming year entry
-    current_year = datetime.now().year
-    if current_year not in seen_years:
-        item = ScrapeItem(
-            title=f"Google Summer of Code {current_year}",
-            type="Internship",
-            source="GSoC",
-            link=GSOC_URL,
-            deadline=f"{current_year}-04-02",
-            eligibility="Students 18+ enrolled in or accepted to accredited university; global",
-            tags=["gsoc", "open source", "google", "internship", "stipend"],
-            location="Remote",
-            notes="12-week paid program contributing to open source. Stipend: $1500-$3300. Source: summerofcode.withgoogle.com.",
+    raw = f"{dl_match.group(1)}, {year}"
+    deadline = parse_deadline(raw)
+    if not deadline:
+        logger.info("GSoC: failed to parse applicant deadline '%s'. Returning 0.", raw)
+        return items
+
+    if deadline < date.today().isoformat():
+        logger.info(
+            "GSoC %s is seasonal: the contributor application deadline (%s) has "
+            "already passed and the next cycle has not been announced. Returning 0 "
+            "— correct for a seasonal program. Watch %s for the next cycle.",
+            year, deadline, GSOC_TIMELINE_URL,
         )
-        if not item.validate():
-            items.append(item)
+        return items
 
-    items = deduplicate_by_link(items)
-    logger.info("GSoC: scraped %d items", len(items))
+    item = ScrapeItem(
+        title=f"Google Summer of Code {year}",
+        type="Internship",
+        source="GSoC",
+        link=GSOC_URL,
+        deadline=deadline,
+        eligibility="Students 18+ enrolled in or accepted to an accredited university; global",
+        tags=["gsoc", "open source", "google", "internship", "stipend"],
+        location="Remote",
+        notes="12+ week paid program contributing to open source with a stipend. "
+              "Application deadline from the official GSoC timeline. "
+              "Source: developers.google.com/open-source/gsoc/timeline.",
+    )
+    if not item.validate():
+        items.append(item)
+
+    logger.info("GSoC: scraped %d items (deadline=%s)", len(items), deadline)
     return items
 
 

@@ -12,21 +12,97 @@ separately. The listing shows no dates, so deadlines are left empty.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
+from datetime import datetime
 from urllib.parse import urljoin
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, clean_text, parse_deadline, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
 HACKINDIA_URL = "https://hackindia.org/events"
 
+# Registration states published on each event card.
+OPEN_STATUSES = {"REGISTERING", "UPCOMING", "LIVE", "OPEN", "REGISTRATION OPEN"}
+ENDED_STATUSES = {"CLOSED", "ENDED", "FINISHED", "COMPLETED", "PAST", "ANNOUNCED"}
+
+# Detail pages embed a schema.org Event JSON-LD block with start/end dates.
+JSONLD_RE = re.compile(
+    r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>', re.DOTALL
+)
+
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
+
+
+def _extract_status(article) -> str:
+    """Read the registration-status label from an event card.
+
+    Cards carry a short uppercase status chip such as 'REGISTERING',
+    'UPCOMING', 'CLOSED' or 'ENDED'. It lives in one of the small muted
+    paragraphs, distinct from the location (first) and 'Prize'/'Builders'
+    labels.
+    """
+    status = ""
+    for p in article.css("p"):
+        text = clean_text(p.text).strip()
+        if not text:
+            continue
+        upper = text.upper()
+        if upper in OPEN_STATUSES or upper in ENDED_STATUSES:
+            return upper
+    return status
+
+
+def _is_past_year_path(link: str) -> bool:
+    """True if the event path is an archived year before the current year."""
+    match = re.search(r"/hackindia\.org/(\d{4})/", link)
+    if not match:
+        return False
+    try:
+        return int(match.group(1)) < datetime.now().year
+    except ValueError:
+        return False
+
+
+def _fetch_deadline(link: str) -> str:
+    """Cheaply fetch a HackIndia detail page and read the event end date.
+
+    Detail pages are server-rendered and carry a schema.org Event JSON-LD
+    block (startDate/endDate), so a plain HTTP GET is enough — no browser.
+    Returns 'YYYY-MM-DD' or '' when unavailable.
+    """
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+    try:
+        resp = httpx.get(link, headers=headers, timeout=20, follow_redirects=True)
+        if resp.status_code != 200:
+            return ""
+        matches = JSONLD_RE.findall(resp.text)
+        for raw in matches:
+            try:
+                node = json.loads(raw.strip())
+            except (json.JSONDecodeError, ValueError):
+                continue
+            nodes = node if isinstance(node, list) else [node]
+            for entry in nodes:
+                if isinstance(entry, dict) and entry.get("@type") == "Event":
+                    end = entry.get("endDate") or ""
+                    if end:
+                        parsed = parse_deadline(end.split("T")[0])
+                        if parsed:
+                            return parsed
+    except Exception as e:
+        logger.debug(f"  HackIndia deadline fetch error for {link}: {e}")
+    return ""
 
 
 def _parse_article(article) -> ScrapeItem | None:
@@ -59,7 +135,7 @@ def _parse_article(article) -> ScrapeItem | None:
             break
 
     participants = ""
-    status = ""
+    status = _extract_status(article)
     for p in article.css("p"):
         p_text = clean_text(p.text)
         p_lower = p_text.lower()
@@ -67,8 +143,6 @@ def _parse_article(article) -> ScrapeItem | None:
             continue
         if "builders" in p_lower or "participants" in p_lower:
             participants = p_text.split()[0] if p_text.split() else ""
-        elif "text-emerald-600" in p.attrib.get("class", ""):
-            status = p_text
 
     tags = [
         clean_text(el.text)
@@ -154,6 +228,7 @@ def _parse_listing(html: str) -> list[ScrapeItem]:
 
     page = Selector(html)
     items: list[ScrapeItem] = []
+    skipped_past = 0
 
     try:
         hero = _parse_hero(page)
@@ -162,27 +237,42 @@ def _parse_listing(html: str) -> list[ScrapeItem]:
         hero = None
     if hero:
         errors = hero.validate()
-        if not errors:
+        if not errors and not _is_past_year_path(hero.link):
             items.append(hero)
             logger.info(f"  Found (featured): {hero.title} | {hero.link}")
 
     for article in page.css("article.group"):
         try:
             item = _parse_article(article)
+            status = _extract_status(article)
         except Exception as e:
             logger.debug(f"  Card parse error: {e}")
             continue
         if not item:
             continue
+        # Keep only current / upcoming events: drop explicitly-ended ones and
+        # archived events from previous years.
+        if status in ENDED_STATUSES:
+            skipped_past += 1
+            continue
+        if _is_past_year_path(item.link):
+            skipped_past += 1
+            continue
         errors = item.validate()
         if errors:
             logger.debug(f"  Skipping invalid item {item.title}: {errors}")
             continue
+
+        deadline = _fetch_deadline(item.link)
+        if deadline:
+            item.deadline = deadline
         items.append(item)
         logger.info(
             f"  Found: {item.title} | {item.location or '-'} | "
-            f"{item.prize_pool or '-'} | {item.link}"
+            f"deadline={item.deadline or '-'} | {item.link}"
         )
+    if skipped_past:
+        logger.info(f"  Skipped {skipped_past} ended/closed/archived events")
     return items
 
 
