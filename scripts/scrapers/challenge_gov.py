@@ -128,7 +128,19 @@ def scrape_challenge_gov() -> list[ScrapeItem]:
 
         agency = detail.get("agency", "")
         end_date_raw = detail.get("end_date", "")
-        deadline = parse_deadline(end_date_raw)
+        # USA.gov dates look like "2/6/2029 5:00 PM ET" (US format, M/D/YYYY).
+        # "parse_deadline" tries %d/%m/%Y before %m/%d/%Y, which would swap
+        # day/month for these US dates, so normalize to ISO YYYY-MM-DD here.
+        deadline = ""
+        date_match = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', end_date_raw)
+        if date_match:
+            m, d, y = date_match.groups()
+            try:
+                deadline = f"{y}-{int(m):02d}-{int(d):02d}"
+            except ValueError:
+                deadline = ""
+        if not deadline:
+            deadline = parse_deadline(end_date_raw)
         prizes = detail.get("prizes", "")
         external_url = detail.get("external_url", "")
         link = external_url if external_url else full_url
