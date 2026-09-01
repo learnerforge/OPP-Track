@@ -75,6 +75,19 @@ def parse_deadline(raw: str) -> str:
         return ""
 
     raw = raw.strip()
+
+    # Normalize abbreviated month names that differ from the standard 3-letter
+    # ``%b`` tokens so that strptime can parse them (e.g. "Sept" -> "Sep").
+    _MONTH_ALIASES = {
+        "jan": "Jan", "feb": "Feb", "mar": "Mar", "apr": "Apr", "may": "May",
+        "jun": "Jun", "jul": "Jul", "aug": "Aug", "sept": "Sep", "sep": "Sep",
+        "oct": "Oct", "nov": "Nov", "dec": "Dec",
+    }
+    def _map_month(match: "re.Match") -> str:
+        word = match.group(1)
+        return _MONTH_ALIASES.get(word.lower(), word)
+    raw = re.sub(r'\b([A-Za-z]+)\.?\b', _map_month, raw)
+
     formats = [
         "%Y-%m-%d",
         "%Y/%m/%d",
@@ -111,7 +124,7 @@ def parse_deadline(raw: str) -> str:
 
     # Try to extract a date pattern from free text
     match = re.search(r'(\w+ \d{1,2},?\s*\d{4})', raw)
-    if match:
+    if match and match.group(1) != raw:
         return parse_deadline(match.group(1))
 
     return ""

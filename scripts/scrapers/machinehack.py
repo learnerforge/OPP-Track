@@ -1,185 +1,154 @@
 """
-MachineHack competitions scraper.
-machinehack.com is a client-side SPA, but the /competitions page
-server-renders 'hover-card' anchors per competition containing title,
-description, host and open/close dates. The legacy /hackathons path and the
-homepage are tried as fallbacks since the site has been restructured before.
+MachineHack scraper.
+machinehack.com is a client-side SPA; the /competitions page (Next.js RSC)
+requires JS rendering. Each competition is a card with an <h2> title, host,
+opens/closes dates, prizes, and a link to /competitions/{slug}.
 """
 
 from __future__ import annotations
 
-import re
 import logging
+import re
+from urllib.parse import urljoin
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
+from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
 MACHINEHACK_BASE = "https://machinehack.com"
-MACHINEHACK_URLS = [
-    f"{MACHINEHACK_BASE}/competitions",
-    f"{MACHINEHACK_BASE}/hackathons",
-    MACHINEHACK_BASE,
-]
+MACHINEHACK_URL = f"{MACHINEHACK_BASE}/competitions"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+FETCH_ARGS = {
+    "headless": True,
+    "network_idle": True,
+    "timeout": 45000,
+}
 
-# Competition cards are <a href="/competitions/{slug}" class="... hover-card ...">
-CARD_RE = re.compile(
-    r'<a\s+href="(/competitions/[^"#?]+)"([^>]*)>(.*?)</a>', re.DOTALL
-)
-TITLE_RE = re.compile(r"<h2[^>]*>(.*?)</h2>", re.DOTALL)
-DESC_RE = re.compile(r'<p class="[^"]*text-muted-foreground[^"]*"[^>]*>(.*?)</p>', re.DOTALL)
-SPAN_RE = re.compile(r"<span(?:\s[^>]*)?>(.*?)</span>", re.DOTALL)
 TAG_RE = re.compile(r"<[^>]+>")
-COMMENT_RE = re.compile(r"<!--.*?-->")
-DATE_IN_TEXT_RE = re.compile(r"\d{1,2}\s+\w+\s+\d{4}|\d{4}-\d{2}-\d{2}")
+
+# Match a calendar date like "20 Aug 2026" or "27 Sep 2026"
+CALENDAR_DATE_RE = re.compile(r"\b\d{1,2}\s+\w{3,9}\s+\d{4}\b")
 
 
-def _clean_fragment(fragment: str) -> str:
-    """Strip tags/comments and collapse whitespace from an HTML fragment."""
-    text = COMMENT_RE.sub(" ", fragment)
-    text = TAG_RE.sub(" ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def _extract_date(text: str) -> str:
-    """Pull a concrete date out of text like 'Closes: 27 Sep 2026, 23:59 IST'."""
-    match = DATE_IN_TEXT_RE.search(text)
-    if not match:
+def _parse_date(text: str) -> str:
+    """Extract and parse the first calendar date from a raw field value."""
+    m = CALENDAR_DATE_RE.search(text)
+    if not m:
         return ""
-    return parse_deadline(match.group(0))
+    return parse_deadline(m.group(0))
 
 
-def _parse_card(slug: str, attrs: str, body: str) -> ScrapeItem | None:
-    """Parse one hover-card anchor into a ScrapeItem."""
-    if "hover-card" not in attrs:
-        return None
+def _clean(html: str) -> str:
+    """Strip tags but keep whitespace/newlines that separate fields."""
+    return re.sub(r"\s+", " ", TAG_RE.sub(" ", html)).strip()
 
-    title_match = TITLE_RE.search(body)
-    title = clean_text(title_match.group(1)) if title_match else ""
-    if not title:
-        return None
 
-    description = ""
-    desc_match = DESC_RE.search(body)
-    if desc_match:
-        description = _clean_fragment(desc_match.group(1))
+def _extract(label: str, text: str) -> str:
+    """Extract the value following a label like 'Closes' from card text.
 
-    organizer = ""
-    deadline = ""
-    opens = ""
-    extra_status = ""
-    for raw in SPAN_RE.findall(body):
-        text = _clean_fragment(raw)
-        if not text:
+    Fields usually appear as 'Host AIM Media House' or 'Closes 27 Sep 2026'.
+    We find the label token and take the text until the next known label or
+    a date that clearly starts the next field.
+    """
+    known = [
+        "Host", "Opens", "Closes", "Prizes", "Timeline", "Register now",
+        "View competition", "Registration opens", "Featured competition",
+    ]
+    # Build a token-searchable copy preserving case
+    pos = text.find(label)
+    if pos < 0:
+        return ""
+    rest = text[pos + len(label):].strip()
+    # Cut at the next known label (case-insensitive, word boundary)
+    best = len(rest) + 1
+    lower_rest = rest.lower()
+    for k in known:
+        if k.lower() == label.lower():
             continue
-        lower = text.lower()
-        if lower.startswith("host:"):
-            organizer = text.split(":", 1)[1].strip()
-        elif lower.startswith("closes:"):
-            deadline = _extract_date(text)
-        elif lower.startswith("ends:"):
-            deadline = _extract_date(text)
-        elif lower.startswith("opens:"):
-            opens = _extract_date(text)
-        elif not extra_status:
-            extra_status = text
-
-    if not deadline and opens:
-        deadline = opens
-
-    notes_parts = ["Source: MachineHack."]
-    if description:
-        notes_parts.append(description[:200])
-    if extra_status:
-        notes_parts.append(extra_status)
-
-    return ScrapeItem(
-        title=title,
-        type="Competition",
-        source="MachineHack",
-        link=f"{MACHINEHACK_BASE}{slug}",
-        deadline=deadline,
-        eligibility="Open to all",
-        tags=["machine learning", "ai", "prediction"],
-        location="Online",
-        organizer=organizer,
-        notes=" ".join(notes_parts),
-    )
-
-
-def _parse_listings_html(html: str) -> list[ScrapeItem]:
-    """Extract all competition hover-cards from a MachineHack page."""
-    items: list[ScrapeItem] = []
-    seen_slugs: set[str] = set()
-    for match in CARD_RE.finditer(html):
-        slug, attrs, body = match.groups()
-        # Skip detail-page sub-links (footer nav) — real cards have no suffix
-        if slug.count("/") != 2 or slug in seen_slugs:
-            continue
-        item = _parse_card(slug, attrs, body)
-        if not item:
-            continue
-        errors = item.validate()
-        if errors:
-            logger.debug(f"  Skipping invalid item {item.title}: {errors}")
-            continue
-        seen_slugs.add(slug)
-        items.append(item)
-        logger.info(
-            f"  Found: {item.title} | {item.deadline or 'no deadline'} | "
-            f"{item.organizer or '-'}"
-        )
-    return items
+        idx = lower_rest.find(k.lower())
+        if idx >= 0 and idx < best:
+            best = idx
+    return rest[:best].strip()
 
 
 def scrape_machinehack() -> list[ScrapeItem]:
-    """Scrape active competitions from MachineHack."""
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
+    """Scrape active hackathons from MachineHack."""
+    items: list[ScrapeItem] = []
+    logger.info("Fetching MachineHack: %s", MACHINEHACK_URL)
 
-    for url in MACHINEHACK_URLS:
-        items: list[ScrapeItem] = []
-        logger.info(f"Fetching MachineHack: {url}")
-        try:
-            resp = httpx.get(url, headers=headers, timeout=30, follow_redirects=True)
-        except Exception as e:
-            logger.error(f"Error fetching MachineHack {url}: {e}")
+    try:
+        page = StealthyFetcher.fetch(MACHINEHACK_URL, **FETCH_ARGS)
+    except Exception as e:
+        logger.error("MachineHack fetch failed: %s", e)
+        return items
+
+    if page.status != 200:
+        logger.warning("MachineHack returned %d", page.status)
+        return items
+
+    body = page.body.decode("utf-8", "replace")
+
+    # Split body into card blocks. Cards start after an <h2> title.
+    # Use h2 as card marker and take the following content until the next h2.
+    h2_matches = list(re.finditer(r"<h2[^>]*>(.*?)</h2>", body, re.DOTALL))
+    seen_slugs = set()
+
+    for i, m in enumerate(h2_matches):
+        title = clean_text(m.group(1))
+        if not title or len(title) < 3 or title.lower() in ("competitions",):
+            continue
+        # Card content = between this h2 and the next h2
+        end = h2_matches[i + 1].start() if i + 1 < len(h2_matches) else len(body)
+        card_html = body[m.end():end]
+        card_text = _clean(card_html)
+        if not card_text:
             continue
 
-        if resp.status_code != 200:
-            logger.warning(f"MachineHack returned status {resp.status_code} for {url}")
+        # Detail link within this card
+        link_m = re.search(r'href="(/competitions/[a-z0-9][a-z0-9-]*)"', card_html)
+        if not link_m:
             continue
-
-        try:
-            items = _parse_listings_html(resp.text)
-        except Exception as e:
-            logger.error(f"Error parsing MachineHack {url}: {e}")
+        slug = link_m.group(1)
+        if slug in seen_slugs:
             continue
+        seen_slugs.add(slug)
+        full_url = urljoin(MACHINEHACK_BASE, slug)
 
-        if items:
-            logger.info(f"MachineHack: scraped {len(items)} competitions from {url}")
-            return items
-        logger.warning(f"MachineHack: no competition cards found at {url}")
+        # Dates: "Opens 20 Aug 2026" / "Closes 27 Sep 2026, 23:59 IST"
+        opens_raw = _extract("Opens", card_text)
+        closes_raw = _extract("Closes", card_text)
+        deadline = _parse_date(closes_raw) or _parse_date(opens_raw)
 
-    logger.error("MachineHack: all URLs exhausted without results")
-    return []
+        # Host and prizes
+        host = _extract("Host", card_text)
+        prize = _extract("Prizes", card_text)[:120]
+
+        item = ScrapeItem(
+            title=title,
+            type="Competition",
+            source="MachineHack",
+            link=full_url,
+            deadline=deadline,
+            eligibility="Open to all",
+            tags=["machine learning", "ai", "prediction"],
+            location="Online",
+            organizer=host,
+            prize_pool=prize,
+            notes="Source: MachineHack.",
+        )
+        if not item.validate():
+            items.append(item)
+
+    items = deduplicate_by_link(items)
+    logger.info("MachineHack: scraped %d competitions", len(items))
+    return items
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_machinehack()
+    print(f"MachineHack: {len(results)} items")
     for item in results:
-        print(
-            f"  {item.title} | {item.deadline or 'ongoing'} | "
-            f"{item.organizer or '-'} | {item.link}"
-        )
+        print(f"  {item.title} | {item.deadline} | {item.organizer} | {item.link}")

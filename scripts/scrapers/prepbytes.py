@@ -1,7 +1,16 @@
 """
 PrepBytes scraper.
-PrepBytes is an India-focused coding practice and contest platform.
-The contests page lists upcoming coding challenges and hiring challenges.
+PrepBytes (https://www.prepbytes.com) was an India-focused coding practice
+and contest platform. As of Sep 2026 the company has pivoted to "PrepBytes AI"
+(a CollegeDekho AI-education business):
+
+  - https://www.prepbytes.com/contests returns HTTP 404
+  - the old contest platform (mycode.prepbytes.com) no longer resolves in DNS
+  - the homepage contains no contest/hackathon/challenge links
+
+There is no longer any public contest listing to scrape. This scraper fetches
+the contests page, parses any real contest cards if the platform ever restores
+them, and returns an empty list otherwise.
 """
 
 from __future__ import annotations
@@ -24,7 +33,12 @@ USER_AGENT = (
 
 
 def scrape_prepbytes() -> list[ScrapeItem]:
-    """Scrape PrepBytes contests."""
+    """Scrape PrepBytes contests.
+
+    Currently the contests page is gone (404) and the platform no longer
+    runs competitions. The scraper parses contest cards if present and
+    returns an empty list when none exist.
+    """
     items: list[ScrapeItem] = []
     logger.info("Fetching PrepBytes: %s", PREPBYTES_URL)
 
@@ -40,37 +54,41 @@ def scrape_prepbytes() -> list[ScrapeItem]:
         return items
 
     if resp.status_code != 200:
-        logger.warning("PrepBytes returned %d", resp.status_code)
+        logger.warning(
+            "PrepBytes /contests returned %d (platform has pivoted away from "
+            "coding contests); no items to scrape", resp.status_code
+        )
         return items
 
     from scrapling import Selector
     page = Selector(resp.text, url=PREPBYTES_URL)
 
-    cards = page.css(".contest-card, .card, [class*='contest'], article, div[class*='problem']")
+    # Parse real contest cards if the platform restores a contest listing.
+    cards = page.css("article, [class*='contest'], [class*='challenge'], [class*='hackathon'], .card")
     seen_links = set()
 
     for card in cards:
-        link_el = card.css("a[href*='/contests/']")
+        link_el = card.css("a[href*='/contests/'], a[href*='/contest/'], a[href*='/hackathon/']")
         if not link_el:
-            link_el = card.css("a")
+            link_el = card.css("a[href*='/contests']")
 
         if not link_el:
             continue
 
         href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title']")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
+        title_el = card.css("h1, h2, h3, h4, [class*='title']")
+        title = clean_text(title_el[0].get_all_text()) if title_el else clean_text(link_el[0].get_all_text())
 
         if not title or len(title) < 3:
             continue
 
-        full_url = href if href.startswith("http") else f"{PREPBYTES_BASE}{href}"
+        full_url = href if href.startswith("http") else f"{PREPBYTES_BASE}/{href.lstrip('/')}"
         if full_url in seen_links:
             continue
         seen_links.add(full_url)
 
-        deadline_el = card.css(".deadline, [class*='date'], [class*='time']")
-        deadline_raw = clean_text(deadline_el[0].text) if deadline_el else ""
+        deadline_el = card.css("time, [class*='date'], [class*='deadline']")
+        deadline_raw = clean_text(deadline_el[0].get_all_text()) if deadline_el else ""
         deadline = parse_deadline(deadline_raw)
 
         item = ScrapeItem(

@@ -1,27 +1,44 @@
 """
 SIGNATE scraper.
-SIGNATE is Japan's largest data science competition platform.
-The competitions page at signate.jp lists active challenges.
+Scrapes Japanese data science competitions from SIGNATE.
+The /competitions page is a marketing landing page; the real competition
+list is at user.competition.signate.jp/ja/competition/list/. Cards use
+hashed Material-UI classes, so parsing is done on the raw HTML with regex.
+Titles/notes are Japanese — that's fine.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import urljoin
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-SIGNATE_URL = "https://signate.jp/competitions"
-SIGNATE_BASE = "https://signate.jp"
+SIGNATE_URL = "https://user.competition.signate.jp/ja/competition/list/"
+SIGNATE_BASE = "https://user.competition.signate.jp"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+FETCH_ARGS = {
+    "headless": True,
+    "disable_resources": True,
+    "network_idle": True,
+    "timeout": 45000,
+}
+
+# Card anchor regex — each competition card is: <a ... href=".../competition/detail/?competition=ID">
+CARD_RE = re.compile(
+    r'<a[^>]*href="([^"]*competition/detail/\?competition=[^"]+)"[^>]*>(.*?)</a>',
+    re.DOTALL,
 )
+# Title lives in: <div class="MuiBox-root mui-w74nth">TITLE</div>
+TITLE_RE = re.compile(r'class="MuiBox-root mui-w74nth"[^>]*>([^<]*)')
+# Prize + status near the card footer (e.g. "1500万円" and "開催中")
+CONTENT_RE = re.compile(r'<[^>]+>')
+SKIP_TITLES = {"competition title"}
 
 
 def scrape_signate() -> list[ScrapeItem]:
@@ -30,70 +47,56 @@ def scrape_signate() -> list[ScrapeItem]:
     logger.info("Fetching SIGNATE competitions: %s", SIGNATE_URL)
 
     try:
-        resp = httpx.get(
-            SIGNATE_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT, "Accept-Language": "en,ja;q=0.9"},
-        )
+        page = StealthyFetcher.fetch(SIGNATE_URL, **FETCH_ARGS)
     except Exception as e:
-        logger.error("SIGNATE request failed: %s", e)
+        logger.error("SIGNATE fetch failed: %s", e)
         return items
 
-    if resp.status_code != 200:
-        logger.warning("SIGNATE returned %d", resp.status_code)
+    if page.status != 200:
+        logger.warning("SIGNATE returned %d", page.status)
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=SIGNATE_URL)
-
-    # SIGNATE competition cards
-    cards = page.css(".competition-card, .card, [class*='competition'], article")
+    body = page.body.decode("utf-8", "replace")
     seen_links = set()
 
-    for card in cards:
-        link_el = card.css("a[href*='/competitions/']")
-        if not link_el:
-            link_el = card.css("a")
-
-        if not link_el:
+    for match in CARD_RE.finditer(body):
+        href, inner = match.groups()
+        # Skip the featured/first banner cards that have no title div — require a title
+        title_match = TITLE_RE.search(inner)
+        if not title_match:
+            continue
+        title = clean_text(title_match.group(1))
+        if not title or len(title) < 3 or title.lower() in SKIP_TITLES:
             continue
 
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title']")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-
-        if not title or len(title) < 5:
-            continue
-
-        full_url = href if href.startswith("http") else f"{SIGNATE_BASE}{href}"
+        full_url = href if href.startswith("http") else urljoin(SIGNATE_BASE, href)
         if full_url in seen_links:
             continue
         seen_links.add(full_url)
 
-        # Try to find deadline
-        deadline_el = card.css("[class*='deadline'], [class*='date'], time, [class*='end']")
-        deadline = ""
-        if deadline_el:
-            deadline_text = clean_text(deadline_el[0].text)
-            deadline = parse_deadline(deadline_text)
+        # Prize: look for amounts ending in 万円/円/ドル within the card content
+        inner_text = clean_text(CONTENT_RE.sub(" ", inner))
+        prize_pool = ""
+        prize_m = re.search(r'([\d,]+(?:\.\d+)?円|[\d,]+(?:\.\d+)?万円|US\$[\d,]+)', inner_text)
+        if prize_m:
+            prize_pool = prize_m.group(1)
 
-        # Try to find prize info
-        prize_el = card.css("[class*='prize'], [class*='reward']")
-        prize_pool = clean_text(prize_el[0].text) if prize_el else ""
+        # Status: 開催中 (ongoing) => no deadline
+        status = ""
+        if "開催中" in inner_text:
+            status = "開催中"
 
         tags = ["data science", "machine learning", "japan"]
-
         notes_parts = ["Source: SIGNATE."]
-        if prize_pool:
-            notes_parts.append(f"Prize: {prize_pool}.")
+        if status:
+            notes_parts.append(f"Status: {status}.")
 
         item = ScrapeItem(
             title=title,
             type="Competition",
             source="SIGNATE",
             link=full_url,
-            deadline=deadline,
+            deadline="",
             eligibility="Global participants",
             tags=tags,
             location="Online",
@@ -102,33 +105,6 @@ def scrape_signate() -> list[ScrapeItem]:
         )
         if not item.validate():
             items.append(item)
-
-    # Fallback: parse competition links
-    if not items:
-        links = page.css("a[href*='/competitions/']")
-        for link_el in links:
-            href = link_el.attrib.get("href", "")
-            title = clean_text(link_el.text)
-            if not title or len(title) < 5:
-                continue
-            full_url = href if href.startswith("http") else f"{SIGNATE_BASE}{href}"
-            if full_url in seen_links:
-                continue
-            seen_links.add(full_url)
-
-            item = ScrapeItem(
-                title=title,
-                type="Competition",
-                source="SIGNATE",
-                link=full_url,
-                deadline="",
-                eligibility="Global participants",
-                tags=["data science", "machine learning", "japan"],
-                location="Online",
-                notes="Source: SIGNATE.",
-            )
-            if not item.validate():
-                items.append(item)
 
     items = deduplicate_by_link(items)
     logger.info("SIGNATE: scraped %d competitions", len(items))
@@ -140,4 +116,4 @@ if __name__ == "__main__":
     results = scrape_signate()
     print(f"SIGNATE: {len(results)} items")
     for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.deadline} | {item.link[:50]}")
+        print(f"  {item.title} | {item.deadline} | {item.prize_pool} | {item.link}")

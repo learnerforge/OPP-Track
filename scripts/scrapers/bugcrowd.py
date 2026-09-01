@@ -1,8 +1,8 @@
 """
 Bugcrowd scraper.
 Scrapes public bug bounty programs from bugcrowd.com.
-The /programs page redirects to the engagements listing; each program card
-is an anchor `/engagements/{slug}` with the program name as its text.
+The /programs page redirects to the engagements listing. Each program is an
+<li class="bc-program-card"> containing a title link and a bounty range.
 Programs are always-open bug bounties.
 """
 
@@ -26,13 +26,6 @@ FETCH_ARGS = {
     "timeout": 45000,
 }
 
-EXCLUDED_BADGES = {
-    "featured",
-    "view all",
-    "managed",
-    "public bug bounty programs",
-}
-
 
 def scrape_bugcrowd() -> list[ScrapeItem]:
     """Scrape Bugcrowd public bug bounty programs."""
@@ -49,27 +42,32 @@ def scrape_bugcrowd() -> list[ScrapeItem]:
         logger.warning("Bugcrowd returned %d", page.status)
         return items
 
-    links = page.css("a[href*='/engagements/']")
+    cards = page.css("li.bc-program-card, .bc-program-card")
     seen_links = set()
 
-    for link_el in links:
-        href = link_el.attrib.get("href", "")
-        # Only take direct engagement links like /engagements/{slug}
-        path = href.split("?", 1)[0].rstrip("/")
-        if not re_path_matches(path):
+    for card in cards:
+        # Program name + link from the title anchor
+        title_el = card.css(".bc-panel__title a")
+        if not title_el:
             continue
-        title = clean_text(link_el.get_all_text())
+        title = clean_text(title_el[0].get_all_text())
         if not title or len(title) < 3:
             continue
-        if title.lower() in EXCLUDED_BADGES:
+        href = title_el[0].attrib.get("href", "")
+        if not href:
             continue
-        if any(b in title.lower() for b in ("bug bounty program", "managed bug bounty") ) and len(title) > 15:
-            pass  # keep full names
-
         full_url = href if href.startswith("http") else f"{BUGCROWD_BASE}{href}"
         if full_url in seen_links:
             continue
         seen_links.add(full_url)
+
+        # Bounty range from the footer
+        prize_pool = ""
+        footer_el = card.css(".bc-program-card__footer")
+        if footer_el:
+            ft = clean_text(footer_el[0].get_all_text())
+            if ft:
+                prize_pool = ft[:60]
 
         item = ScrapeItem(
             title=f"[Bugcrowd] {title}",
@@ -80,6 +78,7 @@ def scrape_bugcrowd() -> list[ScrapeItem]:
             eligibility="Open to registered researchers",
             tags=["bug bounty", "bugcrowd"],
             location="Online",
+            prize_pool=prize_pool,
             notes="Source: Bugcrowd. Always-open bug bounty program.",
         )
         if not item.validate():
@@ -90,17 +89,9 @@ def scrape_bugcrowd() -> list[ScrapeItem]:
     return items
 
 
-def re_path_matches(path: str) -> bool:
-    """Validate the engagement path is a single-slug detail page."""
-    from urllib.parse import urlparse
-    parsed = urlparse(path)
-    segments = [s for s in parsed.path.split("/") if s]
-    return len(segments) == 2 and segments[0] == "engagements"
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_bugcrowd()
     print(f"Bugcrowd: {len(results)} items")
     for item in results[:10]:
-        print(f"  {item.title} | {item.link}")
+        print(f"  {item.title} | {item.prize_pool} | {item.link}")
