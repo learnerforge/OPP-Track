@@ -1,200 +1,142 @@
 """
 Buddy4Study scholarship scraper.
-India's largest scholarship platform. Next.js app.
-The scholarship listing page loads data client-side, but the __NEXT_DATA__
-script contains SEO data and the site has an API at /api/scholarships.
+The listing page is a client-side Next.js app; the server-rendered HTML is an
+SEO shell. We render it with StealthyFetcher and parse the scholarship cards
+classes (Listing_* module CSS) emitted by the app.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
 
-from scripts.scrapers.base import ScrapeItem
+from scripts.scrapers.base import ScrapeItem, clean_text, parse_deadline, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
 B4S_BASE = "https://www.buddy4study.com"
 B4S_LISTING_URL = f"{B4S_BASE}/scholarships"
-B4S_API_URL = f"{B4S_BASE}/api/scholarships"
 
 
-def _try_api() -> list[dict]:
-    """Try fetching scholarships from the Buddy4Study API."""
-    try:
-        resp = httpx.get(
-            B4S_API_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "application/json",
-            },
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict):
-                for key in ("scholarships", "data", "results", "items"):
-                    if isinstance(data.get(key), list):
-                        return data[key]
-    except Exception as e:
-        logger.debug(f"API failed: {e}")
-    return []
+def _abs_url(href: str) -> str:
+    href = (href or "").strip()
+    if not href:
+        return ""
+    if href.startswith("http"):
+        return href
+    return B4S_BASE + ("/" + href.lstrip("/") if href else "")
 
 
-def _try_next_data(html: str) -> list[dict]:
-    """Try extracting scholarships from __NEXT_DATA__."""
-    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-    if not m:
-        return []
-    try:
-        data = json.loads(m.group(1))
-    except json.JSONDecodeError:
-        return []
-
-    props = data.get("props", {}).get("pageProps", data.get("props", {}))
-    for key in ("scholarships", "data", "results", "items", "scholarshipList"):
-        if isinstance(props.get(key), list):
-            return props[key]
-    return []
-
-
-def _try_scholarship_categories(html: str) -> list[dict]:
-    """Extract individual scholarship links from the HTML."""
-    from scrapling import Selector
-    page = Selector(html, url=B4S_LISTING_URL)
-    scholarships = []
-
-    # Look for any card-like elements
-    cards = page.css("a[href*='/scholarship/']")
-    seen = set()
-    for card in cards:
-        href = card.attrib.get("href", "")
-        title = card.text.strip() if card.text else ""
-        if not title or len(title) < 5:
-            continue
-        if title in seen:
-            continue
-        seen.add(title)
-        full_url = href if href.startswith("http") else f"{B4S_BASE}{href}"
-        scholarships.append({"title": title, "url": full_url})
-
-    # Also try h2/h3 elements with scholarship-related links
-    headings = page.css("h2 a, h3 a, h4 a")
-    for h in headings:
-        href = h.attrib.get("href", "")
-        title = h.text.strip() if h.text else ""
-        if not title or len(title) < 5 or title in seen:
-            continue
-        seen.add(title)
-        full_url = href if href.startswith("http") else f"{B4S_BASE}{href}"
-        scholarships.append({"title": title, "url": full_url})
-
-    return scholarships
+def _item_link(wrap) -> str:
+    """Best link for an item: /scholarship/... or /page/... from logo/anchor."""
+    for a in wrap.css("a"):
+        h = (a.attrib.get("href") or "").strip()
+        if "scholarship" in h or "/page/" in h:
+            return _abs_url(h)
+    for a in wrap.css("a"):
+        h = (a.attrib.get("href") or "").strip()
+        if h:
+            return _abs_url(h)
+    return ""
 
 
 def scrape_buddy4study() -> list[ScrapeItem]:
-    """Scrape Buddy4Study scholarships."""
+    """Scrape live Buddy4Study scholarships for Indian students."""
     items: list[ScrapeItem] = []
-    logger.info(f"Fetching Buddy4Study: {B4S_LISTING_URL}")
+    logger.info("Fetching Buddy4Study (rendered): %s", B4S_LISTING_URL)
 
-    # Try API first
-    api_data = _try_api()
-    if api_data:
-        logger.info(f"Buddy4Study API: {len(api_data)} items")
-        for entry in api_data[:200]:
-            if not isinstance(entry, dict):
-                continue
-            title = entry.get("title", entry.get("name", "")).strip()
-            if not title or len(title) < 5:
-                continue
-            link = entry.get("url", entry.get("link", entry.get("slug", "")))
-            if link and not link.startswith("http"):
-                link = f"{B4S_BASE}/scholarship/{link}" if not link.startswith("/") else f"{B4S_BASE}{link}"
+    try:
+        page = StealthyFetcher.fetch(
+            B4S_LISTING_URL,
+            headless=True,
+            disable_resources=False,
+            network_idle=True,
+            timeout=45000,
+        )
+    except Exception as e:
+        logger.error("Buddy4Study StealthyFetcher failed: %s", e)
+        return items
 
-            deadline = entry.get("deadline", entry.get("last_date", entry.get("endDate", "")))
-            amount = entry.get("amount", entry.get("scholarship_amount", ""))
-            provider = entry.get("provider", entry.get("organization", ""))
+    if page.status != 200:
+        logger.warning("Buddy4Study returned status %d", page.status)
+        return items
 
-            notes_parts = ["Source: Buddy4Study."]
-            if amount:
-                notes_parts.append(f"Amount: {amount}.")
-            if provider:
-                notes_parts.append(f"Provider: {provider}.")
+    name_els = page.css("h4[class*='scholarshipName']")
+    if not name_els:
+        logger.warning("Buddy4Study: no scholarship cards found in rendered HTML")
+        return items
 
-            item = ScrapeItem(
-                title=title,
-                type="Certification",
-                source="Buddy4Study",
-                link=link or B4S_LISTING_URL,
-                deadline=deadline if deadline else "",
-                eligibility="Indian students",
-                tags=["india", "scholarship", "education"],
-                location="India",
-                notes=" ".join(notes_parts),
-            )
-            if not item.validate():
-                items.append(item)
-    else:
-        # Fallback: scrape HTML
-        try:
-            resp = httpx.get(B4S_LISTING_URL, timeout=30, follow_redirects=True, headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            })
-            if resp.status_code == 200:
-                # Try __NEXT_DATA__
-                next_data = _try_next_data(resp.text)
-                if next_data:
-                    logger.info(f"Buddy4Study __NEXT_DATA__: {len(next_data)} items")
-                    for entry in next_data[:200]:
-                        if not isinstance(entry, dict):
-                            continue
-                        title = entry.get("title", entry.get("name", "")).strip()
-                        if not title:
-                            continue
-                        link = entry.get("url", entry.get("slug", ""))
-                        if link and not link.startswith("http"):
-                            link = f"{B4S_BASE}/scholarship/{link}" if not link.startswith("/") else f"{B4S_BASE}{link}"
-                        item = ScrapeItem(
-                            title=title,
-                            type="Certification",
-                            source="Buddy4Study",
-                            link=link or B4S_LISTING_URL,
-                            deadline=entry.get("deadline", entry.get("last_date", "")),
-                            eligibility="Indian students",
-                            tags=["india", "scholarship", "education"],
-                            location="India",
-                            notes="Source: Buddy4Study.",
-                        )
-                        if not item.validate():
-                            items.append(item)
-                else:
-                    # Last resort: parse links
-                    raw = _try_scholarship_categories(resp.text)
-                    logger.info(f"Buddy4Study HTML links: {len(raw)} items")
-                    for entry in raw[:200]:
-                        item = ScrapeItem(
-                            title=entry["title"],
-                            type="Certification",
-                            source="Buddy4Study",
-                            link=entry.get("url", B4S_LISTING_URL),
-                            deadline="",
-                            eligibility="Indian students",
-                            tags=["india", "scholarship", "education"],
-                            location="India",
-                            notes="Source: Buddy4Study.",
-                        )
-                        if not item.validate():
-                            items.append(item)
-        except Exception as e:
-            logger.error(f"Buddy4Study request failed: {e}")
+    seen_links = set()
 
-    logger.info(f"Buddy4Study: scraped {len(items)} scholarships")
+    for nh in name_els:
+        ps = nh.xpath("./following-sibling::p[1]")
+        title = clean_text(ps[0].text) if ps else ""
+        if not title or len(title) < 5:
+            continue
+
+        wrap = nh.xpath("parent::*")
+        if not wrap:
+            continue
+
+        link = _item_link(wrap[0])
+        if not link:
+            continue
+        link_key = link.rstrip("/").lower()
+        if link_key in seen_links:
+            continue
+        seen_links.add(link_key)
+
+        deadline = ""
+        cal = wrap[0].css("[class*='calendarDate']")
+        if cal:
+            raw_dl = clean_text(cal[0].get_all_text(" "))
+            raw_dl = re.sub(r"^deadline\s*", "", raw_dl, flags=re.I)
+            deadline = parse_deadline(raw_dl)
+
+        award = ""
+        eligibility = ""
+        for block in wrap[0].css("[class*='awardCont']"):
+            head_els = block.css("h4")
+            head = clean_text(head_els[0].get_all_text(" ")) if head_els else ""
+            val = re.sub(r"\s+", " ", (block.get_all_text(" ") or "")).strip()
+            val = re.sub(r"^.*?Award\s*(.*)$", r"\1", val, flags=re.I)
+            val = re.sub(r"^.*?Eligibility\s*(.*)$", r"\1", val, flags=re.I)
+            val = val[:300]
+            if "award" in head.lower() and not award:
+                award = val
+            elif "eligibility" in head.lower() and not eligibility:
+                eligibility = val
+
+        notes_parts = ["Scholarship for Indian students. Source: Buddy4Study."]
+        if award:
+            notes_parts.append(f"Award: {award}.")
+        if eligibility:
+            notes_parts.append(f"Eligibility: {eligibility}.")
+
+        tags = ["india", "scholarship", "education"]
+        if award:
+            tags.append("funding")
+
+        item = ScrapeItem(
+            title=title,
+            type="Certification",
+            source="Buddy4Study",
+            link=link,
+            deadline=deadline,
+            eligibility=eligibility or "Indian students",
+            tags=tags,
+            location="India",
+            organizer="",
+            notes=" ".join(notes_parts),
+        )
+        if not item.validate():
+            items.append(item)
+            logger.info("  Found: %s | %s", title[:50], deadline)
+
+    items = deduplicate_by_link(items)
+    logger.info("Buddy4Study: scraped %d scholarships", len(items))
     return items
 
 
@@ -203,4 +145,4 @@ if __name__ == "__main__":
     results = scrape_buddy4study()
     print(f"Buddy4Study: {len(results)} items")
     for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.link[:50]}")
+        print(f"  {item.title[:60]} | {item.type} | {item.deadline} | {item.link[:50]}")
