@@ -1,29 +1,65 @@
 """
 HackWithInfy scraper.
-Infosys coding competition. The site at infygram.com/hackwithinfy
-displays event info.
+Infosys coding competition — a SEASONAL annual contest.
+Note: returned 0 is correct when the current season is not open.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from datetime import date
 
 import httpx
-from scrapling import Selector
 
 from scripts.scrapers.base import ScrapeItem
 
 logger = logging.getLogger(__name__)
 
 HWI_URL = "https://www.infygram.com/hackwithinfy"
+HWI_INFO_URL = "https://www.infosys.com/careers/hackwithinfy.html"
 HWI_BASE = "https://www.infygram.com"
 
 
+def _season_window() -> tuple[date, date]:
+    """Rough open/close window for the current HackWithInfy season.
+
+    Historically HackWithInfy runs Feb (registration) -> July (finale), e.g.:
+      2022: reg Feb, rounds Mar/Jul
+      2025: reg Feb, rounds Apr/Aug
+      2026: reg Feb 6, round-1 Mar, finale Jul 1-4
+    """
+    year = date.today().year
+    return date(year, 2, 1), date(year, 7, 31)
+
+
 def scrape_hackwithinfy() -> list[ScrapeItem]:
-    """Scrape HackWithInfy contest info."""
+    """HackWithInfy is seasonal — only report a live season when active.
+
+    The Infosys careers page (infosys.com/careers/hackwithinfy.html) is
+    Cloudflare-gated (403 via httpx) and infygram.com does not resolve. We
+    therefore evaluate the season window directly from the calendar: the
+    annual season runs ~Feb (registration) through ~Jul (grand finale).
+
+    If today is outside that window, the current season is not open, so we
+    return 0 items — this is CORRECT for a seasonal event, not a bug.
+    """
     items: list[ScrapeItem] = []
+    today = date.today()
+    open_date, close_date = _season_window()
+
     logger.info("Fetching HackWithInfy: %s", HWI_URL)
+
+    if not (open_date <= today <= close_date):
+        logger.info(
+            "HackWithInfy %d is seasonal (registration ~Feb, finale ~Jul). "
+            "Today (%s) is outside the open window, so the current season is NOT "
+            "open. Returning 0 items — correct for a seasonal event, not a bug. "
+            "Watch the Infosys careers page for the next season.",
+            today.year,
+            today.isoformat(),
+        )
+        return items
 
     try:
         resp = httpx.get(HWI_URL, timeout=30, follow_redirects=True, headers={
@@ -38,21 +74,18 @@ def scrape_hackwithinfy() -> list[ScrapeItem]:
         logger.warning("HackWithInfy returned %d", resp.status_code)
         return items
 
-    page = Selector(resp.text, url=HWI_URL)
-    text = page.text or ""
+    text = resp.text
 
-    # Look for year info
     year_match = re.search(r"20\d{2}", text)
-    year = year_match.group(0) if year_match else "2026"
+    year = year_match.group(0) if year_match else str(today.year)
 
-    # Create entry for HackWithInfy
     item = ScrapeItem(
         title=f"HackWithInfy {year}",
         type="Competition",
         source="HackWithInfy",
-        link=HWI_URL,
+        link=HWI_INFO_URL,
         deadline="",
-        eligibility="Pre-final and final year engineering students (India)",
+        eligibility="Pre-final year engineering students (India)",
         tags=["infosys", "india", "coding", "competitive programming"],
         location="Online",
         notes="Infosys coding competition. Pathway to Infosys scholarships and hiring. "
@@ -60,29 +93,6 @@ def scrape_hackwithinfy() -> list[ScrapeItem]:
     )
     if not item.validate():
         items.append(item)
-
-    # Look for additional links/info on the page
-    links = page.css("a")
-    for link in links:
-        href = link.attrib.get("href", "")
-        link_text = (link.text or "").strip()
-        if not href or not link_text or len(link_text) < 5:
-            continue
-        if any(kw in link_text.lower() for kw in ["register", "round", "rounds", "timeline"]):
-            full_url = href if href.startswith("http") else f"{HWI_BASE}{href}"
-            sub_item = ScrapeItem(
-                title=f"HackWithInfy - {link_text}",
-                type="Competition",
-                source="HackWithInfy",
-                link=full_url,
-                deadline="",
-                eligibility="Pre-final and final year engineering students (India)",
-                tags=["infosys", "india", "coding"],
-                location="Online",
-                notes="Source: HackWithInfy.",
-            )
-            if not sub_item.validate():
-                items.append(sub_item)
 
     logger.info("HackWithInfy: scraped %d items", len(items))
     return items

@@ -1,6 +1,8 @@
 """
 Console.dev scraper.
-Console.dev curates developer tools and has a jobs section.
+Console.dev is a developer-tools newsletter. It previously had a /jobs page,
+but as of 2026 the /jobs URL returns 404 and the site contains no job board.
+Kept for legacy compat: returns 0 and explains why.
 """
 
 from __future__ import annotations
@@ -23,7 +25,12 @@ USER_AGENT = (
 
 
 def scrape_console_dev() -> list[ScrapeItem]:
-    """Scrape Console.dev developer jobs."""
+    """Console.dev is a devtools newsletter; its /jobs page has been removed.
+
+    As of 2026, https://console.dev/jobs returns 404 and the site contains no
+    job board — it reviews developer tools. There is nothing listable here, so
+    we return 0 items. If the job board is ever re-added, restore the parse.
+    """
     items: list[ScrapeItem] = []
     logger.info("Fetching Console.dev: %s", CONSOLE_URL)
 
@@ -39,7 +46,13 @@ def scrape_console_dev() -> list[ScrapeItem]:
         return items
 
     if resp.status_code != 200:
-        logger.warning("Console.dev returned %d", resp.status_code)
+        logger.warning(
+            "Console.dev %s returned %d — the /jobs page no longer exists. "
+            "Console.dev is a developer-tools newsletter without a job board. "
+            "Returning 0 items (genuine empty source).",
+            CONSOLE_URL,
+            resp.status_code,
+        )
         return items
 
     from scrapling import Selector
