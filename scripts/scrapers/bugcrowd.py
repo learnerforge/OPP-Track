@@ -1,90 +1,75 @@
 """
 Bugcrowd scraper.
-Bugcrowd is a crowdsourced security platform.
-The programs page at bugcrowd.com/programs lists public bug bounty programs.
+Scrapes public bug bounty programs from bugcrowd.com.
+The /programs page redirects to the engagements listing; each program card
+is an anchor `/engagements/{slug}` with the program name as its text.
+Programs are always-open bug bounties.
 """
 
 from __future__ import annotations
 
 import logging
 
-import httpx
+from scrapling.fetchers import StealthyFetcher
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-BUGCROWD_URL = "https://www.bugcrowd.com/programs"
-BUGCROWD_BASE = "https://www.bugcrowd.com"
+BUGCROWD_URL = "https://bugcrowd.com/programs"
+BUGCROWD_BASE = "https://bugcrowd.com"
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
+FETCH_ARGS = {
+    "headless": True,
+    "disable_resources": True,
+    "network_idle": True,
+    "timeout": 45000,
+}
+
+EXCLUDED_BADGES = {
+    "featured",
+    "view all",
+    "managed",
+    "public bug bounty programs",
+}
 
 
 def scrape_bugcrowd() -> list[ScrapeItem]:
-    """Scrape Bugcrowd public programs."""
+    """Scrape Bugcrowd public bug bounty programs."""
     items: list[ScrapeItem] = []
     logger.info("Fetching Bugcrowd programs: %s", BUGCROWD_URL)
 
     try:
-        resp = httpx.get(
-            BUGCROWD_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT},
-        )
+        page = StealthyFetcher.fetch(BUGCROWD_URL, **FETCH_ARGS)
     except Exception as e:
-        logger.error("Bugcrowd request failed: %s", e)
+        logger.error("Bugcrowd fetch failed: %s", e)
         return items
 
-    if resp.status_code != 200:
-        logger.warning("Bugcrowd returned %d", resp.status_code)
+    if page.status != 200:
+        logger.warning("Bugcrowd returned %d", page.status)
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=BUGCROWD_URL)
-
-    # Bugcrowd program cards
-    cards = page.css(".program-card, .card, [class*='program'], article")
+    links = page.css("a[href*='/engagements/']")
     seen_links = set()
 
-    for card in cards:
-        link_el = card.css("a[href*='/programs/']")
-        if not link_el:
-            link_el = card.css("a")
-
-        if not link_el:
+    for link_el in links:
+        href = link_el.attrib.get("href", "")
+        # Only take direct engagement links like /engagements/{slug}
+        path = href.split("?", 1)[0].rstrip("/")
+        if not re_path_matches(path):
             continue
-
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title'], .program-name")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-
+        title = clean_text(link_el.get_all_text())
         if not title or len(title) < 3:
             continue
+        if title.lower() in EXCLUDED_BADGES:
+            continue
+        if any(b in title.lower() for b in ("bug bounty program", "managed bug bounty") ) and len(title) > 15:
+            pass  # keep full names
 
         full_url = href if href.startswith("http") else f"{BUGCROWD_BASE}{href}"
         if full_url in seen_links:
             continue
         seen_links.add(full_url)
-
-        # Try to find max bounty
-        bounty_el = card.css("[class*='bounty'], [class*='max'], [class*='reward']")
-        prize_pool = clean_text(bounty_el[0].text) if bounty_el else ""
-
-        # Try to find type
-        type_el = card.css("[class*='type'], [class*='tag'], .badge")
-        program_type = clean_text(type_el[0].text) if type_el else ""
-
-        tags = ["bug bounty", "security", "bugcrowd"]
-        if program_type:
-            tags.append(program_type.lower())
-
-        notes_parts = ["Source: Bugcrowd."]
-        if program_type:
-            notes_parts.append(f"Type: {program_type}.")
 
         item = ScrapeItem(
             title=f"[Bugcrowd] {title}",
@@ -92,11 +77,10 @@ def scrape_bugcrowd() -> list[ScrapeItem]:
             source="Bugcrowd",
             link=full_url,
             deadline="",
-            eligibility="Security researchers",
-            tags=tags,
+            eligibility="Open to registered researchers",
+            tags=["bug bounty", "bugcrowd"],
             location="Online",
-            prize_pool=prize_pool,
-            notes=" ".join(notes_parts),
+            notes="Source: Bugcrowd. Always-open bug bounty program.",
         )
         if not item.validate():
             items.append(item)
@@ -106,9 +90,17 @@ def scrape_bugcrowd() -> list[ScrapeItem]:
     return items
 
 
+def re_path_matches(path: str) -> bool:
+    """Validate the engagement path is a single-slug detail page."""
+    from urllib.parse import urlparse
+    parsed = urlparse(path)
+    segments = [s for s in parsed.path.split("/") if s]
+    return len(segments) == 2 and segments[0] == "engagements"
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_bugcrowd()
     print(f"Bugcrowd: {len(results)} items")
     for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.link[:50]}")
+        print(f"  {item.title} | {item.link}")
