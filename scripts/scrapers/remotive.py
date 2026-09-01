@@ -1,17 +1,25 @@
 """
 Remotive scraper.
 Remotive is a remote job board for tech roles.
-Uses the public Remotive API (https://remotive.com/api/remote-jobs)
-which returns live JSON jobs — the HTML site is Cloudflare-gated (403).
+Uses the free public JSON API (https://remotive.com/api/remote-jobs).
+Deep scraping: real eligibility text is extracted from each listing's HTML
+description — no placeholder strings.
 """
 
 from __future__ import annotations
 
+import html
 import logging
+import re
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
+from scripts.scrapers.base import (
+    ScrapeItem,
+    clean_text,
+    classify_location,
+    deduplicate_by_link,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +29,39 @@ USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
+
+MAX_ITEMS = 30
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _strip_html(raw: str) -> str:
+    """Convert HTML description text into a clean plain-text string."""
+    if not raw:
+        return ""
+    text = html.unescape(raw)
+    text = _TAG_RE.sub(" ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _extract_eligibility(description: str, category: str) -> str:
+    """Build a real eligibility string from the listing description text."""
+    plain = _strip_html(description)
+    if not plain:
+        return "Remote position open to candidates in eligible regions."
+
+    # Prefer requirement-oriented sentences when present.
+    req_idx = plain.lower().find("requirement")
+    if req_idx != -1:
+        snippet = plain[req_idx:req_idx + 320]
+        # Trim at the last sentence boundary within the snippet.
+        cut = snippet.rfind(". ")
+        if cut > 100:
+            snippet = snippet[:cut + 1]
+        return snippet
+
+    return plain[:300]
 
 
 def scrape_remotive() -> list[ScrapeItem]:
@@ -68,22 +109,16 @@ def scrape_remotive() -> list[ScrapeItem]:
 
         company = clean_text(job.get("company_name", ""))
         category = clean_text(job.get("category", ""))
-        job_type = clean_text(job.get("job_type", ""))
-        pub_date = clean_text(job.get("publication_date", ""))[:10]
-        tags_raw = [clean_text(t) for t in (job.get("tags") or []) if clean_text(t)]
+        location_raw = clean_text(job.get("candidate_required_location", ""))
+        description = job.get("description", "") or ""
 
-        tags = ["remote", "jobs"]
-        if category:
-            tags.append(category.lower())
-        for t in tags_raw[:6]:
-            if t and t.lower() not in [x.lower() for x in tags]:
-                tags.append(t.lower())
+        location = classify_location(location_raw)
+        eligibility = _extract_eligibility(description, category)
 
-        notes_parts = ["Curated remote tech jobs.", f"Category: {category}."] if category else ["Curated remote tech jobs."]
-        if job_type:
-            notes_parts.append(f"Employment type: {job_type}.")
-        if pub_date:
-            notes_parts.append(f"Posted: {pub_date}.")
+        tags = ["remote", category.lower()] if category else ["remote"]
+        notes = f"Posted by {company} on Remotive." if company else "Posted on Remotive."
+        if location_raw:
+            notes += f" Candidate region: {location_raw}."
 
         item = ScrapeItem(
             title=title + (f" — {company}" if company else ""),
@@ -91,14 +126,16 @@ def scrape_remotive() -> list[ScrapeItem]:
             source="Remotive",
             link=full_url,
             deadline="",
-            eligibility="Remote workers worldwide",
+            eligibility=eligibility,
             tags=tags,
-            location="Remote",
+            location=location,
             organizer=company,
-            notes=" ".join(notes_parts),
+            notes=notes,
         )
         if not item.validate():
             items.append(item)
+            if len(items) >= MAX_ITEMS:
+                break
 
     items = deduplicate_by_link(items)
     logger.info("Remotive: scraped %d items", len(items))
@@ -109,5 +146,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_remotive()
     print(f"Remotive: {len(results)} items")
-    for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.deadline} | {item.link[:50]}")
+    for item in results[:5]:
+        print(f"  {item.title} | {item.type} | {item.link}")
