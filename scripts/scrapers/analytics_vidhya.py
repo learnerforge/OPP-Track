@@ -58,6 +58,27 @@ def _parse_iso_date(iso: str) -> str:
         return parse_deadline(iso)
 
 
+def _is_placeholder_deadline(iso: str) -> bool:
+    """Detect the platform's end-of-year deadline placeholder.
+
+    Analytics Vidhya assigns eternally-open practice problems a fixed
+    end-of-year deadline (e.g. '2026-12-31T...') regardless of when they
+    actually began. Such dates are NOT real contest deadlines and must not be
+    emitted as if the contest were newly active.
+    """
+    if not iso:
+        return False
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        parsed = parse_deadline(iso)
+        try:
+            dt = datetime.strptime(parsed, "%Y-%m-%d")
+        except ValueError:
+            return False
+    return dt.month == 12 and dt.day == 31
+
+
 def _map_tournament(t: dict) -> ScrapeItem | None:
     """Map a single tournamentData dict to a ScrapeItem."""
     title = (t.get("title") or "").strip()
@@ -198,9 +219,28 @@ def scrape_analytics_vidhya() -> list[ScrapeItem]:
 
     items: list[ScrapeItem] = []
     seen_titles: set[str] = set()
+    today = datetime.now().date()
     for t in tournaments:
+        # Drop eternally-open practice problems whose deadline is the
+        # platform's end-of-year placeholder (not a real contest deadline).
+        if _is_placeholder_deadline(t.get("endDate", "")):
+            logger.debug(f"  Skipping placeholder-deadline item: {t.get('title')}")
+            continue
         item = _map_tournament(t)
         if not item or item.title in seen_titles:
+            continue
+        # Only current/upcoming contests: a real deadline must be today or later.
+        if item.deadline:
+            try:
+                dl = datetime.strptime(item.deadline, "%Y-%m-%d").date()
+                if dl < today:
+                    logger.debug(f"  Skipping ended contest: {item.title} ({item.deadline})")
+                    continue
+            except ValueError:
+                pass
+        else:
+            # No real end date available -> cannot confirm it is active.
+            logger.debug(f"  Skipping contest without a real deadline: {item.title}")
             continue
         errors = item.validate()
         if errors:

@@ -86,7 +86,7 @@ def parse_deadline(raw: str) -> str:
     def _map_month(match: "re.Match") -> str:
         word = match.group(1)
         return _MONTH_ALIASES.get(word.lower(), word)
-    raw = re.sub(r'\b([A-Za-z]+)\.?\b', _map_month, raw)
+    raw = re.sub(r'\b([A-Za-z]+)\.?', _map_month, raw)
 
     formats = [
         "%Y-%m-%d",

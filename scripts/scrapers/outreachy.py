@@ -73,15 +73,19 @@ def scrape_outreachy() -> list[ScrapeItem]:
 
     from scrapling import Selector
     page = Selector(resp.text, url=OUTREACHY_URL)
-    text = page.text or ""
+    text = page.get_all_text() or ""
+    # Collapse whitespace (and stray tags) so dates separated by line breaks,
+    # like "Nov. 2, 2026<at>4pm UTC", become matchable on a single line.
+    text = re.sub(r"<[^>]+>", " ", text, flags=re.I)
     text = re.sub(r"\s+", " ", text)
 
     # Find the current/next round's final application deadline and internship period.
-    # Applicant Guide pages render as e.g.
+    # Applicant Guide pages render dates as e.g.
     #   "Nov. 2, 2026 at 4pm UTC Final application deadline"
-    # i.e. the date PRECEDES the label.
+    #   "Dec. 7, 2026 to March 8, 2027 Internships period"
+    # i.e. the date(s) PRECEDE the label.
     dl_match = re.search(
-        r"([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})[^A-Za-z]*(?:(?:at\s+\d{1,2}:\d{2}\s*[ap]m\s*UTC)|(?:at\s+[^A-Za-z]))?\s*Final application deadline",
+        r"([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})\s+at\s+\d{1,2}(?::\d{2})?\s*[ap]m\s*UTC\s+Final application deadline",
         text,
         re.I,
     )
@@ -107,13 +111,24 @@ def scrape_outreachy() -> list[ScrapeItem]:
         )
         return items
 
-    round_label = _parse_round_label(text) or "current"
     period_match = re.search(
-        r"internships period[:\s]*([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2}\s*to\s*[A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})",
+        r"([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})\s+to\s+([A-Z][a-z]{2,8}\.?\s*\d{1,2},?\s*20\d{2})\s+Internships period",
         text,
         re.I,
-    )
-    period = period_match.group(1) if period_match else ""
+    )    # Build a human round label from the internship start, e.g. "December 2026".
+    start_label = ""
+    if period_match:
+        start = period_match.group(1)
+        mm = re.match(r"([A-Z][a-z]{2,8})\.?\s*\d{1,2},?\s*(20\d{2})", start, re.I)
+        if mm:
+            month_full = {
+                "jan": "January", "feb": "February", "mar": "March", "apr": "April",
+                "may": "May", "jun": "June", "jul": "July", "aug": "August",
+                "sep": "September", "oct": "October", "nov": "November", "dec": "December",
+            }.get(mm.group(1).lower()[:3], mm.group(1))
+            start_label = f"{month_full} {mm.group(2)}"
+    round_label = start_label or "current"
+    period = f"{period_match.group(1)} to {period_match.group(2)}" if period_match else ""
 
     notes = ["Source: Outreachy."]
     if period:
