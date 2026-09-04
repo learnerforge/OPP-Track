@@ -1,128 +1,116 @@
 """
 IBM Skills Network scraper.
-IBM offers cloud and AI certifications through Skills Network.
+IBM offers certifications through ibm.com/training.
+We parse the ibm.com/training/sitemap.xml for /certification/ URLs,
+then extract title and description from each certification page's
+HTML title and meta description tags.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-IBM_SKILLS_URL = "https://skills.network/learning"
-IBM_BASE = "https://skills.network"
+IBM_SITEMAP = "https://www.ibm.com/training/sitemap.xml"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 
+HEADERS = {"User-Agent": USER_AGENT, "Accept": "text/html"}
+
+
+def _get_cert_urls(limit: int = 50) -> list[str]:
+    """Parse IBM sitemap for /certification/ URLs."""
+    try:
+        resp = httpx.get(IBM_SITEMAP, timeout=20, follow_redirects=True, headers=HEADERS)
+        if resp.status_code != 200:
+            logger.warning("IBM sitemap returned %d", resp.status_code)
+            return []
+        urls = re.findall(r"<loc>(.*?)</loc>", resp.text)
+        cert_urls = [u for u in urls if "/certification/" in u]
+        logger.info("IBM sitemap: %d certification URLs, using %d", len(cert_urls), min(limit, len(cert_urls)))
+        return cert_urls[:limit]
+    except Exception as e:
+        logger.error("IBM sitemap fetch failed: %s", e)
+        return []
+
 
 def scrape_ibm_skills() -> list[ScrapeItem]:
-    """Scrape IBM Skills Network courses and certifications."""
+    """Scrape IBM certifications from the sitemap."""
     items: list[ScrapeItem] = []
-    logger.info("Fetching IBM Skills Network: %s", IBM_SKILLS_URL)
+    logger.info("Fetching IBM certification URLs from sitemap")
 
-    try:
-        resp = httpx.get(
-            IBM_SKILLS_URL,
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT},
-        )
-    except Exception as e:
-        logger.error("IBM Skills request failed: %s", e)
+    cert_urls = _get_cert_urls(limit=50)
+    if not cert_urls:
+        logger.warning("No IBM certification URLs from sitemap")
         return items
 
-    if resp.status_code != 200:
-        logger.warning("IBM Skills returned %d", resp.status_code)
-        return items
+    for url in cert_urls:
+        try:
+            resp = httpx.get(url, timeout=20, follow_redirects=True, headers=HEADERS)
+            if resp.status_code != 200:
+                continue
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=IBM_SKILLS_URL)
+            html = resp.text
 
-    # IBM course cards
-    cards = page.css(".course-card, .card, [class*='course'], article, [class*='learning']")
-    seen_links = set()
+            title = ""
+            title_match = re.search(r"<title[^>]*>(.*?)</title>", html)
+            if title_match:
+                title = re.sub(r"<[^>]+>", "", title_match.group(1)).strip()
+                title = re.sub(r"\s*\|\s*IBM Training Certification\s*$", "", title)
+            if not title:
+                continue
 
-    for card in cards:
-        link_el = card.css("a[href*='/courses/'], a[href*='/learning/']")
-        if not link_el:
-            link_el = card.css("a")
+            description = ""
+            desc_match = re.search(
+                r'<meta[^>]*name="description"[^>]*content="([^"]*)"', html
+            )
+            if desc_match:
+                description = clean_text(desc_match.group(1))
 
-        if not link_el:
-            continue
+            tags = ["ibm", "certification"]
+            title_lower = title.lower()
+            if "security" in title_lower:
+                tags.append("security")
+            if "ai" in title_lower or "watson" in title_lower:
+                tags.append("ai")
+            if "cloud" in title_lower:
+                tags.append("cloud")
+            if "data" in title_lower:
+                tags.append("data science")
+            if "hashicorp" in title_lower:
+                tags.append("hashicorp")
 
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title']")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
+            notes_parts = ["Source: IBM Training."]
+            if description:
+                notes_parts.append(description[:200])
 
-        if not title or len(title) < 5:
-            continue
-
-        full_url = href if href.startswith("http") else f"{IBM_BASE}{href}"
-        if full_url in seen_links:
-            continue
-        seen_links.add(full_url)
-
-        tags = ["ibm", "cloud", "certification", "ai"]
-        card_text = clean_text(card.text).lower()
-        if "free" in card_text:
-            tags.append("free")
-        if "data science" in card_text:
-            tags.append("data science")
-        if "ai" in card_text or "artificial intelligence" in card_text:
-            tags.append("ai")
-        if "cybersecurity" in card_text:
-            tags.append("cybersecurity")
-
-        item = ScrapeItem(
-            title=title,
-            type="Certification",
-            source="IBM Skills",
-            link=full_url,
-            deadline="",
-            eligibility="Global participants",
-            tags=tags,
-            location="Online",
-            notes="Source: IBM Skills Network.",
-        )
-        if not item.validate():
-            items.append(item)
-
-    # Add known IBM certifications
-    known_certs = [
-        ("IBM Data Science Professional Certificate", "https://www.ibm.com/training/certification/DS0101EN"),
-        ("IBM AI Engineering Professional Certificate", "https://www.ibm.com/training/certification/AI0101EN"),
-        ("IBM Cybersecurity Analyst Professional Certificate", "https://www.ibm.com/training/certification/CY0101EN"),
-        ("IBM Cloud Computing Professional Certificate", "https://www.ibm.com/training/certification/CL0101EN"),
-        ("IBM Data Analyst Professional Certificate", "https://www.ibm.com/training/certification/DA0101EN"),
-        ("IBM Applied AI Professional Certificate", "https://www.ibm.com/training/certification/AAI0101EN"),
-        ("IBM Full Stack Cloud Developer Professional Certificate", "https://www.ibm.com/training/certification/FS0101EN"),
-    ]
-
-    for title, link in known_certs:
-        if link not in [item.link for item in items]:
             item = ScrapeItem(
                 title=title,
                 type="Certification",
                 source="IBM Skills",
-                link=link,
+                link=url,
                 deadline="",
                 eligibility="Global participants",
-                tags=["ibm", "cloud", "certification", "professional certificate"],
+                tags=tags,
                 location="Online",
-                notes="Source: IBM Skills Network.",
+                notes=" ".join(notes_parts),
             )
             if not item.validate():
                 items.append(item)
+        except Exception as e:
+            logger.debug("IBM cert page fetch failed for %s: %s", url, e)
 
     items = deduplicate_by_link(items)
-    logger.info("IBM Skills: scraped %d items", len(items))
+    logger.info("IBM Skills: scraped %d certifications", len(items))
     return items
 
 
@@ -131,4 +119,4 @@ if __name__ == "__main__":
     results = scrape_ibm_skills()
     print(f"IBM Skills: {len(results)} items")
     for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.link[:50]}")
+        print(f"  {item.title[:60]} | {item.type} | {item.link[:60]}")

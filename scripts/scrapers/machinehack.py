@@ -127,7 +127,7 @@ def scrape_machinehack() -> list[ScrapeItem]:
 
         item = ScrapeItem(
             title=title,
-            type="Competition",
+            type="Hackathon",
             source="MachineHack",
             link=full_url,
             deadline=deadline,

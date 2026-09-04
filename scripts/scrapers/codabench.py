@@ -1,12 +1,12 @@
 """
-Codabench scraper — fetches most recent competitions via API,
+Codabench scraper — fetches competitions via API (returns a JSON list),
 then checks each for active phases (status != "Previous").
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
 
@@ -24,12 +24,12 @@ USER_AGENT = (
 HEADERS = {"User-Agent": USER_AGENT, "Accept": "application/json"}
 
 
-def _fetch_list_page(page: int) -> list[dict]:
-    """Fetch one page of the competition list."""
+def _fetch_all_competitions() -> list[dict]:
+    """Fetch competitions from the API (returns a plain JSON list)."""
     try:
         resp = httpx.get(
             CODABENCH_LIST,
-            params={"page": str(page), "page_size": "100"},
+            params={"page": "1", "page_size": "100"},
             timeout=30,
             follow_redirects=True,
             headers=HEADERS,
@@ -37,9 +37,12 @@ def _fetch_list_page(page: int) -> list[dict]:
         if resp.status_code != 200:
             return []
         data = resp.json()
-        return data.get("results", []) if isinstance(data, dict) else data
+        # API returns a plain list, not a paginated dict
+        if isinstance(data, list):
+            return data
+        return data.get("results", []) if isinstance(data, dict) else []
     except Exception as e:
-        logger.debug("List page %d failed: %s", page, e)
+        logger.debug("Codabench list fetch failed: %s", e)
         return []
 
 
@@ -48,7 +51,7 @@ def _get_active_phases(comp_id: int) -> list[dict]:
     try:
         resp = httpx.get(
             f"{CODABENCH_BASE}/api/competitions/{comp_id}/",
-            timeout=30,
+            timeout=20,
             headers=HEADERS,
         )
         if resp.status_code != 200:
@@ -81,48 +84,22 @@ def scrape_codabench() -> list[ScrapeItem]:
     items: list[ScrapeItem] = []
     logger.info("Fetching Codabench competitions")
 
-    # Fetch list pages starting from the END (most recent) backwards
-    # until we find competitions older than 6 months
-    from datetime import timedelta
-    cutoff = datetime.now(timezone.utc) - timedelta(days=180)
-    recent: list[dict] = []
+    all_comps = _fetch_all_competitions()
+    if not all_comps:
+        logger.warning("Codabench: no competitions returned from API")
+        return items
 
-    # Determine total count
-    try:
-        resp = httpx.get(
-            CODABENCH_LIST,
-            params={"page": "1", "page_size": "1"},
-            timeout=20,
-            headers=HEADERS,
-        )
-        total = resp.json().get("count", 0) if resp.status_code == 200 else 0
-    except Exception:
-        total = 0
+    # Sort by most recently created first
+    sorted_comps = sorted(
+        all_comps,
+        key=lambda c: c.get("created_when", ""),
+        reverse=True,
+    )
 
-    pages_to_fetch = min((total // 100) + 2, 5)  # last 3 pages max for speed
-    start_page = max(1, (total // 100) + 1 - 2)
+    # Only check the 15 most recent for speed
+    logger.info("Codabench: %d total competitions, checking 15 most recent", len(sorted_comps))
 
-    for page in range(start_page, start_page + pages_to_fetch):
-        results = _fetch_list_page(page)
-        if not results:
-            break
-        page_old = True
-        for comp in results:
-            created = comp.get("created_when", "")
-            try:
-                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
-                if created_dt > cutoff:
-                    page_old = False
-                    recent.append(comp)
-            except (ValueError, TypeError):
-                pass
-        if page_old and page > start_page:
-            break  # rest of list is too old
-
-    logger.info("Codabench: fetched %d recent competitions", len(recent))
-
-    # Check each for active phases — cap at 10 most recent to stay fast
-    for comp in recent[:10]:
+    for comp in sorted_comps[:15]:
         comp_id = comp.get("id")
         title = (comp.get("title") or "").strip()
         if not comp_id or not title:

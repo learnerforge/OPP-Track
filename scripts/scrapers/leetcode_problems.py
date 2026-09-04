@@ -1,6 +1,6 @@
 """
 LeetCode problems scraper.
-LeetCode hosts coding problems and contests via GraphQL API.
+LeetCode hosts coding problems and daily challenges via REST + GraphQL APIs.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
 logger = logging.getLogger(__name__)
 
 LEETCODE_GQL = "https://leetcode.com/graphql"
+LEETCODE_PROBLEMS_API = "https://leetcode.com/api/problems/all/"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -28,7 +29,7 @@ HEADERS = {
 
 CHALLENGE_QUERY = """query { activeDailyCodingChallengeQuestion { date link question { title titleSlug difficulty topicTags { name } } } }"""
 
-PROBLEMS_QUERY = """query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) { problemsetQuestionList: questionList(categorySlug: $categorySlug, limit: $limit, skip: $skip, filters: $filters) { total questions { title titleSlug difficulty topicTags { name } } } }"""
+DIFFICULTY_MAP = {1: "Easy", 2: "Medium", 3: "Hard"}
 
 
 def scrape_leetcode_problems() -> list[ScrapeItem]:
@@ -36,7 +37,7 @@ def scrape_leetcode_problems() -> list[ScrapeItem]:
     items: list[ScrapeItem] = []
     logger.info("Fetching LeetCode problems")
 
-    # 1. Daily challenge
+    # 1. Daily challenge via GraphQL
     try:
         resp = httpx.post(
             LEETCODE_GQL,
@@ -72,32 +73,34 @@ def scrape_leetcode_problems() -> list[ScrapeItem]:
     except Exception as e:
         logger.error("LeetCode daily challenge request failed: %s", e)
 
-    # 2. Recent problems
+    # 2. Problems via REST API (GraphQL problemsetQuestionList is unreliable)
     try:
-        resp = httpx.post(
-            LEETCODE_GQL,
-            json={"query": PROBLEMS_QUERY, "variables": {
-                "categorySlug": "",
-                "limit": 50,
-                "skip": 0,
-                "filters": {}
-            }},
+        resp = httpx.get(
+            LEETCODE_PROBLEMS_API,
             timeout=30,
             headers=HEADERS,
         )
         if resp.status_code == 200:
             data = resp.json()
-            questions = data.get("data", {}).get("problemsetQuestionList", {}).get("questions", [])
+            pairs = data.get("stat_status_pairs", [])
             seen = set()
-            for q in questions:
-                title = q.get("title", "")
-                slug = q.get("titleSlug", "")
-                difficulty = q.get("difficulty", "")
+            capped = 0
+            for p in pairs:
+                stat = p.get("stat", {})
+                title = stat.get("question__title", "")
+                slug = stat.get("question__title_slug", "")
+                diff_level = p.get("difficulty", {}).get("level", 0)
+                difficulty = DIFFICULTY_MAP.get(diff_level, "")
                 if not title or slug in seen:
                     continue
                 seen.add(slug)
+                # Keep the problem set bounded and useful — the daily challenge
+                # already covers the "current" problem, and every problem ever
+                # is not useful opportunity data. Cap to the 100 most recent.
+                if capped >= 100:
+                    break
+                capped += 1
 
-                tags = [t["name"].lower() for t in q.get("topicTags", [])]
                 item = ScrapeItem(
                     title=f"[LeetCode] {title} ({difficulty})",
                     type="Competition",
@@ -105,12 +108,15 @@ def scrape_leetcode_problems() -> list[ScrapeItem]:
                     link=f"https://leetcode.com/problems/{slug}/",
                     deadline="",
                     eligibility="Global participants",
-                    tags=["leetcode", "problems", "algorithms"] + tags[:5],
+                    tags=["leetcode", "problems", "algorithms", difficulty.lower()] if difficulty else ["leetcode", "problems", "algorithms"],
                     location="Online",
                     notes=f"LeetCode problem. Difficulty: {difficulty}. Source: leetcode.com.",
                 )
                 if not item.validate():
                     items.append(item)
+            logger.info("LeetCode REST API returned %d problems (%d unique)", len(pairs), len(seen))
+        else:
+            logger.warning("LeetCode REST API returned %d", resp.status_code)
     except Exception as e:
         logger.error("LeetCode problems request failed: %s", e)
 

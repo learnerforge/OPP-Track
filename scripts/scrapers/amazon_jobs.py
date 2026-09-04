@@ -1,6 +1,6 @@
 """
 Amazon Jobs scraper.
-Scrapes Amazon's career page for internship roles.
+Scrapes Amazon's public job search JSON API for internship roles.
 """
 
 from __future__ import annotations
@@ -13,7 +13,8 @@ from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-AMAZON_SEARCH_URL = "https://www.amazon.jobs/en/search?offset=0&result_limit=40&sort=relevant&category=internships"
+AMAZON_SEARCH_API = "https://www.amazon.jobs/en/search.json"
+AMAZON_JOBS_URL = "https://www.amazon.jobs/en/search?base_query=intern&result_limit=40&sort=relevant"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -26,53 +27,87 @@ def scrape_amazon_jobs() -> list[ScrapeItem]:
     logger.info("Fetching Amazon Jobs")
 
     try:
-        resp = httpx.get(AMAZON_SEARCH_URL, timeout=30, follow_redirects=True, headers={"User-Agent": USER_AGENT})
+        resp = httpx.get(
+            AMAZON_SEARCH_API,
+            params={"base_query": "intern", "result_limit": 100, "sort": "relevant"},
+            timeout=30,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT},
+        )
     except Exception as e:
         logger.error("Amazon Jobs request failed: %s", e)
         return items
 
     if resp.status_code != 200:
         logger.warning("Amazon Jobs returned %d", resp.status_code)
-        item = ScrapeItem(title="Amazon Internships", type="Internship", source="Amazon Jobs", link=AMAZON_SEARCH_URL, deadline="", eligibility="Students and recent graduates; global", tags=["amazon", "internship", "swe", "tech"], location="Various", organizer="Amazon", notes="Visit link to search current openings. Source: amazon.jobs.")
+        item = ScrapeItem(
+            title="Amazon Internships", type="Internship", source="Amazon Jobs",
+            link=AMAZON_JOBS_URL, deadline="",
+            eligibility="Students and recent graduates; global",
+            tags=["amazon", "internship", "swe", "tech"],
+            location="Various", organizer="Amazon",
+            notes="Visit link to search current openings. Source: amazon.jobs.",
+        )
         if not item.validate():
             items.append(item)
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=AMAZON_SEARCH_URL)
+    try:
+        data = resp.json()
+    except Exception as e:
+        logger.error("Amazon Jobs: invalid JSON: %s", e)
+        return items
 
-    cards = page.css(".job-card, .card, [class*='job'], article, tr[data-job-id]")
+    jobs = data.get("jobs", []) or []
     seen = set()
-    for card in cards:
-        link_el = card.css("a[href*='/job/']")
-        if not link_el:
-            link_el = card.css("a")
-        if not link_el:
+    for job in jobs:
+        if not isinstance(job, dict):
             continue
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title'], [class*='name']")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-        if not title or len(title) < 3:
+        title = clean_text(job.get("title", ""))
+        if not title:
             continue
-        full_url = href if href.startswith("http") else f"https://www.amazon.jobs{href}"
-        if full_url in seen:
+        job_path = job.get("job_path", "") or ""
+        if not job_path:
             continue
-        seen.add(full_url)
+        link = f"https://www.amazon.jobs{job_path}" if job_path.startswith("/") else job_path
+        if link in seen:
+            continue
+        seen.add(link)
 
-        location_el = card.css("[class*='location']")
-        location = clean_text(location_el[0].text) if location_el else ""
+        city = clean_text(job.get("city", ""))
+        country = clean_text(job.get("country_code", ""))
+        loc_raw = clean_text(job.get("location", ""))  # e.g. "MX, DIF, Mexico City"
+        location = loc_raw or (f"{city}, {country}" if city or country else "")
+
+        category = clean_text(job.get("business_category", ""))
+        tags = ["amazon", "internship", "careers", "tech"]
+        if category:
+            tags.append(category.lower())
 
         item = ScrapeItem(
-            title=f"[Amazon] {title}", type="Internship", source="Amazon Jobs",
-            link=full_url, deadline="", eligibility="Students and recent graduates; global",
-            tags=["amazon", "internship", "swe", "tech"], location=location or "Various",
-            organizer="Amazon", notes="Source: amazon.jobs.",
+            title=f"[Amazon] {title}",
+            type="Internship",
+            source="Amazon Jobs",
+            link=link,
+            deadline="",
+            eligibility="Students and recent graduates; global",
+            tags=tags,
+            location=location or "Various",
+            organizer="Amazon",
+            notes="Source: amazon.jobs public API.",
         )
         if not item.validate():
             items.append(item)
 
     if not items:
-        item = ScrapeItem(title="Amazon Internships", type="Internship", source="Amazon Jobs", link=AMAZON_SEARCH_URL, deadline="", eligibility="Students and recent graduates; global", tags=["amazon", "internship", "swe", "tech"], location="Various", organizer="Amazon", notes="Visit link for current openings. Source: amazon.jobs.")
+        item = ScrapeItem(
+            title="Amazon Internships", type="Internship", source="Amazon Jobs",
+            link=AMAZON_JOBS_URL, deadline="",
+            eligibility="Students and recent graduates; global",
+            tags=["amazon", "internship", "swe", "tech"],
+            location="Various", organizer="Amazon",
+            notes="Visit link for current openings. Source: amazon.jobs.",
+        )
         if not item.validate():
             items.append(item)
 
@@ -85,5 +120,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     results = scrape_amazon_jobs()
     print(f"Amazon Jobs: {len(results)} items")
-    for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.link[:50]}")
+    for item in results[:15]:
+        print(f"  {item.title[:60]} | {item.type} | {item.link[:60]}")

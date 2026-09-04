@@ -1,11 +1,13 @@
 """
 Udacity scraper.
-Udacity offers Nanodegree programs and various scholarship programs
-in partnership with tech companies (AWS, Bertelsmann, Google, etc.).
+Udacity offers Nanodegree programs and various courses from their catalog.
+Catalog data is embedded as __NEXT_DATA__ JSON on /catalog, containing
+hundreds of programs with titles, slugs, and descriptions.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -15,7 +17,7 @@ from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, dedupl
 
 logger = logging.getLogger(__name__)
 
-UDACITY_SCHOLARSHIPS_URL = "https://www.udacity.com/scholarships"
+UDACITY_CATALOG_URL = "https://www.udacity.com/catalog"
 UDACITY_BASE = "https://www.udacity.com"
 
 USER_AGENT = (
@@ -23,15 +25,42 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 
+NEXT_DATA_RE = re.compile(
+    r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.DOTALL
+)
+
+NANODEGREE_KEYS = {"nd002", "nd000", "nd089", "nd101", "nd018", "nd027", "nd098", "nd900"}
+
+
+def _extract_catalog_items(resp_text: str) -> list[dict]:
+    """Extract catalog search result items from the __NEXT_DATA__ payload."""
+    match = NEXT_DATA_RE.search(resp_text)
+    if not match:
+        return []
+    try:
+        nd = json.loads(match.group(1))
+        csr = (
+            nd.get("props", {})
+            .get("pageProps", {})
+            .get("catalogSearchResults", {})
+        )
+        items = csr.get("searchResultItems", [])
+        total_hits = csr.get("numberOfHits", 0)
+        logger.info("Udacity catalog: %d total hits, %d on page 1", total_hits, len(items))
+        return items
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        logger.error("Udacity __NEXT_DATA__ parse error: %s", e)
+        return []
+
 
 def scrape_udacity() -> list[ScrapeItem]:
-    """Scrape Udacity scholarship programs."""
+    """Scrape Udacity nanodegree programs from the catalog."""
     items: list[ScrapeItem] = []
-    logger.info("Fetching Udacity scholarships: %s", UDACITY_SCHOLARSHIPS_URL)
+    logger.info("Fetching Udacity catalog: %s", UDACITY_CATALOG_URL)
 
     try:
         resp = httpx.get(
-            UDACITY_SCHOLARSHIPS_URL,
+            UDACITY_CATALOG_URL,
             timeout=30,
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
@@ -44,75 +73,57 @@ def scrape_udacity() -> list[ScrapeItem]:
         logger.warning("Udacity returned %d", resp.status_code)
         return items
 
-    from scrapling import Selector
-    page = Selector(resp.text, url=UDACITY_SCHOLARSHIPS_URL)
-
-    # Udacity scholarship cards
-    cards = page.css(".scholarship-card, .card, [class*='scholarship'], article, [class*='program']")
+    catalog_items = _extract_catalog_items(resp.text)
     seen_links = set()
 
-    for card in cards:
-        link_el = card.css("a[href*='/scholarships/']")
-        if not link_el:
-            link_el = card.css("a[href*='/program']")
+    for ci in catalog_items:
+        title = (ci.get("title") or "").strip()
+        slug = (ci.get("slug") or "").strip()
+        key = (ci.get("key") or "").strip()
+        summary = (ci.get("summary") or "").strip()
 
-        if not link_el:
+        if not title:
             continue
 
-        href = link_el[0].attrib.get("href", "")
-        title_el = card.css("h2, h3, h4, .title, [class*='title']")
-        title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-
-        if not title or len(title) < 5:
+        link = f"{UDACITY_BASE}/course/{slug}" if slug else ""
+        if not link:
             continue
-
-        full_url = href if href.startswith("http") else f"{UDACITY_BASE}{href}"
-        if full_url in seen_links:
+        if link in seen_links:
             continue
-        seen_links.add(full_url)
+        seen_links.add(link)
 
-        # Try to find deadline
-        deadline_el = card.css("[class*='deadline'], [class*='date'], time, [class*='end']")
-        deadline = ""
-        if deadline_el:
-            deadline_text = clean_text(deadline_el[0].text)
-            deadline = parse_deadline(deadline_text)
+        tags = ["nanodegree", "online learning"]
+        summary_lower = summary.lower()
+        title_lower = title.lower()
+        combined = f"{title_lower} {summary_lower}"
 
-        # Try to extract deadline from card text
-        if not deadline:
-            card_text = clean_text(card.text)
-            date_match = re.search(
-                r"(?:deadline|apply by|due|closes?)[:\s]*"
-                r"((?:January|February|March|April|May|June|July|August|September|October|November|December)"
-                r"\s+\d{1,2},?\s+\d{4})",
-                card_text, re.IGNORECASE
-            )
-            if date_match:
-                deadline = parse_deadline(date_match.group(1))
-
-        tags = ["scholarship", "online learning", "nanodegree"]
-        card_text = clean_text(card.text).lower()
-        if "aws" in card_text:
-            tags.append("aws")
-        if "google" in card_text:
-            tags.append("google")
-        if "ai" in card_text or "artificial intelligence" in card_text:
+        if "ai" in combined or "artificial intelligence" in combined or "machine learning" in combined:
             tags.append("ai")
-        if "cybersecurity" in card_text or "security" in card_text:
-            tags.append("cybersecurity")
-        if "data science" in card_text:
+        if "data" in combined:
             tags.append("data science")
+        if "python" in combined:
+            tags.append("python")
+        if "cloud" in combined or "aws" in combined:
+            tags.append("cloud")
+        if "security" in combined or "cybersecurity" in combined:
+            tags.append("security")
+        if "programming" in combined or "developer" in combined:
+            tags.append("programming")
+        if "marketing" in combined:
+            tags.append("marketing")
+        if "business" in combined:
+            tags.append("business")
 
-        notes_parts = ["Source: Udacity."]
-        if "fully funded" in card_text or "free" in card_text:
-            notes_parts.append("Fully funded scholarship.")
+        notes_parts = ["Source: Udacity catalog."]
+        if summary:
+            notes_parts.append(summary[:200])
 
         item = ScrapeItem(
             title=title,
             type="Certification",
             source="Udacity",
-            link=full_url,
-            deadline=deadline,
+            link=link,
+            deadline="",
             eligibility="Global participants (18+)",
             tags=tags,
             location="Online",
@@ -121,35 +132,8 @@ def scrape_udacity() -> list[ScrapeItem]:
         if not item.validate():
             items.append(item)
 
-    # Fallback: parse scholarship links
-    if not items:
-        links = page.css("a[href*='/scholarships/']")
-        for link_el in links:
-            href = link_el.attrib.get("href", "")
-            title = clean_text(link_el.text)
-            if not title or len(title) < 5:
-                continue
-            full_url = href if href.startswith("http") else f"{UDACITY_BASE}{href}"
-            if full_url in seen_links:
-                continue
-            seen_links.add(full_url)
-
-            item = ScrapeItem(
-                title=title,
-                type="Certification",
-                source="Udacity",
-                link=full_url,
-                deadline="",
-                eligibility="Global participants (18+)",
-                tags=["scholarship", "online learning", "nanodegree"],
-                location="Online",
-                notes="Source: Udacity.",
-            )
-            if not item.validate():
-                items.append(item)
-
     items = deduplicate_by_link(items)
-    logger.info("Udacity: scraped %d scholarships", len(items))
+    logger.info("Udacity: scraped %d nanodegree programs", len(items))
     return items
 
 

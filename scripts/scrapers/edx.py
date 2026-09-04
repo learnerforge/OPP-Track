@@ -1,21 +1,24 @@
 """
 edX scraper.
 edX offers university courses and MicroMasters programs.
-The browse page at edx.org/browse lists available courses and programs.
+The browse page at edx.org/browse has been removed.
+We parse the sitemap for /learn/ course URLs, then extract JSON-LD
+structured data from each course page.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 
 import httpx
 
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text, deduplicate_by_link
+from scripts.scrapers.base import ScrapeItem, clean_text, deduplicate_by_link
 
 logger = logging.getLogger(__name__)
 
-EDX_URL = "https://www.edx.org/browse"
+EDX_SITEMAP = "https://www.edx.org/sitemap.xml"
 EDX_BASE = "https://www.edx.org"
 
 USER_AGENT = (
@@ -23,68 +26,80 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 )
 
+HEADERS = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"}
 
-def _try_api() -> list[dict]:
-    """Try fetching courses from edX discovery API."""
+
+def _get_course_urls(limit: int = 50) -> list[str]:
+    """Parse edX sitemap for specific course URLs (/learn/<topic>/<provider>-<slug>)."""
     try:
-        resp = httpx.get(
-            "https://discovery.edx.org/api/v1/course_runs/?limit=50&ordering=-start",
-            timeout=30,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            results = data.get("results", [])
-            if results:
-                return results
+        resp = httpx.get(EDX_SITEMAP, timeout=20, follow_redirects=True, headers=HEADERS)
+        if resp.status_code != 200:
+            logger.warning("edX sitemap returned %d", resp.status_code)
+            return []
+        urls = re.findall(r"<loc>(.*?)</loc>", resp.text)
+        courses = []
+        for u in urls:
+            m = re.match(r"https://www\.edx\.org/learn/([^/]+)/([^/]+)", u)
+            if m and "/es/" not in u:
+                courses.append(u)
+        logger.info("edX sitemap: %d course URLs found, using %d", len(courses), min(limit, len(courses)))
+        return courses[:limit]
     except Exception as e:
-        logger.debug("edX API failed: %s", e)
-    return []
+        logger.error("edX sitemap fetch failed: %s", e)
+        return []
+
+
+def _extract_jsonld_course(html: str) -> dict | None:
+    """Extract Course JSON-LD from page HTML."""
+    ld_blocks = re.findall(
+        r'<script type="application/ld\+json">(.*?)</script>', html, re.S
+    )
+    for block in ld_blocks:
+        try:
+            data = json.loads(block)
+            graph = data.get("@graph", [data])
+            for item in graph:
+                if item.get("@type") == "Course":
+                    return item
+        except (json.JSONDecodeError, AttributeError):
+            continue
+    return None
 
 
 def scrape_edx() -> list[ScrapeItem]:
-    """Scrape edX courses and programs."""
+    """Scrape edX courses from sitemap + individual course pages."""
     items: list[ScrapeItem] = []
-    logger.info("Fetching edX courses: %s", EDX_URL)
+    logger.info("Fetching edX course URLs from sitemap")
 
-    # Try API first
-    api_data = _try_api()
-    if api_data:
-        logger.info("edX API: %d results", len(api_data))
-        for entry in api_data[:100]:
-            if not isinstance(entry, dict):
+    course_urls = _get_course_urls(limit=50)
+    if not course_urls:
+        logger.warning("No edX course URLs from sitemap")
+        return items
+
+    for url in course_urls:
+        try:
+            resp = httpx.get(url, timeout=20, follow_redirects=True, headers=HEADERS)
+            if resp.status_code != 200:
                 continue
 
-            title = entry.get("title", "").strip()
+            course = _extract_jsonld_course(resp.text)
+            if not course:
+                continue
+
+            title = clean_text(course.get("name", ""))
             if not title:
                 continue
 
-            course_id = entry.get("id", "")
-            course_key = entry.get("key", "")
-            marketing_url = entry.get("marketing_url", "")
+            providers = course.get("provider", [])
+            if isinstance(providers, dict):
+                providers = [providers]
+            org = providers[0].get("name", "") if providers else ""
 
-            link = marketing_url or f"{EDX_BASE}/course/{course_key}" if course_key else ""
-
-            # Parse start date
-            start_date = entry.get("start", "")
-            deadline = parse_deadline(start_date) if start_date else ""
-
-            # Get organization
-            org = entry.get("organization", "")
-            if not org:
-                # Try to extract from course_key (e.g., "MITx/6.00.1x/1")
-                if "/" in course_key:
-                    org = course_key.split("/")[0]
+            description = clean_text(course.get("description", ""))
 
             tags = ["online course", "mooc"]
             if org:
                 tags.append(org.lower())
-
-            # Level
-            level = entry.get("level_type", "")
-            if level:
-                tags.append(level.lower())
 
             notes_parts = ["Source: edX."]
             if org:
@@ -94,8 +109,8 @@ def scrape_edx() -> list[ScrapeItem]:
                 title=title,
                 type="Certification",
                 source="edX",
-                link=link,
-                deadline=deadline,
+                link=url,
+                deadline="",
                 eligibility="Global participants",
                 tags=tags,
                 location="Online",
@@ -103,69 +118,8 @@ def scrape_edx() -> list[ScrapeItem]:
             )
             if not item.validate():
                 items.append(item)
-    else:
-        # Fallback: scrape HTML
-        try:
-            resp = httpx.get(
-                EDX_URL,
-                timeout=30,
-                follow_redirects=True,
-                headers={"User-Agent": USER_AGENT},
-            )
-            if resp.status_code != 200:
-                logger.warning("edX returned %d", resp.status_code)
-                return items
-
-            from scrapling import Selector
-            page = Selector(resp.text, url=EDX_URL)
-
-            cards = page.css(".product-card, .card, [class*='course'], article")
-            seen_links = set()
-
-            for card in cards:
-                link_el = card.css("a[href*='/course'], a[href*='/program']")
-                if not link_el:
-                    continue
-
-                href = link_el[0].attrib.get("href", "")
-                title_el = card.css("h2, h3, h4, .title, [class*='title']")
-                title = clean_text(title_el[0].text) if title_el else clean_text(link_el[0].text)
-
-                if not title or len(title) < 5:
-                    continue
-
-                full_url = href if href.startswith("http") else f"{EDX_BASE}{href}"
-                if full_url in seen_links:
-                    continue
-                seen_links.add(full_url)
-
-                # Get provider
-                provider_el = card.css("[class*='provider'], [class*='institution'], [class*='partner']")
-                provider = clean_text(provider_el[0].text) if provider_el else ""
-
-                tags = ["online course", "mooc"]
-                if provider:
-                    tags.append(provider.lower())
-
-                notes_parts = ["Source: edX."]
-                if provider:
-                    notes_parts.append(f"Provider: {provider}.")
-
-                item = ScrapeItem(
-                    title=title,
-                    type="Certification",
-                    source="edX",
-                    link=full_url,
-                    deadline="",
-                    eligibility="Global participants",
-                    tags=tags,
-                    location="Online",
-                    notes=" ".join(notes_parts),
-                )
-                if not item.validate():
-                    items.append(item)
         except Exception as e:
-            logger.error("edX request failed: %s", e)
+            logger.debug("edX course fetch failed for %s: %s", url, e)
 
     items = deduplicate_by_link(items)
     logger.info("edX: scraped %d courses", len(items))
@@ -177,4 +131,4 @@ if __name__ == "__main__":
     results = scrape_edx()
     print(f"edX: {len(results)} items")
     for item in results[:10]:
-        print(f"  {item.title[:60]} | {item.type} | {item.link[:50]}")
+        print(f"  {item.title[:60]} | {item.type} | {item.link[:60]}")
