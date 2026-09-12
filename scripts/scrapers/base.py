@@ -140,6 +140,36 @@ def clean_text(text) -> str:
     return re.sub(r'\s+', ' ', text_str).strip()
 
 
+_OLD_YEAR_RE = re.compile(r'(?<!\d)20(?:0\d|1\d|2[0-3])(?!\d)')
+
+
+def filter_stale(items: list[ScrapeItem]) -> list[ScrapeItem]:
+    """Drop items that are expired or reference pre-2024 years.
+
+    - Items whose deadline has already passed are dropped.
+    - Items with no deadline (rolling/evergreen) are kept.
+    - Items whose URL or title contains a standalone 2000-2023 year
+      (e.g. dead 2021-2023 challenge pages) are dropped.
+    """
+    today = date.today()
+    kept: list[ScrapeItem] = []
+    dropped = 0
+    for item in items:
+        if item.deadline:
+            try:
+                deadline_date = datetime.strptime(item.deadline, "%Y-%m-%d").date()
+            except ValueError:
+                deadline_date = None
+            if deadline_date and deadline_date < today:
+                dropped += 1
+                continue
+        if _OLD_YEAR_RE.search(f"{item.link} {item.title}"):
+            dropped += 1
+            continue
+        kept.append(item)
+    return kept
+
+
 def deduplicate(items: list[ScrapeItem]) -> list[ScrapeItem]:
     """Remove duplicates by fingerprint, keeping first occurrence."""
     seen: set[str] = set()

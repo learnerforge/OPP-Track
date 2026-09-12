@@ -28,6 +28,18 @@ HEADERS = {
 }
 
 
+def _is_junk_title(title: str) -> bool:
+    """Detect low-value/placeholder Unstop listings (quiz tests, generic titles)."""
+    t = title.strip().lower()
+    if t in ("hackathon", "cp contest", "competition", "quiz", "test"):
+        return True
+    if re.search(r'\btest\s*\d+\b', title, re.I):
+        return True
+    if re.search(r'\btest\s+your\b', title, re.I):
+        return True
+    return False
+
+
 def _parse_iso_date(iso_str: str) -> str:
     """Parse ISO datetime string to YYYY-MM-DD."""
     if not iso_str:
@@ -185,6 +197,9 @@ def scrape_unstop() -> list[ScrapeItem]:
             for item in page_items:
                 title = item.get("title", "").strip()
                 if not title or title in seen_titles:
+                    continue
+                if _is_junk_title(title):
+                    logger.info(f"  Skipping junk title: {title}")
                     continue
                 seen_titles.add(title)
 
