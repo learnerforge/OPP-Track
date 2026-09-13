@@ -146,7 +146,7 @@ def main():
             print(f'  {it["source"]}: {it["title"][:50]} -> {errs}')
     if total_bad_units:
         print(f'-- bad links ({len(total_bad_units)} @ 80 shown) --')
-        dom = Counter((u.split('/')[2] if '://' in u else u) for u, _ in total_bad_units)
+        dom = Counter((it['link'].split('/')[2] if '://' in it['link'] else it['link']) for it, _ in total_bad_units)
         print('  by domain:', dict(dom.most_common(12)))
         for it, info in total_bad_units[:80]:
             print(f'  [{info}] {it["source"]}: {it["title"][:45]} | {it["link"][:70]}')
