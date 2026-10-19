@@ -28,12 +28,13 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Setup Python 3.13 (pip cache on requirements.txt)
+      # No pip cache here: verify never installs Python deps (stdlib only),
+      # and cache: pip errors in post-cleanup when the pip cache dir was
+      # never created. The scrape workflows do pip-install, so theirs stands.
+      - name: Setup Python 3.13
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-          cache: pip
-          cache-dependency-path: requirements.txt
 
       - name: Install npm dependencies
         run: npm ci
