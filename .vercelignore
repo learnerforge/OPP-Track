@@ -1,0 +1,23 @@
+# Only src/, api/, data/, and the root configs participate in the Vercel build.
+# Excluding the rest shrinks the upload and keeps Tailwind v4's automatic
+# content detection on the build server from scanning frontend/ (a separate
+# scaffold app) — the deployed CSS was 410 KB vs 57 KB locally.
+frontend/
+docs/
+tests/
+scripts/
+dist/
+data/backups/
+data/raw/
+fullstack.md
+# NOTE: do not add a blanket *.md rule — api/report/latest.ts reads
+# data/reports/publish-*.md from the deployed filesystem at runtime.
+# .vercelignore replaces .gitignore for uploads — carry over the safety entries
+.env*
+.vercel_python_packages/
+__pycache__/
+*.pyc
+.venv/
+venv/
+validation_*.txt
+*.log
