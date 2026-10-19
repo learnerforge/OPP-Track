@@ -1,153 +1,134 @@
 # OPP-Track
 
-## Description
+A personal opportunity discovery and tracking dashboard for students. OppTrack automatically scrapes hackathons, internships, competitions, and certifications from 70+ platforms into a single JSON catalog, then lets you track your own progress on top of it — deadline sorting, urgency color-coding, countdown timers, status tracking, and browser reminders so nothing is ever missed.
 
-A personal opportunity discovery and tracking dashboard for students. Log hackathons, internships, and certifications you find — then let OppTrack handle sorting by deadline, urgency color-coding, countdown timers, and status tracking so nothing is ever missed or forgotten.
+**Current catalog: 2,588 opportunities from 73 sources** (440 hackathons, 712 competitions, 642 internships, 794 certifications; 1,672 evergreen/rolling + 916 with hard deadlines).
 
 ## Tech Stack
 
-- **React 18** with TypeScript
-- **Vite** for fast development and optimized builds
-- **Tailwind CSS** for styling
-- **No backend** — runs as a single self-contained web app
-- **Persistent storage** — data survives sessions via the platform storage API (`window.storage`)
+- **React 19** + **TypeScript** (strict), bundled with **Vite 6**
+- **Tailwind CSS v4** + **shadcn/ui** components
+- **No database** — JSON files are the single source of truth; the app is a self-contained SPA on Vercel
+- **Scheduled data engine** — GitHub Actions re-scrapes every 8 hours and publishes a fresh catalog
+- **Read-only API** — Vercel serverless functions serve the full dataset as JSON/CSV/ICS
 
 ## Features
 
-### MVP (Phase 1)
-- **Add Entry** — quick form (<15 seconds) to log any opportunity
-- **Dashboard** — deadline-sorted view with urgency color-coding
-  - 🔴 ≤ 2 days left
-  - 🟡 3–7 days left
-  - 🟢 8+ days left
-  - ⚪ Completed/Expired (auto-archived)
-- **Filter & Search** — by type, status, source, tag, or title text
-- **Status tracking** — Not Started → Applied → In Progress → Rejected/Completed
-- **Edit & Delete** — update any field, delete with confirmation
-- **Persistent storage** — entries persist across sessions
-- **Responsive** — works on mobile and desktop
-- **Zero maintenance** — no server, no database, no build step required
+- **Automatic catalog** — 2,588 seeded opportunities from 8 scrapers (Devpost, Devfolio, Unstop, HackerEarth, Internshala, and more), refreshed by the engine
+- **Personal tracking layered on top** — status (Not Started → Applied → In Progress → Rejected/Completed), notes, manual add/edit/delete
+- **Deadline dashboard** — urgency color-coding (🔴 ≤2d, 🟡 3–7d, 🟢 8+d, ⚪ rolling/completed), countdowns, weekly review of closing-soon items
+- **Filters & search** — type, status, source, tag, title text; evergreen ("rolling") items handled as first-class
+- **Reminders** — browser notifications for upcoming deadlines
+- **Stats panel** — counts by status, type, and monthly progress
+- **Export** — JSON/CSV download; the API also serves iCalendar (ICS)
+- **Complete data, always** — every copy of the catalog is the full set; never truncated or sampled
 
-### v1.1 (Phase 2)
-- **Weekly Review Mode** — focused view of opportunities closing within 7 days + newly added unstarted entries
-- **Tags** — add/filter by custom tags (AI/ML, Free, Paid, etc.)
-- **Statistics Panel** — counts by status, type, and monthly progress
-- **Export** — download as JSON or CSV, copy to clipboard
-
-## Installation
-
-### Quick Start (Development)
+## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Start dev server
-npm run dev
-
-# Open in browser
-# http://localhost:5173
+npm run dev        # http://localhost:5173
 ```
-
-### Build for Production
 
 ```bash
-npm run build
-
-# Output in dist/ — serve with any static file server
-npm run preview
+npm run build      # production build → dist/
+npm run preview    # serve the build locally
 ```
 
-### Data Tooling
+Node is pinned to **22.22.3** (`.nvmrc`; `engines` enforces ≥22 <23).
+
+## Data Pipeline
+
+The catalog lives in `data/scraped_opportunities.json` (canonical, committed). A scheduled engine refreshes it and the app redeploys — you never edit it by hand:
 
 ```bash
-npm run validate        # Check the seed data (dupes, bad statuses, stale deadlines)
-npm run validate:links  # HTTP-check every link (network calls)
-npm run test            # Migration regression tests (29 checks)
+npm run scrape              # run all scrapers (writes the canonical JSON)
+npm run scrape:quick        # fast subset
+npm run validate            # schema/contract validation (exit 1 on errors)
+npm run validate:links      # additionally HTTP-checks every link (network)
+npm run publish:data        # guarded publish: validate → sanity gate →
+                            #   manifest+sha256 → public/data copy →
+                            #   seed regeneration → backup rotation → report
+npm run verify:all          # typecheck + tests + validate (CI gate)
+python scripts/check_freeze.py   # src/ freeze enforcement (see below)
 ```
 
-Data is curated in `SEED_DATA` inside `src/lib/storage.ts` and shipped to users via
-a version migration. See `docs/RESEARCH_WORKFLOW.md` for the full research loop and
-`docs/RESEARCH_LOG.md` for the change history.
+**Freshness:** `.github/workflows/scrape-full.yml` runs every 8 hours (00:00/08:00/16:00 UTC), scrapes all sources, runs the publish pipeline, commits the new dataset + regenerated seed bundle, and Vercel rebuilds. `scrape-quick.yml` is manual-only. `verify.yml` gates every push/PR (freeze check, typecheck, 23 migration tests, dataset validation, sanity gate).
 
-### Artifact Mode (Single File)
+**Integrity:** every publish records `sha256`, counts, and provenance in `data/manifest.json`, copies the byte-identical dataset to `public/data/opportunities.<sha8>.json` (immutable), and rotates backups into `data/backups/` (7 daily + 8 weekly). The sanity gate refuses to publish a dataset that collapsed >20% or lost >50% of any source.
 
-The project can also be deployed as a single HTML artifact. The `index.html` at the project root serves as the artifact entry point.
+## Read-Only API
+
+Deployed as Vercel functions under `/api` (GET only, no writes):
+
+| Route | Serves |
+|---|---|
+| `/api/health` | dataset freshness: item count, sha256, age |
+| `/api/manifest` | current manifest (counts, provenance) |
+| `/api/opportunities` | filtered + paginated catalog (`q`, `type`, `source`, `tag`, `status=rolling`, `deadline_within`, `sort`, `page`, `page_size`) |
+| `/api/opportunities/:id` | single record |
+| `/api/stats` | type/source histograms, closing-soon count |
+| `/api/sources` | source registry + scraper health |
+| `/api/report/latest` | latest publish report |
+| `/api/og` | dynamic Open-Graph image |
+| `/api/export` | full export as `csv` / `ics` / `json` |
+
+See `docs/API.md` for parameters, cache policies, and error shapes.
 
 ## Project Structure
 
 ```
 OPP-Track/
-├── index.html                  # HTML entry point
-├── package.json                # Dependencies and scripts
-├── vite.config.ts              # Vite build configuration
-├── tailwind.config.js          # Tailwind CSS configuration
-├── tsconfig.json               # TypeScript configuration
-├── postcss.config.js           # PostCSS configuration
-├── public/
-│   └── favicon.svg             # App icon
+├── api/                        # Vercel serverless functions (read-only)
+│   ├── _lib/                   #   shared loadDataset / respond / validate / types
+│   └── *.ts                    #   health, manifest, opportunities, stats, sources,
+│                               #   report/latest, og, export
+├── data/
+│   ├── scraped_opportunities.json  # CANONICAL dataset (2,588 items, 73 sources)
+│   ├── manifest.json               # sha256 + counts + provenance (publish-written)
+│   ├── scraper_health.json         # per-source health map
+│   ├── reports/                    # one publish report per run
+│   └── backups/                    # rotation: 7 daily + 8 weekly (gitignored)
+├── public/data/                # published immutable copies + manifest
+├── .github/workflows/          # verify.yml, scrape-full.yml (0 */8 * * *), scrape-quick.yml
 ├── scripts/
-│   └── validate-data.mjs       # Data validation + optional link checker
-├── tests/
-│   └── migration.test.mjs      # Migration regression tests (npm test)
-├── src/
-│   ├── main.tsx                # React DOM entry point
-│   ├── App.tsx                 # Main application component
-│   ├── index.css               # Global styles
-│   ├── vite-env.d.ts           # TypeScript declarations
-│   ├── types/
-│   │   └── opportunity.ts      # Data model types
-│   ├── constants/
-│   │   └── index.ts            # App constants, colors, options
-│   ├── utils/
-│   │   ├── index.ts            # Utility barrel export
-│   │   ├── date.ts             # Date helpers, urgency logic
-│   │   ├── validation.ts       # Form validation
-│   │   └── export.ts           # JSON/CSV export
-│   ├── lib/
-│   │   └── storage.ts          # Storage abstraction layer
-│   ├── hooks/
-│   │   ├── index.ts            # Hooks barrel export
-│   │   ├── useOpportunities.ts # CRUD + persistence hook
-│   │   └── useFilters.ts       # Client-side filtering hook
-│   └── components/
-│       ├── index.ts            # Components barrel export
-│       ├── Header.tsx          # App header with nav tabs
-│       ├── EntryForm.tsx       # Add/Edit opportunity form
-│       ├── OpportunityCard.tsx # Individual opportunity display
-│       ├── FilterBar.tsx       # Search and filter controls
-│       ├── EmptyState.tsx      # Empty state prompt
-│       ├── ArchiveSection.tsx  # Collapsed archive section
-│       ├── WeeklyReviewMode.tsx # Weekly review view (v1.1)
-│       ├── StatsPanel.tsx      # Statistics dashboard (v1.1)
-│       └── ExportButton.tsx    # Export dropdown (v1.1)
-└── docs/
-    ├── PRD.md                  # Product requirements
-    ├── ARCHITECTURE.md         # Technical design
-    ├── PROJECT_OVERVIEW.md     # Quick orientation
-    ├── TASKS.md                # Task breakdown
-    ├── CODING_RULES.md         # Code conventions
-    ├── RISKS_AND_EDGE_CASES.md # Risks and edge cases
-    ├── KNOWN_ISSUES_AND_DECISIONS.md # Decision log
-    ├── RESEARCH_WORKFLOW.md   # Repeatable research/update pipeline
-    └── RESEARCH_LOG.md        # Audit change history
+│   ├── scrapers/               # 8 source scrapers + orchestrator (run_all.py)
+│   ├── publish_dataset.py      # the guarded publish command
+│   ├── sanity_gate.py          # regression gate (±20% total, ±50% per source)
+│   ├── rotate_backups.py       # backup rotation
+│   ├── regenerate_seeds.py     # sole writer of src/lib/storage.ts
+│   ├── check_freeze.py         # src/ freeze enforcement
+│   └── validate-data.mjs       # dataset contract validator
+├── src/                        # React app (FROZEN — see freeze policy)
+│   ├── components/ (+ ui/)     #   app + shadcn/ui components
+│   ├── hooks/ lib/ utils/      #   state, storage, helpers
+│   ├── types/ constants/       #   data model + options
+│   └── lib/storage.ts          #   GENERATED seed bundle — never edit by hand
+├── tests/                      # migration.test.mjs (npm test) + sanity-gate tests
+├── docs/                       # ARCHITECTURE, API, DATA_CONTRACT, ENGINE, …
+└── fullstack.md                # master build/deploy plan
 ```
 
-## Usage
+## Data Contract (summary)
 
-1. Open the app in your browser
-2. Click **+ Add** to log a new opportunity
-3. Fill in at minimum: Title, Type, Deadline
-4. Opportunities appear sorted by deadline with urgency indicators
-5. Use the filter bar to search by title, type, status, source, or tag
-6. Update status as you progress through applications
-7. Switch to **Weekly Review** for a focused view of closing-soon items
-8. Check **Stats** for an overview of your tracking progress
-9. Use **Export** to backup your data as JSON or CSV
+- Types: `Hackathon | Internship | Certification | Competition`
+- `deadline: ""` means **rolling/evergreen** — dates are never fabricated
+- `link` is a valid `http(s)` URL or empty — never fabricated
+- Every file has exactly **one writer** (see `docs/DATA_CONTRACT.md`)
+- `src/lib/storage.ts` is generated from the canonical dataset by `scripts/regenerate_seeds.py` — the only code allowed to write into `src/`
 
-## Target Audience
+**Freeze policy:** `src/` is frozen; the only exception is the generator-written `src/lib/storage.ts`. `scripts/check_freeze.py` enforces this in CI (`docs/FREEZE_ALLOWLIST.md` lists deliberate exceptions).
 
-Students (initially single-user personal tool, expandable to peers).
+## Documentation
+
+| Doc | Contents |
+|---|---|
+| `fullstack.md` | master build/deploy plan (milestones, backlog, decisions) |
+| `docs/ARCHITECTURE.md` | system map: engine → data → SPA |
+| `docs/DATA_CONTRACT.md` | file inventory, field contracts, one-writer table |
+| `docs/API.md` | API routes, parameters, cache policies |
+| `docs/ENGINE.md` | scheduled-refresh runbook (ops: runs, restore, alerts) |
+| `docs/FREEZE_ALLOWLIST.md` | freeze policy + exceptions |
 
 ## License
 
