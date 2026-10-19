@@ -79,12 +79,11 @@ jobs:
             echo "No tests/test_*.py yet (milestone E2) - skipping unittest discovery."
           fi
 
-      # Best-effort while E2 is landing: scripts/sanity_gate.py (contract:
-      # --current / --previous / --allow-init, fullstack.md §11.7) may not exist
-      # yet. Once it is confirmed on main, delete `continue-on-error: true` so
-      # the gate becomes blocking here too.
-      - name: Python sanity gate (best-effort until E2 CLI is confirmed)
-        continue-on-error: true
+      # Sanity gate is BLOCKING (E2 CLI confirmed 2026-10-19: --current /
+      # --previous / --allow-init all exercised against the real 2,588-item
+      # dataset during integration). The file-exists guard stays only so a
+      # partial checkout fails loudly instead of with a python traceback.
+      - name: Python sanity gate
         shell: bash
         run: |
           if [ -f scripts/sanity_gate.py ]; then

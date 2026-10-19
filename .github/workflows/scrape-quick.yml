@@ -116,7 +116,7 @@ jobs:
           print(len(items))
           PYEOF
           )"
-          git commit -m "data: publish ${SHA8} (${COUNT} items) [skip ci]"
+          git commit -m "data: publish ${SHA8} (${COUNT} items)"
 
           for attempt in 1 2 3; do
             if git push origin "HEAD:${PUBLISH_BRANCH}"; then

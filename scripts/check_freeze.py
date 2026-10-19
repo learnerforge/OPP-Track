@@ -196,7 +196,8 @@ def _compile(pattern: str) -> re.Pattern[str]:
     return re.compile(f"^{regex}$")
 
 
-def classify(paths: list[str], entries: list[tuple[int, str]]) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+def classify(paths: list[str], entries: list[tuple[int, str]],
+             allowlist_label: str = DEFAULT_ALLOWLIST) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Split changed paths into (allowed, violations) with human reasons."""
     compiled = [(ln, pat, _compile(pat)) for ln, pat in entries]
     allowed: list[tuple[str, str]] = []
@@ -215,7 +216,7 @@ def classify(paths: list[str], entries: list[tuple[int, str]]) -> tuple[list[tup
                 (
                     p,
                     f"changed under src/ but is neither {EXCEPTION_A} (Exception A) "
-                    f"nor matched by any uncommented entry in {DEFAULT_ALLOWLIST} "
+                    f"nor matched by any uncommented entry in {allowlist_label} "
                     "(Exception B)",
                 )
             )
@@ -272,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
     if allowlist_note:
         warnings.append(allowlist_note)
 
-    allowed, violations = classify(committed, entries)
+    allowed, violations = classify(committed, entries, args.allowlist)
 
     for w in warnings:
         print(f"check_freeze: warning: {w}")
@@ -289,12 +290,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print("src/ freeze check PASSED (fullstack.md 14.1)")
-    print(f"  base:  {args.base if base == args.base else base} "
-          f"({'' if not base_is_commit else _short(base)})")
+    base_desc = _short(base) if base_is_commit else "empty tree"
+    print(f"  base:  {args.base if base == args.base else base} ({base_desc})")
     print(f"  head:  {args.head} ({_short(args.head)})")
     print(f"  committed src/ changes in range: {len(committed)}")
-    print(f"  worktree check: "
-          f"{'ON (uncommitted changes included)' if args.worktree else 'off (committed range only)'}")
+    print("  worktree check: "
+          + ("ON (uncommitted changes included)" if args.worktree
+             else "off (committed range only)"))
     print(f"  active allowlist entries: {len(entries)} in {args.allowlist}")
     if allowed:
         print("  allowances used in this range:")

@@ -92,8 +92,10 @@ jobs:
 
       # Single writer: explicit paths only (src/lib/storage.ts = Exception A,
       # generator-written). Skips the commit entirely when nothing changed so
-      # re-runs are no-ops; [skip ci] keeps verify.yml from re-running on the
-      # bot commit.
+      # re-runs are no-ops. The commit message deliberately carries no CI-skip
+      # marker: Vercel honours one and would skip the rebuild that stage-1
+      # freshness depends on (integration finding, 2026-10-19). verify.yml
+      # re-running on the bot commit is ~4 min and safe.
       - name: Commit and push published data (guarded, rebase-retry)
         shell: bash
         env:
@@ -135,7 +137,7 @@ jobs:
           print(len(items))
           PYEOF
           )"
-          git commit -m "data: publish ${SHA8} (${COUNT} items) [skip ci]"
+          git commit -m "data: publish ${SHA8} (${COUNT} items)"
 
           for attempt in 1 2 3; do
             if git push origin "HEAD:${PUBLISH_BRANCH}"; then

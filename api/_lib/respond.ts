@@ -72,3 +72,17 @@ export function requireGet(req: ApiRequest, res: ApiResponse): boolean {
 export function datasetUnavailable(res: ApiResponse): void {
   fail(res, 503, 'dataset_unavailable', 'The dataset is not available right now. Try again after the next publish.');
 }
+
+/** Plain-text (non-JSON) response, e.g. CSV/ICS exports. */
+export function sendText(
+  res: ApiResponse,
+  status: number,
+  body: string,
+  opts: { cache?: string; contentType: string; disposition?: string } = { contentType: 'text/plain; charset=utf-8' },
+): void {
+  res.status(status);
+  res.setHeader('Content-Type', opts.contentType);
+  if (opts.cache) res.setHeader('Cache-Control', opts.cache);
+  if (opts.disposition) res.setHeader('Content-Disposition', opts.disposition);
+  res.send(body);
+}
