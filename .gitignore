@@ -56,6 +56,9 @@ data/scraped_opportunities.json
 data/new_seed_entries.json
 data/new_seed_entries.ts
 
+# Local reference clones (not part of the app)
+shadcn-ui-ref/
+
 # Logs
 *.log
 npm-debug.log*

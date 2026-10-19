@@ -1,5 +1,6 @@
 import type { Opportunity } from '../types/opportunity';
 import { OpportunityCard } from './OpportunityCard';
+import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { daysRemaining, isWithinDays, daysBetween, todayStr } from '../utils';
 
 interface WeeklyReviewModeProps {
@@ -42,28 +43,48 @@ export function WeeklyReviewMode({
   ).length;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-800">Weekly Review</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
+    <section className="animate-fade-in space-y-5">
+      <header>
+        <p className="kicker mb-2">the week ahead</p>
+        <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+          Weekly review
+        </h2>
+        <p className="mt-1 text-sm text-ink-muted">
           Opportunities closing within 7 days or newly added and not yet started.
         </p>
-      </div>
+      </header>
 
       {urgentCount > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-          <span className="text-red-500 text-lg">⚠️</span>
-          <span className="text-sm text-red-700 font-medium">
-            {urgentCount} {urgentCount === 1 ? 'opportunity is' : 'opportunities are'}{' '}
-            closing within 2 days!
-          </span>
-        </div>
+        <Alert variant="destructive" className="border-critical/30 bg-critical-soft">
+          <svg
+            className="h-4 w-4 text-critical"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+            />
+          </svg>
+          <AlertTitle className="text-critical">
+            {urgentCount}{' '}
+            {urgentCount === 1 ? 'opportunity is' : 'opportunities are'} closing
+            within 2 days!
+          </AlertTitle>
+          <AlertDescription className="text-critical/90">
+            Treat these as the top of your list this week.
+          </AlertDescription>
+        </Alert>
       )}
 
       {items.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-3xl mb-3">✅</div>
-          <p className="text-gray-500 text-sm">
+        <div className="rounded-lg border border-dashed border-rule py-12 text-center">
+          <p className="kicker mb-2">all clear</p>
+          <p className="text-sm text-ink-muted">
             Nothing urgent this week. All caught up!
           </p>
         </div>
@@ -80,6 +101,6 @@ export function WeeklyReviewMode({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }

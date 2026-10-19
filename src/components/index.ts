@@ -1,4 +1,5 @@
 export { Header } from './Header';
+export { Hero } from './Hero';
 export { EntryForm } from './EntryForm';
 export { OpportunityCard } from './OpportunityCard';
 export { FilterBar } from './FilterBar';

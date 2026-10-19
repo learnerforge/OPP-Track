@@ -47,10 +47,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const typeStyles: Record<ToastType, string> = {
-    success: 'bg-green-600',
-    error: 'bg-red-600',
-    info: 'bg-gray-800',
+  // Editorial toast — paper card with a mono label + signal dot per type.
+  const typeMeta: Record<ToastType, { dot: string; label: string }> = {
+    success: { dot: 'bg-safe', label: 'saved' },
+    error: { dot: 'bg-critical', label: 'error' },
+    info: { dot: 'bg-accent', label: 'note' },
   };
 
   return (
@@ -59,17 +60,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div
         aria-live="polite"
         aria-label="Notifications"
-        className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
+        className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2"
       >
-        {toasts.map(toast => (
-          <div
-            key={toast.id}
-            role="status"
-            className={`${typeStyles[toast.type]} text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg pointer-events-auto animate-slide-in`}
-          >
-            {toast.message}
-          </div>
-        ))}
+        {toasts.map(toast => {
+          const meta = typeMeta[toast.type];
+          return (
+            <div
+              key={toast.id}
+              role="status"
+              className="animate-slide-in pointer-events-auto flex items-start gap-2.5 rounded-lg border border-rule bg-surface px-4 py-3 shadow-lg"
+            >
+              <span
+                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${meta.dot}`}
+                aria-hidden="true"
+              />
+              <div>
+                <p className="kicker mb-0.5">{meta.label}</p>
+                <p className="text-sm text-ink">{toast.message}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );

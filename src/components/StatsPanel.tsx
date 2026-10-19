@@ -9,27 +9,20 @@ interface StatsPanelProps {
 interface StatCard {
   label: string;
   value: number;
-  color: string;
-  icon: string;
+  tone: string;
+  num: string;
 }
 
 export function StatsPanel({ opportunities }: StatsPanelProps) {
-  if (opportunities.length === 0) {
-    return (
-      <div className="text-center py-12 animate-fade-in">
-        <div className="text-3xl mb-3">📈</div>
-        <p className="text-gray-500 text-sm">
-          No data to show yet. Add some opportunities to see your stats.
-        </p>
-      </div>
-    );
-  }
-
   const stats = useMemo(() => {
+    if (opportunities.length === 0) return null;
+
     const now = todayStr();
     const thisMonth = now.substring(0, 7);
 
-    const monthOpps = opportunities.filter(o => o.date_added.startsWith(thisMonth));
+    const monthOpps = opportunities.filter(o =>
+      o.date_added.startsWith(thisMonth)
+    );
 
     const byStatus = {
       total: opportunities.length,
@@ -42,7 +35,12 @@ export function StatsPanel({ opportunities }: StatsPanelProps) {
 
     const thisMonthStats = {
       added: monthOpps.length,
-      applied: monthOpps.filter(o => o.status === 'Applied' || o.status === 'In Progress' || o.status === 'Completed').length,
+      applied: monthOpps.filter(
+        o =>
+          o.status === 'Applied' ||
+          o.status === 'In Progress' ||
+          o.status === 'Completed'
+      ).length,
       completed: monthOpps.filter(o => o.status === 'Completed').length,
     };
 
@@ -50,6 +48,7 @@ export function StatsPanel({ opportunities }: StatsPanelProps) {
       hackathon: opportunities.filter(o => o.type === 'Hackathon').length,
       internship: opportunities.filter(o => o.type === 'Internship').length,
       certification: opportunities.filter(o => o.type === 'Certification').length,
+      competition: opportunities.filter(o => o.type === 'Competition').length,
     };
 
     const upcoming = opportunities.filter(
@@ -63,99 +62,143 @@ export function StatsPanel({ opportunities }: StatsPanelProps) {
     return { byStatus, thisMonthStats, byType, upcoming, overdue };
   }, [opportunities]);
 
+  if (!stats) {
+    return (
+      <div className="animate-fade-in rounded-lg border border-dashed border-rule py-16 text-center">
+        <p className="kicker mb-2">no data</p>
+        <p className="text-sm text-ink-muted">
+          No data to show yet. Add some opportunities to see your stats.
+        </p>
+      </div>
+    );
+  }
+
   const statusCards: StatCard[] = [
-    { label: 'Total Tracked', value: stats.byStatus.total, color: 'bg-gray-100 text-gray-800', icon: '📋' },
-    { label: 'Not Started', value: stats.byStatus.notStarted, color: 'bg-slate-100 text-slate-800', icon: '⏳' },
-    { label: 'Applied', value: stats.byStatus.applied, color: 'bg-blue-100 text-blue-800', icon: '📤' },
-    { label: 'In Progress', value: stats.byStatus.inProgress, color: 'bg-amber-100 text-amber-800', icon: '🔄' },
-    { label: 'Completed', value: stats.byStatus.completed, color: 'bg-green-100 text-green-800', icon: '✅' },
-    { label: 'Rejected', value: stats.byStatus.rejected, color: 'bg-red-100 text-red-800', icon: '❌' },
+    { label: 'Total tracked', value: stats.byStatus.total, tone: 'text-ink', num: '01' },
+    { label: 'Not started', value: stats.byStatus.notStarted, tone: 'text-ink-muted', num: '02' },
+    { label: 'Applied', value: stats.byStatus.applied, tone: 'text-accent', num: '03' },
+    { label: 'In progress', value: stats.byStatus.inProgress, tone: 'text-warning', num: '04' },
+    { label: 'Completed', value: stats.byStatus.completed, tone: 'text-safe', num: '05' },
+    { label: 'Rejected', value: stats.byStatus.rejected, tone: 'text-critical', num: '06' },
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-800">Statistics</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
+    <section className="animate-fade-in space-y-8">
+      <header>
+        <p className="kicker mb-2">the numbers</p>
+        <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+          Statistics
+        </h2>
+        <p className="mt-1 text-sm text-ink-muted">
           Overview of your opportunity tracking progress.
         </p>
-      </div>
+      </header>
 
-      {/* Status breakdown */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          By Status
+      {/* By status — editorial stat band */}
+      <section aria-labelledby="stats-status">
+        <h3
+          id="stats-status"
+          className="kicker mb-3 border-b border-rule pb-2"
+        >
+          by status
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3">
           {statusCards.map(card => (
-            <div
-              key={card.label}
-              className={`${card.color} rounded-lg p-4 text-center`}
-            >
-              <div className="text-2xl mb-1">{card.icon}</div>
-              <div className="text-2xl font-bold">{card.value}</div>
-              <div className="text-xs font-medium opacity-80">{card.label}</div>
+            <div key={card.label}>
+              <span className="section-num" aria-hidden="true">
+                {card.num}
+              </span>
+              <dd
+                className={`font-display text-4xl font-bold tabular-nums ${card.tone}`}
+              >
+                {card.value}
+              </dd>
+              <dt className="kicker mt-1">{card.label}</dt>
             </div>
           ))}
-        </div>
-      </div>
+        </dl>
+      </section>
 
       {/* This month */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          This Month
+      <section aria-labelledby="stats-month">
+        <h3
+          id="stats-month"
+          className="kicker mb-3 border-b border-rule pb-2"
+        >
+          this month
         </h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-indigo-700">{stats.thisMonthStats.added}</div>
-            <div className="text-xs text-indigo-600 font-medium">Added</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-700">{stats.thisMonthStats.applied}</div>
-            <div className="text-xs text-blue-600 font-medium">Applied</div>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-700">{stats.thisMonthStats.completed}</div>
-            <div className="text-xs text-green-600 font-medium">Completed</div>
-          </div>
-        </div>
-      </div>
+        <dl className="grid grid-cols-3 gap-4">
+          <MiniStat label="Added" value={stats.thisMonthStats.added} tone="text-ink" />
+          <MiniStat label="Applied" value={stats.thisMonthStats.applied} tone="text-accent" />
+          <MiniStat label="Completed" value={stats.thisMonthStats.completed} tone="text-safe" />
+        </dl>
+      </section>
 
       {/* By type */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          By Type
+      <section aria-labelledby="stats-type">
+        <h3 id="stats-type" className="kicker mb-3 border-b border-rule pb-2">
+          by type
         </h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-            <div className="text-2xl mb-1">🏆</div>
-            <div className="text-2xl font-bold text-purple-700">{stats.byType.hackathon}</div>
-            <div className="text-xs text-purple-600 font-medium">Hackathons</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div className="text-2xl mb-1">💼</div>
-            <div className="text-2xl font-bold text-blue-700">{stats.byType.internship}</div>
-            <div className="text-xs text-blue-600 font-medium">Internships</div>
-          </div>
-          <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 text-center">
-            <div className="text-2xl mb-1">📜</div>
-            <div className="text-2xl font-bold text-teal-700">{stats.byType.certification}</div>
-            <div className="text-xs text-teal-600 font-medium">Certifications</div>
-          </div>
-        </div>
-      </div>
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <TypeStat glyph="◆" label="Hackathons" value={stats.byType.hackathon} tone="text-accent" />
+          <TypeStat glyph="▲" label="Internships" value={stats.byType.internship} tone="text-safe" />
+          <TypeStat glyph="●" label="Certifications" value={stats.byType.certification} tone="text-warning" />
+          <TypeStat glyph="■" label="Competitions" value={stats.byType.competition} tone="text-critical" />
+        </dl>
+      </section>
 
       {/* Upcoming + Overdue */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-amber-700">{stats.upcoming}</div>
-          <div className="text-xs text-amber-600 font-medium">Upcoming Deadlines</div>
-        </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-red-700">{stats.overdue}</div>
-          <div className="text-xs text-red-600 font-medium">Overdue</div>
-        </div>
-      </div>
+      <dl className="grid grid-cols-2 gap-4">
+        <MiniStat
+          label="Upcoming deadlines"
+          value={stats.upcoming}
+          tone="text-warning"
+        />
+        <MiniStat label="Overdue" value={stats.overdue} tone="text-critical" />
+      </dl>
+    </section>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-lg border border-rule bg-surface p-4">
+      <dd className={`font-display text-3xl font-bold tabular-nums ${tone}`}>
+        {value}
+      </dd>
+      <dt className="kicker mt-1">{label}</dt>
+    </div>
+  );
+}
+
+function TypeStat({
+  glyph,
+  label,
+  value,
+  tone,
+}: {
+  glyph: string;
+  label: string;
+  value: number;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-lg border border-rule bg-surface p-4">
+      <span className={`${tone} text-sm`} aria-hidden="true">
+        {glyph}
+      </span>
+      <dd className={`font-display text-3xl font-bold tabular-nums ${tone}`}>
+        {value}
+      </dd>
+      <dt className="kicker mt-1">{label}</dt>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useFilters } from './hooks/useFilters';
 import { useReminders } from './hooks/useReminders';
 import {
   Header,
+  Hero,
   EntryForm,
   OpportunityCard,
   FilterBar,
@@ -16,6 +17,9 @@ import {
   ToastProvider,
   useToast,
 } from './components';
+import { Button } from './components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from './components/ui/alert';
+import { Skeleton } from './components/ui/skeleton';
 
 const INITIAL_FILTERS: Filters = {
   search: '',
@@ -85,6 +89,7 @@ function AppContent() {
     const { id: _id, date_added: _da, ...rest } = opp;
     addOpportunity(rest);
     setShowForm(false);
+    showToast('Opportunity added to your board');
   }
 
   function handleEdit(opp: Opportunity) {
@@ -100,15 +105,26 @@ function AppContent() {
 
   function handleDelete(id: string) {
     deleteOpportunity(id);
-    showToast('Opportunity deleted');
+    showToast('Opportunity deleted', 'info');
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-[3px] border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-3" />
-          <p className="text-sm text-gray-500">Loading your opportunities...</p>
+      <div className="flex min-h-screen items-center justify-center bg-paper">
+        <div className="w-full max-w-5xl px-5 py-10">
+          <Skeleton className="mb-3 h-4 w-40" />
+          <Skeleton className="mb-6 h-10 w-3/4" />
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+            <Skeleton className="h-16" />
+          </div>
+          <div className="mt-10 space-y-3">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
         </div>
       </div>
     );
@@ -116,57 +132,59 @@ function AppContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md text-center">
-          <div className="text-3xl mb-3">⚠️</div>
-          <h2 className="text-lg font-semibold text-red-800 mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-paper px-4">
+        <Alert
+          variant="destructive"
+          className="max-w-md border-critical/30 bg-critical-soft"
+        >
+          <AlertTitle className="font-display text-lg tracking-tight">
             Couldn't load your data
-          </h2>
-          <p className="text-sm text-red-600 mb-4">{error}</p>
-          <button
-            onClick={retryLoad}
-            className="bg-red-600 hover:bg-red-700 text-white font-medium px-5 py-2 rounded-lg text-sm transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+          </AlertTitle>
+          <AlertDescription>
+            <p className="mb-4">{error}</p>
+            <Button size="sm" variant="destructive" onClick={retryLoad}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-paper text-ink">
       <Header
         viewMode={viewMode}
         onViewChange={setViewMode}
         onAdd={handleAdd}
-        showForm={showForm}
+        showForm={showForm || !!editingOpp}
         remindersEnabled={remindersEnabled}
         remindersSupported={remindersSupported}
         onToggleReminders={toggleReminders}
       />
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+      {viewMode === 'dashboard' && <Hero opportunities={opportunities} />}
+
+      <main className="mx-auto max-w-5xl space-y-5 px-5 py-8">
         {saveError && (
-          <div
+          <Alert
+            variant="destructive"
             role="alert"
-            className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between"
+            className="flex items-center justify-between border-warning/30 bg-warning-soft text-warning"
           >
-            <span className="text-sm text-amber-700">
+            <AlertTitle className="text-warning">
               Storage error — changes may not be saved.
-            </span>
+            </AlertTitle>
             <button
               onClick={retrySave}
-              className="text-xs font-medium text-amber-800 underline hover:no-underline"
+              className="shrink-0 text-xs font-medium underline hover:no-underline"
             >
-              Retry Save
+              Retry save
             </button>
-          </div>
+          </Alert>
         )}
 
-        {showForm && (
-          <EntryForm onSave={handleSaveNew} onCancel={handleCancel} />
-        )}
+        {showForm && <EntryForm onSave={handleSaveNew} onCancel={handleCancel} />}
         {editingOpp && (
           <EntryForm
             onSave={handleSaveEdit}
@@ -183,7 +201,7 @@ function AppContent() {
             ) : (
               <>
                 {opportunities.length > 0 && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-4">
                     <FilterBar
                       filters={filters}
                       onFilterChange={setFilters}
@@ -192,14 +210,19 @@ function AppContent() {
                       activeCount={active.length + archived.length}
                       totalCount={totalCount}
                     />
-                    <ExportButton opportunities={opportunities} />
+                    <div className="flex items-center justify-end">
+                      <ExportButton opportunities={opportunities} />
+                    </div>
                   </div>
                 )}
 
                 {active.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
-                      Active ({active.length})
+                  <section aria-labelledby="active-heading">
+                    <h3
+                      id="active-heading"
+                      className="kicker mb-3 border-b border-rule pb-2"
+                    >
+                      active ({active.length})
                     </h3>
                     <div className="space-y-2">
                       {active.map(opp => (
@@ -212,7 +235,7 @@ function AppContent() {
                         />
                       ))}
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {archived.length > 0 && (
@@ -227,8 +250,9 @@ function AppContent() {
                 {opportunities.length > 0 &&
                   active.length === 0 &&
                   archived.length === 0 && (
-                    <div className="text-center py-12">
-                      <p className="text-gray-400 text-sm">
+                    <div className="rounded-lg border border-dashed border-rule py-12 text-center">
+                      <p className="kicker mb-2">no matches</p>
+                      <p className="text-sm text-ink-muted">
                         No opportunities match your filters.
                       </p>
                     </div>
@@ -247,13 +271,18 @@ function AppContent() {
           />
         )}
 
-        {viewMode === 'stats' && (
-          <StatsPanel opportunities={opportunities} />
-        )}
+        {viewMode === 'stats' && <StatsPanel opportunities={opportunities} />}
       </main>
 
-      <footer className="text-center py-6 text-xs text-gray-400">
-        OppTrack — Personal Opportunity Tracker
+      <footer className="border-t border-rule">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-display text-sm font-semibold tracking-tight text-ink">
+            OppTrack
+          </p>
+          <p className="kicker">
+            personal opportunity tracker · deadlines, sorted
+          </p>
+        </div>
       </footer>
     </div>
   );

@@ -1,5 +1,21 @@
-import type { Filters, OpportunityType, OpportunityStatus, SortKey } from '../types/opportunity';
+import type {
+  Filters,
+  OpportunityType,
+  OpportunityStatus,
+  SortKey,
+} from '../types/opportunity';
 import { TYPE_OPTIONS, STATUS_OPTIONS } from '../constants';
+import { TYPE_META, STATUS_META } from '../lib/meta';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { cn } from '../lib/utils';
 
 interface FilterBarProps {
   filters: Filters;
@@ -12,7 +28,7 @@ interface FilterBarProps {
 
 const SORT_LABELS: Record<SortKey, string> = {
   deadline: 'Deadline',
-  date_added: 'Date Added',
+  date_added: 'Date added',
   title: 'Title',
 };
 
@@ -22,6 +38,10 @@ const DUE_WITHIN_OPTIONS = [
   { value: 14, label: '14 days' },
   { value: 30, label: '30 days' },
 ];
+
+/* Radix Select can't take an empty string as a value, so "All" filters are
+   represented by this sentinel and mapped back to 'All' on change. */
+const ALL = '__all__';
 
 export function FilterBar({
   filters,
@@ -59,19 +79,15 @@ export function FilterBar({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-3">
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="relative flex-1 min-w-0 w-full sm:w-auto">
-          <input
-            type="text"
-            value={filters.search}
-            onChange={e => update('search', e.target.value)}
-            placeholder="Search title..."
-            aria-label="Search opportunities by title"
-            className="pl-8 pr-3 py-2 border border-gray-200 rounded-md text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[40px]"
-          />
+    <section
+      aria-label="Filter and sort opportunities"
+      className="rounded-xl border border-rule bg-surface p-4"
+    >
+      <div className="flex flex-col gap-3">
+        {/* Search */}
+        <div className="relative">
           <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -81,117 +97,176 @@ export function FilterBar({
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
+          <Input
+            type="text"
+            value={filters.search}
+            onChange={e => update('search', e.target.value)}
+            placeholder="Search by title…"
+            aria-label="Search opportunities by title"
+            className="pl-9"
+          />
         </div>
 
-        <select
-          value={filters.type}
-          onChange={e => update('type', e.target.value as OpportunityType | 'All')}
-          aria-label="Filter by type"
-          className="border border-gray-200 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[40px]"
-        >
-          <option value="All">All Types</option>
-          {TYPE_OPTIONS.map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
+        {/* Selects */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <SelectFilter
+            label="Type"
+            value={filters.type === 'All' ? ALL : filters.type}
+            onValueChange={v =>
+              update('type', (v === ALL ? 'All' : v) as OpportunityType | 'All')
+            }
+            options={[
+              { value: ALL, label: 'All types' },
+              ...TYPE_OPTIONS.map(t => ({
+                value: t,
+                label: TYPE_META[t].label,
+              })),
+            ]}
+          />
+          <SelectFilter
+            label="Status"
+            value={filters.status === 'All' ? ALL : filters.status}
+            onValueChange={v =>
+              update(
+                'status',
+                (v === ALL ? 'All' : v) as OpportunityStatus | 'All'
+              )
+            }
+            options={[
+              { value: ALL, label: 'All statuses' },
+              ...STATUS_OPTIONS.map(s => ({
+                value: s,
+                label: STATUS_META[s].label,
+              })),
+            ]}
+          />
+          {sources.length > 0 && (
+            <SelectFilter
+              label="Source"
+              value={filters.source === 'All' ? ALL : filters.source}
+              onValueChange={v =>
+                update('source', v === ALL ? 'All' : v)
+              }
+              options={[
+                { value: ALL, label: 'All sources' },
+                ...sources.map(s => ({ value: s, label: s })),
+              ]}
+            />
+          )}
+          {allTags.length > 0 && (
+            <SelectFilter
+              label="Tag"
+              value={filters.tag === 'All' ? ALL : filters.tag}
+              onValueChange={v => update('tag', v === ALL ? 'All' : v)}
+              options={[
+                { value: ALL, label: 'All tags' },
+                ...allTags.map(t => ({ value: t, label: t })),
+              ]}
+            />
+          )}
+        </div>
 
-        <select
-          value={filters.status}
-          onChange={e => update('status', e.target.value as OpportunityStatus | 'All')}
-          aria-label="Filter by status"
-          className="border border-gray-200 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[40px]"
-        >
-          <option value="All">All Statuses</option>
-          {STATUS_OPTIONS.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-
-        {sources.length > 0 && (
-          <select
-            value={filters.source}
-            onChange={e => update('source', e.target.value)}
-            aria-label="Filter by source"
-            className="border border-gray-200 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[40px]"
-          >
-            <option value="All">All Sources</option>
-            {sources.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        )}
-
-        {allTags.length > 0 && (
-          <select
-            value={filters.tag}
-            onChange={e => update('tag', e.target.value)}
-            aria-label="Filter by tag"
-            className="border border-gray-200 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[40px]"
-          >
-            <option value="All">All Tags</option>
-            {allTags.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-400">Due within:</span>
+        {/* Due-within pills */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="kicker mr-1">due within</span>
           {DUE_WITHIN_OPTIONS.map(opt => (
             <button
               key={opt.value}
               onClick={() => update('dueWithin', opt.value)}
               aria-pressed={filters.dueWithin === opt.value}
-              className={`text-xs font-medium px-2.5 py-1.5 rounded-full border transition-colors min-h-[32px] ${
+              className={cn(
+                'rounded-full border px-3 py-1 font-mono text-xs transition-colors',
                 filters.dueWithin === opt.value
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-              }`}
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-rule text-ink-muted hover:bg-muted'
+              )}
             >
               {opt.label}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Sort by:</span>
-          <select
-            value={filters.sortKey}
-            onChange={e => update('sortKey', e.target.value as SortKey)}
-            aria-label="Sort opportunities"
-            className="border border-gray-200 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[32px]"
-          >
-            {(Object.keys(SORT_LABELS) as SortKey[]).map(key => (
-              <option key={key} value={key}>{SORT_LABELS[key]}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => update('sortDir', filters.sortDir === 'asc' ? 'desc' : 'asc')}
-            aria-label={
-              filters.sortDir === 'asc' ? 'Sort ascending, switch to descending' : 'Sort descending, switch to ascending'
-            }
-            className="text-xs bg-white border border-gray-200 text-gray-600 px-2.5 py-1.5 rounded-md hover:bg-gray-50 transition-colors font-medium min-h-[32px]"
-          >
-            {filters.sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
-          </button>
+        {/* Sort + meta */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-3">
+          <span className="font-mono text-xs text-ink-faint" aria-live="polite">
+            {activeCount} of {totalCount} shown
+          </span>
+
+          <div className="flex items-center gap-2">
+            <span className="kicker">sort by</span>
+            <Select
+              value={filters.sortKey}
+              onValueChange={v => update('sortKey', v as SortKey)}
+            >
+              <SelectTrigger size="sm" className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SORT_LABELS) as SortKey[]).map(key => (
+                  <SelectItem key={key} value={key}>
+                    {SORT_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                update('sortDir', filters.sortDir === 'asc' ? 'desc' : 'asc')
+              }
+              aria-label={
+                filters.sortDir === 'asc'
+                  ? 'Sort ascending, switch to descending'
+                  : 'Sort descending, switch to ascending'
+              }
+              className="h-8 font-mono text-xs"
+            >
+              {filters.sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
+            </Button>
+            {hasActiveFilters && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={clearFilters}
+                className="h-8 text-xs text-accent"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+    </section>
+  );
+}
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400" aria-live="polite">
-          {activeCount} of {totalCount} shown
-        </span>
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium min-h-[36px] px-2"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
+function SelectFilter({
+  label,
+  value,
+  onValueChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="space-y-1">
+      <span className="kicker">{label}</span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger size="sm" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(o => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

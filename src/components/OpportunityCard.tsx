@@ -7,8 +7,10 @@ import {
   formatDate,
   isExpiredOrCompleted,
   URGENCY_STYLES,
-  TYPE_COLORS,
 } from '../utils';
+import { STATUS_META, TYPE_META } from '../lib/meta';
+import { Button } from './ui/button';
+import { cn } from '../lib/utils';
 
 interface OpportunityCardProps {
   opp: Opportunity;
@@ -29,6 +31,8 @@ export function OpportunityCard({
   const styles = URGENCY_STYLES[urgency];
   const expired = isExpiredOrCompleted(opp.deadline, opp.status);
   const daysLabel = getDaysLabel(opp.deadline, opp.status);
+  const typeMeta = TYPE_META[opp.type];
+  const statusMeta = STATUS_META[opp.status];
 
   useEffect(() => {
     if (confirmDelete) {
@@ -40,118 +44,147 @@ export function OpportunityCard({
     return (
       <div
         role="alert"
-        className="bg-red-50 border border-red-200 rounded-lg p-4 animate-fade-in"
+        className="animate-fade-in rounded-lg border border-critical/30 bg-critical-soft p-4"
       >
-        <p className="text-sm text-red-700 mb-3">
-          Delete <strong>{opp.title}</strong>? This cannot be undone.
+        <p className="text-sm text-ink-soft">
+          Delete <strong className="text-ink">{opp.title}</strong>? This cannot
+          be undone.
         </p>
-        <div className="flex gap-2">
-          <button
+        <div className="mt-3 flex gap-2">
+          <Button
+            size="sm"
+            variant="destructive"
             onClick={() => onDelete(opp.id)}
-            className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-2 rounded-md transition-colors min-h-[36px]"
             aria-label={`Confirm delete ${opp.title}`}
           >
             Delete
-          </button>
-          <button
+          </Button>
+          <Button
             ref={cancelRef}
+            size="sm"
+            variant="outline"
             onClick={() => setConfirmDelete(false)}
-            className="bg-white hover:bg-gray-100 text-gray-600 text-xs font-medium px-3 py-2 rounded-md border border-gray-200 transition-colors min-h-[36px]"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`${styles.bg} border ${styles.border} rounded-lg p-4 transition-all hover:shadow-sm ${
-        expired ? 'opacity-75' : ''
-      }`}
+    <article
+      className={cn(
+        'group relative overflow-hidden rounded-lg border bg-surface p-4 transition-all hover:shadow-sm sm:p-5',
+        styles.border,
+        expired && 'opacity-70'
+      )}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2">
-            <div
-              className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${styles.dot}`}
-              aria-hidden="true"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-semibold text-gray-900 text-sm truncate">
-                  {opp.title}
-                </h4>
-                <span
-                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    TYPE_COLORS[opp.type] || 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {opp.type}
-                </span>
-              </div>
+      {/* Urgency spine */}
+      <span
+        aria-hidden="true"
+        className={cn('absolute inset-y-0 left-0 w-1', styles.dot)}
+      />
 
-              {opp.source && (
-                <p className="text-xs text-gray-500 mt-0.5">via {opp.source}</p>
+      <div className="flex flex-col gap-3 pl-3 sm:flex-row sm:items-start sm:gap-5">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-display text-base font-semibold leading-snug tracking-tight text-ink">
+              {opp.title}
+            </h4>
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+                typeMeta.className
               )}
-
-              <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                <span
-                  className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles.badge}`}
-                  aria-label={`${daysLabel} — urgency: ${urgency}`}
-                >
-                  {daysLabel}
-                </span>
-                <span className="text-xs text-gray-500">
-                  Due {formatDate(opp.deadline)}
-                </span>
-              </div>
-
-              {opp.eligibility && (
-                <p className="text-xs text-gray-600 mt-1.5">
-                  <span className="font-medium">Eligibility:</span>{' '}
-                  {opp.eligibility}
-                </p>
-              )}
-
-              {opp.tags.length > 0 && (
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {opp.tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="text-xs bg-white/80 border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {opp.notes && (
-                <p className="text-xs text-gray-500 mt-1.5 line-clamp-2 italic">
-                  {opp.notes}
-                </p>
-              )}
-            </div>
+            >
+              <span aria-hidden="true">{typeMeta.glyph}</span>
+              {typeMeta.label}
+            </span>
           </div>
+
+          {opp.source && (
+            <p className="mt-1 font-mono text-xs text-ink-faint">
+              via {opp.source}
+              {opp.organizer ? ` · ${opp.organizer}` : ''}
+            </p>
+          )}
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span
+              className={cn(
+                'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[11px] font-medium tracking-wide',
+                styles.badge
+              )}
+              aria-label={`${daysLabel} — urgency: ${urgency}`}
+            >
+              {daysLabel}
+            </span>
+            <span className="font-mono text-xs text-ink-muted">
+              due {formatDate(opp.deadline)}
+            </span>
+            {opp.location && (
+              <span className="font-mono text-xs text-ink-faint">
+                ◎ {opp.location}
+              </span>
+            )}
+            {opp.prize_pool && (
+              <span className="font-mono text-xs text-ink-faint">
+                {opp.prize_pool}
+              </span>
+            )}
+          </div>
+
+          {opp.eligibility && (
+            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+              <span className="kicker mr-1">elig</span>
+              {opp.eligibility}
+            </p>
+          )}
+
+          {opp.tags.length > 0 && (
+            <ul className="mt-2.5 flex flex-wrap gap-1.5">
+              {opp.tags.map((tag, i) => (
+                <li
+                  key={i}
+                  className="rounded-full border border-rule bg-paper px-2 py-0.5 text-[11px] text-ink-muted"
+                >
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {opp.notes && (
+            <p className="mt-2 line-clamp-2 text-xs italic text-ink-muted">
+              {opp.notes}
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-row sm:flex-col gap-2 flex-shrink-0 items-center">
+        {/* Actions rail */}
+        <div className="flex shrink-0 flex-row items-center gap-2 sm:flex-col sm:items-end">
+          <label className="sr-only" htmlFor={`status-${opp.id}`}>
+            Status for {opp.title}
+          </label>
           <select
+            id={`status-${opp.id}`}
             value={opp.status}
             onChange={e =>
               onChangeStatus(opp.id, e.target.value as Opportunity['status'])
             }
-            aria-label={`Status for ${opp.title}`}
-            className="text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 min-h-[36px]"
+            className={cn(
+              'h-8 rounded-full border border-rule bg-transparent px-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+              statusMeta.className
+            )}
           >
             {STATUS_OPTIONS.map(s => (
               <option key={s} value={s}>
-                {s}
+                {STATUS_META[s].label}
               </option>
             ))}
           </select>
+
           <div className="flex gap-1.5">
             {opp.link && (
               <a
@@ -159,28 +192,32 @@ export function OpportunityCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Open link for ${opp.title}`}
-                className="text-xs bg-white border border-gray-200 text-indigo-600 px-2.5 py-2 rounded-md hover:bg-indigo-50 transition-colors min-h-[36px] flex items-center"
+                className="inline-flex h-8 items-center rounded-md border border-rule px-2.5 text-xs font-medium text-ink-soft transition-colors hover:bg-muted"
               >
-                Link ↗
+                Open ↗
               </a>
             )}
-            <button
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => onEdit(opp)}
               aria-label={`Edit ${opp.title}`}
-              className="text-xs bg-white border border-gray-200 text-gray-600 px-2.5 py-2 rounded-md hover:bg-gray-50 transition-colors min-h-[36px]"
+              className="h-8 text-xs"
             >
               Edit
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => setConfirmDelete(true)}
               aria-label={`Delete ${opp.title}`}
-              className="text-xs bg-white border border-gray-200 text-red-500 px-2.5 py-2 rounded-md hover:bg-red-50 transition-colors min-h-[36px]"
+              className="h-8 border-critical/30 text-critical hover:bg-critical-soft"
             >
               Delete
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

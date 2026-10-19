@@ -1,4 +1,6 @@
 import type { ViewMode } from '../types/opportunity';
+import { Button } from './ui/button';
+import { cn } from '../lib/utils';
 
 interface HeaderProps {
   viewMode: ViewMode;
@@ -10,10 +12,10 @@ interface HeaderProps {
   onToggleReminders?: () => void;
 }
 
-const NAV_ITEMS: { mode: ViewMode; label: string; icon: string }[] = [
-  { mode: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { mode: 'weekly-review', label: 'Weekly Review', icon: '📋' },
-  { mode: 'stats', label: 'Stats', icon: '📈' },
+const NAV_ITEMS: { mode: ViewMode; label: string; num: string }[] = [
+  { mode: 'dashboard', label: 'Dashboard', num: '01' },
+  { mode: 'weekly-review', label: 'Weekly Review', num: '02' },
+  { mode: 'stats', label: 'Stats', num: '03' },
 ];
 
 export function Header({
@@ -26,13 +28,22 @@ export function Header({
   onToggleReminders,
 }: HeaderProps) {
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="flex items-center justify-between py-3">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl" aria-hidden="true">🎯</span>
-            <h1 className="text-lg font-bold text-gray-900">OppTrack</h1>
-          </div>
+    <header className="sticky top-0 z-40 border-b border-rule bg-paper/85 backdrop-blur-md">
+      <div className="mx-auto max-w-5xl px-5">
+        <div className="flex items-center justify-between gap-4 py-3.5">
+          {/* Wordmark */}
+          <a href="#top" className="group flex items-baseline gap-2">
+            <span
+              className="font-display text-xl font-bold tracking-tight text-ink"
+              aria-hidden="true"
+            >
+              OppTrack
+            </span>
+            <span className="kicker hidden sm:inline text-ink-faint">
+              / opportunities, sorted
+            </span>
+          </a>
+
           <div className="flex items-center gap-2">
             {remindersSupported && onToggleReminders && (
               <button
@@ -48,48 +59,65 @@ export function Header({
                     ? 'Reminders on'
                     : 'Enable reminders for deadlines within 2 days'
                 }
-                className={`relative flex items-center justify-center w-[44px] h-[44px] rounded-lg border transition-colors ${
+                className={cn(
+                  'relative flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors',
                   remindersEnabled
-                    ? 'bg-amber-50 border-amber-300'
-                    : 'bg-white border-gray-200 hover:bg-gray-50'
-                }`}
+                    ? 'border-warning/40 bg-warning/10 text-warning'
+                    : 'border-rule bg-transparent text-ink-muted hover:bg-muted'
+                )}
               >
-                <span className="text-base" aria-hidden="true">
+                <span aria-hidden="true" className="text-sm leading-none">
                   {remindersEnabled ? '🔔' : '🔕'}
                 </span>
+                <span className="hidden sm:inline">
+                  {remindersEnabled ? 'On' : 'Remind'}
+                </span>
                 {remindersEnabled && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 rounded-full" aria-hidden="true" />
+                  <span
+                    className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-warning"
+                    aria-hidden="true"
+                  />
                 )}
               </button>
             )}
-            <button
+
+            <Button
               onClick={onAdd}
               aria-label={showForm ? 'Close form' : 'Add new opportunity'}
-              className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]"
+              size="sm"
+              className="rounded-full"
             >
-              {showForm ? 'Close' : '+ Add'}
-            </button>
+              {showForm ? 'Close' : '＋ Add'}
+            </Button>
           </div>
         </div>
 
+        {/* Nav */}
         <nav aria-label="Main navigation">
-          <div className="flex gap-1 -mb-px overflow-x-auto">
-            {NAV_ITEMS.map(item => (
-              <button
-                key={item.mode}
-                onClick={() => onViewChange(item.mode)}
-                aria-current={viewMode === item.mode ? 'page' : undefined}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap min-h-[44px] ${
-                  viewMode === item.mode
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <span aria-hidden="true">{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <ul className="-mb-px flex gap-5 overflow-x-auto">
+            {NAV_ITEMS.map(item => {
+              const active = viewMode === item.mode;
+              return (
+                <li key={item.mode} className="shrink-0">
+                  <button
+                    onClick={() => onViewChange(item.mode)}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'group relative flex min-h-[40px] items-center gap-2 border-b-2 pb-2.5 pt-1 text-sm transition-colors',
+                      active
+                        ? 'border-ink text-ink'
+                        : 'border-transparent text-ink-muted hover:text-ink'
+                    )}
+                  >
+                    <span className="section-num" aria-hidden="true">
+                      {item.num}
+                    </span>
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
       </div>
     </header>

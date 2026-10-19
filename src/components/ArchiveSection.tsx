@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Opportunity } from '../types/opportunity';
 import { OpportunityCard } from './OpportunityCard';
+import { cn } from '../lib/utils';
 
 interface ArchiveSectionProps {
   archived: Opportunity[];
@@ -18,14 +19,17 @@ export function ArchiveSection({
   const [open, setOpen] = useState(false);
 
   return (
-    <div>
+    <section aria-label="Archived opportunities">
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex items-center gap-2 text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1 hover:text-gray-600 transition-colors min-h-[36px]"
+        className="group flex min-h-[36px] items-center gap-2 px-1 text-sm font-semibold uppercase tracking-wide text-ink-faint transition-colors hover:text-ink-muted"
       >
         <svg
-          className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-90' : ''}`}
+          className={cn(
+            'h-3.5 w-3.5 transition-transform',
+            open && 'rotate-90'
+          )}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -34,10 +38,12 @@ export function ArchiveSection({
         >
           <path d="m9 18 6-6-6-6" />
         </svg>
-        Archive ({archived.length})
+        <span className="kicker text-inherit">
+          archive ({archived.length})
+        </span>
       </button>
       {open && (
-        <div className="space-y-2 animate-fade-in" role="list">
+        <div className="space-y-2 animate-fade-in pt-2" role="list">
           {archived.map(opp => (
             <div role="listitem" key={opp.id}>
               <OpportunityCard
@@ -50,6 +56,6 @@ export function ArchiveSection({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
