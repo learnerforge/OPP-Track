@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import type { OpportunityRecord } from './types.ts';
+import type { OpportunityRecord } from './types.js';
 
 /**
  * Dataset access. Reads `data/scraped_opportunities.json` once per cold start

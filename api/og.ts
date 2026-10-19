@@ -1,6 +1,6 @@
-import { CACHE, fail, requireGet } from './_lib/respond.ts';
-import type { ApiRequest, ApiResponse } from './_lib/types.ts';
-import { OPPORTUNITY_TYPES, ParamError } from './_lib/validate.ts';
+import { CACHE, fail, requireGet } from './_lib/respond.js';
+import type { ApiRequest, ApiResponse } from './_lib/types.js';
+import { OPPORTUNITY_TYPES, ParamError } from './_lib/validate.js';
 
 /**
  * GET /api/og — dynamic Open-Graph image (§11.4, F11).

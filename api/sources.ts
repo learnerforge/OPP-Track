@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { loadDataset, DatasetError } from './_lib/loadDataset.ts';
-import { CACHE, datasetUnavailable, fail, json, requireGet } from './_lib/respond.ts';
-import type { ApiRequest, ApiResponse } from './_lib/types.ts';
+import { loadDataset, DatasetError } from './_lib/loadDataset.js';
+import { CACHE, datasetUnavailable, fail, json, requireGet } from './_lib/respond.js';
+import type { ApiRequest, ApiResponse } from './_lib/types.js';
 
 interface HealthEntry {
   source: string;

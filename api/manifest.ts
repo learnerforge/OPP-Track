@@ -1,6 +1,6 @@
-import { loadManifest, DatasetError } from './_lib/loadDataset.ts';
-import { CACHE, datasetUnavailable, fail, json, requireGet } from './_lib/respond.ts';
-import type { ApiRequest, ApiResponse } from './_lib/types.ts';
+import { loadManifest, DatasetError } from './_lib/loadDataset.js';
+import { CACHE, datasetUnavailable, fail, json, requireGet } from './_lib/respond.js';
+import type { ApiRequest, ApiResponse } from './_lib/types.js';
 
 /**
  * GET /api/manifest — the manifest, CORS-enabled for the app (§11.4).

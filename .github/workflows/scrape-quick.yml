@@ -61,7 +61,10 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Quick scrape (multi + validate)
-        run: python scripts/scrapers/run_all.py --multi --validate
+        # --validate is a short-circuit (validates the EXISTING file and exits
+        # without scraping) — it was silently turning this workflow into a no-op.
+        # Quick pass = scrape listing pages only, no enrichment; npm gate below.
+        run: python scripts/scrapers/run_all.py --multi --quick
 
       - name: Install npm dependencies
         run: npm ci

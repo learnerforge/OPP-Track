@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { CACHE, datasetUnavailable, fail, json, requireGet } from '../_lib/respond.ts';
-import { DatasetError } from '../_lib/loadDataset.ts';
-import type { ApiRequest, ApiResponse } from '../_lib/types.ts';
+import { CACHE, datasetUnavailable, fail, json, requireGet } from '../_lib/respond.js';
+import { DatasetError } from '../_lib/loadDataset.js';
+import type { ApiRequest, ApiResponse } from '../_lib/types.js';
 
 /**
  * GET /api/report/latest — newest data/reports/publish-*.md as JSON

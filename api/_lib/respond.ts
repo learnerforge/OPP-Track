@@ -1,4 +1,4 @@
-import type { ApiRequest, ApiResponse } from './types.ts';
+import type { ApiRequest, ApiResponse } from './types.js';
 
 /**
  * Cache-Control values per §11.4 of fullstack.md.

@@ -1,4 +1,4 @@
-import type { OpportunityRecord } from './types.ts';
+import type { OpportunityRecord } from './types.js';
 
 /** Query-param validation mirroring the data validator's rules (§11.4). */
 export const OPPORTUNITY_TYPES = ['Hackathon', 'Internship', 'Certification', 'Competition'] as const;

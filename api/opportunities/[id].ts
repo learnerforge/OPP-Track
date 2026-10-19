@@ -1,7 +1,7 @@
-import { loadDataset, DatasetError } from '../_lib/loadDataset.ts';
-import { CACHE, datasetUnavailable, fail, json, requireGet } from '../_lib/respond.ts';
-import type { ApiRequest, ApiResponse } from '../_lib/types.ts';
-import { ParamError } from '../_lib/validate.ts';
+import { loadDataset, DatasetError } from '../_lib/loadDataset.js';
+import { CACHE, datasetUnavailable, fail, json, requireGet } from '../_lib/respond.js';
+import type { ApiRequest, ApiResponse } from '../_lib/types.js';
+import { ParamError } from '../_lib/validate.js';
 
 /**
  * GET /api/opportunities/:id — single record by stable id (fingerprint hash, §11.2).

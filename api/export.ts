@@ -1,7 +1,7 @@
-import { loadDataset, DatasetError } from './_lib/loadDataset.ts';
-import { CACHE, datasetUnavailable, fail, json, requireGet, sendText } from './_lib/respond.ts';
-import type { ApiRequest, ApiResponse, OpportunityRecord } from './_lib/types.ts';
-import { ParamError, filterItems, parseListParams, sortItems } from './_lib/validate.ts';
+import { loadDataset, DatasetError } from './_lib/loadDataset.js';
+import { CACHE, datasetUnavailable, fail, json, requireGet, sendText } from './_lib/respond.js';
+import type { ApiRequest, ApiResponse, OpportunityRecord } from './_lib/types.js';
+import { ParamError, filterItems, parseListParams, sortItems } from './_lib/validate.js';
 
 /**
  * GET /api/export?format=csv|ics|json — server-side export of the filtered set (§11.4).

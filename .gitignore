@@ -71,3 +71,6 @@ validation_err.txt
 validation_report.txt
 npm_anim.log
 run2_stream.log
+.vercel
+.vercel_python_packages/
+.env*
