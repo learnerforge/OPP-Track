@@ -1,0 +1,39 @@
+# OPP-Track — direct Python dependencies (backlog B4), pinned EXACTLY to the
+# versions installed on the reference machine (Python 3.13.15, 2026-10-19).
+#
+# Scope: only what scripts/scrapers/** and scripts/*.py import directly, plus
+# the scrapling[fetchers] browser toolchain StealthyFetcher launches at
+# runtime, plus scrapling's HTML parser. Transitive dependencies (greenlet,
+# pyee, certifi, idna, httpcore, h11, cssselect, orjson, tld, w3lib,
+# typing_extensions, ...) are intentionally left to pip's resolver — this is
+# not a full `pip freeze` dump.
+#
+# Regeneration (after changing pipeline imports or bumping browsers):
+#   1. python -m pip freeze > pip-freeze-full.txt   (reference only, do not commit)
+#   2. python -m pip show <pkg> | findstr Version   (Windows; `grep Version` on POSIX)
+#   3. update the pins below; keep the group comments.
+#
+# Browser binaries are NOT installed by pip. One-time per machine / CI run:
+#   python -m patchright install --with-deps chromium    (scrapling's engine)
+#   python -m playwright install --with-deps chromium    (kept in sync; shared cache)
+# Both download into ms-playwright (~/.cache/ms-playwright on Linux), which
+# scrape-full.yml caches keyed on this file.
+
+# --- direct imports of the pipeline (ast-scan of scripts/**/*.py) ---
+scrapling[fetchers]==0.4.14
+httpx==0.28.1
+requests==2.34.2
+
+# --- scrapling's HTML parser (hard dependency, pinned for reproducibility) ---
+lxml==6.1.1
+
+# --- scrapling[fetchers] extras: the StealthyFetcher browser toolchain ---
+patchright==1.61.2
+playwright==1.62.0
+curl_cffi==0.16.0
+browserforge==1.2.4
+apify-fingerprint-datapoints==0.15.0
+msgspec==0.21.1
+anyio==4.14.2
+click==8.4.2
+protego==0.6.2

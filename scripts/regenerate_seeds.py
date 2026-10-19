@@ -76,20 +76,30 @@ def main() -> None:
     entries = [build_entry(item, i + 1) for i, item in enumerate(items)]
     new_block = f"{START_MARKER}\n" + "\n".join(entries) + f"\n{END_MARKER}"
 
+    existing_block_match = re.search(
+        rf"{re.escape(START_MARKER)}.*?{re.escape(END_MARKER)}", content, re.S
+    )
+    if not existing_block_match:
+        raise SystemExit(f"Markers not found in {STORAGE_FILE}; aborting.")
+
     version_match = VERSION_RE.search(content)
     if not version_match:
         raise SystemExit("SEED_VERSION not found; aborting.")
-    new_version = int(version_match.group(1)) + 1
 
     print(f"Items: {len(items)} -> {len(entries)} entries")
+
+    # Idempotence (E3): unchanged input must not cause a spurious rewrite or
+    # SEED_VERSION bump. Output is deterministic (same input -> same block).
+    if existing_block_match.group(0) == new_block:
+        print(f"SEED_DATA unchanged — no rewrite, SEED_VERSION stays at {version_match.group(1)}")
+        return
+
+    new_version = int(version_match.group(1)) + 1
     print(f"SEED_VERSION: {version_match.group(1)} -> {new_version}")
     if args.dry_run:
         return
 
-    content = content.replace(
-        re.search(rf"{re.escape(START_MARKER)}.*?{re.escape(END_MARKER)}", content, re.S).group(0),
-        new_block,
-    )
+    content = content.replace(existing_block_match.group(0), new_block)
     content = VERSION_RE.sub(f"export const SEED_VERSION = {new_version};", content, count=1)
     STORAGE_FILE.write_text(content, encoding="utf-8")
     print(f"Wrote {STORAGE_FILE}")

@@ -1,0 +1,4 @@
+# Generated bulk files — collapsed in diffs/reviews so history stays reviewable
+# (fullstack.md B9, §11.3 control #9). Documentation-only; does not affect content.
+data/scraped_opportunities.json linguist-generated=true
+src/lib/storage.ts linguist-generated=true

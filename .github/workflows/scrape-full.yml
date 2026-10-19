@@ -1,0 +1,185 @@
+name: scrape-full
+
+# fullstack.md §11.6 — THE scheduled engine. Full pass every 8 hours
+# (0 */8 * * * = 00:00 / 08:00 / 16:00 UTC, decided 2026-10-19) + manual runs.
+# Guard rails: single concurrency group, explicit timeout, guarded bot push,
+# one data-pipeline-alert issue on failure (docs/ENGINE.md has the runbook).
+
+on:
+  schedule:
+    - cron: "0 */8 * * *" # 00:00 / 08:00 / 16:00 UTC (05:30 / 13:30 / 21:30 IST)
+  workflow_dispatch:
+
+concurrency:
+  group: data-publish
+  cancel-in-progress: false
+
+# contents: write = commit/push the published dataset.
+# issues: write = the §11.6 failure rail ("open ONE data-pipeline-alert issue");
+# GitHub gives the token no issue access unless it is listed here, and the plan
+# forbids secrets, so this is the minimal grant that makes the alert possible.
+permissions:
+  contents: write
+  issues: write
+
+env:
+  TZ: UTC
+
+jobs:
+  scrape:
+    name: scrape and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # fetch-depth: 0 so the bot push can rebase against the real remote history.
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node (.nvmrc pin, B22)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Setup Python 3.13 (pip cache on requirements.txt)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install pinned Python deps
+        run: pip install -r requirements.txt
+
+      # ~150 MB of browser binaries — the expensive download, cached on
+      # requirements.txt (both engines share the ms-playwright directory).
+      - name: Cache ms-playwright browser binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ms-playwright-${{ runner.os }}-
+
+      # patchright FIRST: scrapling's StealthyFetcher launches patchright, which
+      # pins its own chromium revision (v1228 for patchright 1.61.2 — different
+      # from playwright 1.62.0's v1234, verified locally). --with-deps installs
+      # the OS libraries on the runner.
+      - name: Install Chromium + OS libraries (patchright, then playwright)
+        run: |
+          python -m patchright install --with-deps chromium
+          python -m playwright install --with-deps chromium
+
+      - name: "Scrape (full pass: multi + detailed + enrich + validate)"
+        run: python scripts/scrapers/run_all.py --multi --detailed --enrich --validate
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Node data validation (publish gate)
+        run: npm run validate
+
+      # FAIL here = stop, nothing is published (§11.6 guarded sequence).
+      - name: Sanity / regression gate (E2)
+        run: python scripts/sanity_gate.py --current data/scraped_opportunities.json --previous data/manifest.json
+
+      # manifest + sha256, public/data copy, seed regeneration (Exception A
+      # write to src/lib/storage.ts), backup rotation, publish report.
+      - name: Publish dataset
+        run: python scripts/publish_dataset.py --with-seeds
+
+      # Single writer: explicit paths only (src/lib/storage.ts = Exception A,
+      # generator-written). Skips the commit entirely when nothing changed so
+      # re-runs are no-ops; [skip ci] keeps verify.yml from re-running on the
+      # bot commit.
+      - name: Commit and push published data (guarded, rebase-retry)
+        shell: bash
+        env:
+          PUBLISH_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Working tree clean - publish is a no-op, skipping commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A -- \
+            data/scraped_opportunities.json \
+            data/manifest.json \
+            data/scraper_health.json \
+            data/reports \
+            public/data \
+            src/lib/storage.ts
+
+          if git diff --cached --quiet; then
+            echo "No changes in the publish file set - skipping commit."
+            exit 0
+          fi
+
+          SHA8="$(git rev-parse --short=8 HEAD)"
+          COUNT="$(python - <<'PYEOF'
+          import json
+
+          with open("data/scraped_opportunities.json", encoding="utf-8") as fh:
+              data = json.load(fh)
+          if isinstance(data, list):
+              items = data
+          else:
+              items = next((v for v in data.values() if isinstance(v, list)), [])
+          print(len(items))
+          PYEOF
+          )"
+          git commit -m "data: publish ${SHA8} (${COUNT} items) [skip ci]"
+
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${PUBLISH_BRANCH}"; then
+              echo "Pushed data publish to ${PUBLISH_BRANCH}."
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}/3) - rebasing on ${PUBLISH_BRANCH} and retrying."
+            git pull --rebase origin "${PUBLISH_BRANCH}"
+          done
+          echo "Push failed after 3 attempts." >&2
+          exit 1
+
+      - name: Upload run artifacts (raw JSON + reports, 90 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataset-${{ github.run_number }}
+          path: |
+            data/scraped_opportunities.json
+            data/reports/
+          retention-days: 90
+          if-no-files-found: warn
+
+      # Requires the repository variable PROD_URL (e.g. https://your-app.vercel.app);
+      # skipped until it is configured. HTTP failure fails the job (§11.6).
+      - name: Post-publish health poll (prod)
+        if: ${{ vars.PROD_URL != '' }}
+        run: curl -fsS --max-time 30 "${{ vars.PROD_URL }}/api/health"
+
+      # Exactly ONE open issue ever: create it once, then comment on it.
+      - name: Open or update the data-pipeline-alert issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="Scheduled full-pipeline run failed: ${RUN_URL}"
+          EXISTING="$(gh issue list --repo "${{ github.repository }}" --state open --limit 100 \
+            --json number,title \
+            --jq '.[] | select(.title == "data-pipeline-alert") | .number' | head -n 1 || true)"
+          if [ -z "${EXISTING}" ]; then
+            gh issue create --repo "${{ github.repository }}" --title "data-pipeline-alert" --body "${BODY}"
+          else
+            gh issue comment --repo "${{ github.repository }}" "${EXISTING}" --body "${BODY}"
+          fi

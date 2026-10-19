@@ -1,7 +1,7 @@
 # OPP-Track — Backend Audit, Scheduling & Vercel Deployment Plan
 
 > **Scope** — backend only for the audit: scraper pipeline, data layer (`storage.ts` migration logic), validation tooling, build/dependency/CI configuration. The **frontend was audited on request in §12** (same working rule: no source file changed). It otherwise reappears only where a feature milestone in §11 requires it.
-> **Added goal (2026‑10‑19, revised same day)** — deploy this as a **public catalog website whose backend is the pipeline itself**: a **scheduled engine** keeps the dataset fresh and Vercel serves it. **The database plan is withdrawn** — no Supabase, no PostgreSQL, no accounts, no auth. **The only data store is `.json`** (`data/scraped_opportunities.json` + a companion manifest), and that file is the single source of truth for **showing the complete dataset** on the site — every item, nothing truncated. Build plan: **§11** (file‑based data engine, milestones E1–E7); the four blocking questions are in **§13**.
+> **Added goal (2026‑10‑19, revised same day)** — deploy this as a **public catalog website whose backend is the pipeline itself**: a **scheduled engine** keeps the dataset fresh and Vercel serves it. **The database plan is withdrawn** — no Supabase, no PostgreSQL, no accounts, no auth. **The only data store is `.json`** (`data/scraped_opportunities.json` + a companion manifest), and that file is the single source of truth for **showing the complete dataset** on the site — every item, nothing truncated. Build plan: **§11** (file‑based data engine, milestones E1–E8) + **§14** (complete code‑base model, `src/` frozen); the four blocking decisions — all **settled 2026‑10‑19** — are recorded in **§14.8**.
 > **Method** — full source audit plus live execution of the pipeline's own checks (2026‑10‑19): Python schema validation, `npm run validate`, `npm run typecheck`, `npm test`, `npm run build`, `npm ls`, `git ls-files`, dependency/lockfile inspection.
 > **Tree state at audit time** — clean at commit `f489049`, **plus an uncommitted Tailwind v4 / shadcn‑ui migration in the working tree** (`package.json`, `package-lock.json`, `vite.config.ts`, `tsconfig.json`, `src/components/ui/`, `shadcn-ui-ref/`). That migration is treated as user work and is only referenced here where it affects backend/deploy concerns.
 
@@ -217,7 +217,7 @@ Per‑source `seen_titles` skips any repeated title, so two distinct events shar
 | 12 | Scheduled pipeline (§6, Stage 1) | B3, B18 | Scheduled run green 3 weeks in a row with regression gate active |
 | 13 | Runtime data delivery (§8) | B14, B9 | Initial JS < 300 KB; no quota errors; data updates without code deploy |
 | 14 | Hardening: checkpoint/resume, retries, blocklist, enrichment cache, pytest | B15–B19 | Interrupted run resumes; blocked sources reported as `blocked`, not counted as OK |
-| 15 | **File‑based data engine**: protect + track the canonical JSON, publish manifest/checksums, read‑only `/api/*`, scheduled Actions publish, Vercel deploy (§11, E1–E7) | B26, B9, B3, B2 | §11.8 smoke checklist green on the live URL; scheduled publishes run unattended with the sanity gate armed; **the site shows the complete dataset** |
+| 15 | **File‑based data engine**: protect + track the canonical JSON, publish manifest/checksums, read‑only `/api/*`, scheduled Actions publish, Vercel deploy (§11, E1–E8) | B26, B9, B3, B2 | §11.8 smoke checklist green on the live URL; scheduled publishes run unattended with the sanity gate armed; **the site shows the complete dataset** |
 | 16 | Evergreen‑deadline contract fix (utils + card + form + validator, both sides) | F1, F2, B2 | No "NaN"/"Invalid Date" anywhere; evergreen items editable; no reminder storm |
 | 17 | Safe lookups + `ErrorBoundary`; migration keyed on stable ids | F8, F3, B6 | Unknown type renders a fallback chip; statuses survive renumbering |
 | 18 | List virtualization/pagination + in‑memory state with debounced persistence + searchable tag combobox | F4, F5, F6, F7 | 2,000+ items: first interaction < 200 ms; no per‑interaction 1.38 MB parse |
@@ -245,7 +245,7 @@ Per‑source `seen_titles` skips any repeated title, so two distinct events shar
 | | **A. GitHub Actions only** *(start here)* | **B. Vercel Cron functions** | **C. Hybrid** *(target state)* |
 |---|---|---|---|
 | Runs full pipeline | ✅ ubuntu runner + browser install | ❌ only API/light sources | ✅ via Actions |
-| Data freshness | Daily light + weekly full | Daily partial | Daily light + weekly full |
+| Data freshness | **Full pipeline every 8 h** *(decided 2026‑10‑19, §11.6)* | Daily partial | Same as A via Actions, plus runtime fetch at E6 |
 | Cost | Free tier: public repos unlimited minutes; private ≈4–6 h/month usage fits easily | Function invocations within free tier | Both within free tier |
 | Complexity | Low — reuses existing Python code verbatim | High — pipeline must be re‑hosted | Medium, incremental from A |
 | Reliability | High (artifacts, logs, retries, thresholds) | Medium | High |
@@ -253,12 +253,13 @@ Per‑source `seen_titles` skips any repeated title, so two distinct events shar
 
 ### 6.3 Recommended design — Stage 1 (GitHub Actions)
 
-Two scheduled workflows sharing one job graph:
+Workflow set for Stage 1 (one job graph, **cadence revised 2026‑10‑19 — see §11.6 for the schedule and its budget caveat**):
 
 | Schedule (UTC) | Scope | Rationale |
 |---|---|---|
-| Daily, off‑peak (e.g. 04:00) | Quick scrape (`--quick`, listing pages only) + validator | Fresh deadlines/titles without browser‑heavy cost |
-| Weekly, Sunday 03:00 | Full `--multi --detailed` + link audit sample + seed regeneration | Deep refresh + enrichment |
+| **Every 8 h** — `0 */8 * * *` (00:00 / 08:00 / 16:00 UTC; 05:30 / 13:30 / 21:30 IST) | Full `--multi --detailed --enrich` + validation + publish (§11.6) | **Decided 2026‑10‑19** — full freshness 3×/day; budget caveat in §11.6 |
+| Manual (`workflow_dispatch`) | Quick `--multi` spot run (10–20 min) | investigating or recovering a single source without a full pass |
+| Weekly, Sunday 03:00 | Link‑audit sample | dead‑link detection without the full‑audit cost |
 | Monthly | Full link audit of every URL + dependency updates | Catches dead links/rot |
 
 Job stages (in order): checkout → setup Python with dependency caching → install pinned deps → install Chromium + OS libraries → run the scrape (with `timeout` ≈2 h) → Python schema validation → optional link‑audit sample → regenerate seeds → npm `ci` → `typecheck` + `test` + `validate` → emit run summary (B18) with regression gate → commit data / upload artifact → Vercel redeploys automatically via its Git integration.
@@ -267,7 +268,7 @@ Guard rails: a concurrency group so overlapping runs cannot double‑write; expl
 
 ### 6.4 Stage 2 (hybrid, after §8 lands)
 
-Actions keeps doing the heavy lifting and publishes `opportunities.json` + a `version.json` manifest (version, generated_at, counts, per‑source health) as static assets. The app fetches them at runtime from the CDN — **data refreshes stop requiring code deploys entirely.** An optional light Vercel Cron function can refresh the API‑only subset for a "data as of" badge.
+Actions keeps doing the heavy lifting and publishes `opportunities.json` + a `version.json` manifest (version, generated_at, counts, per‑source health) as static assets. The app fetches them at runtime from the CDN — **data refreshes stop requiring code deploys entirely.** *(Decided 2026‑10‑19 as the* **second stage** *of the freshness model — rebuild‑on‑commit runs during E1–E5, the runtime fetch lands with the E6 unfreeze — §14.8 item 1.)* An optional light Vercel Cron function can refresh the API‑only subset for a "data as of" badge.
 
 ---
 
@@ -294,7 +295,7 @@ Actions keeps doing the heavy lifting and publishes `opportunities.json` + a `ve
 | Node version | pinned via `engines` |
 | Environment variables | **none required** (no API keys anywhere — keep it that way; any future keys go in Vercel env + Actions secrets, never the repo) |
 
-`vercel.json` **now exists** in the working tree (`framework: vite`, `buildCommand: npm run build`, `outputDirectory: dist`, plus a catch‑all SPA rewrite to `index.html`). The rewrite is harmless for today's single‑page app and becomes *required* once routing lands (§12 F10), so it is forward‑looking rather than wrong. Extend this file — don't create a second one — when the Cron schedule and data‑asset cache headers from §11.6/M7 arrive.
+`vercel.json` **now exists** in the working tree (`framework: vite`, `buildCommand: npm run build`, `outputDirectory: dist`, plus a catch‑all SPA rewrite to `index.html`). The rewrite is harmless for today's single‑page app and becomes *required* once routing lands (§12 F10), so it is forward‑looking rather than wrong. Extend this file — don't create a second one — when the data‑asset cache headers from §11.4 and the freshness watchdog from §11.6/E8 arrive.
 
 ### 7.3 Rollout & rollback
 
@@ -340,7 +341,7 @@ Why this is the right end state:
 | **2 — Scheduled pipeline** | Stop the manual runs | B3, B18 + Stage‑1 workflow | 3 consecutive green scheduled runs with regression gate |
 | **3 — Runtime data delivery** | Decouple data from deploys | §8 architecture, B14 | Data updates publish without a code deploy; JS < 300 KB |
 | **4 — Hardening** | Survive the wild | B15–B17, B19, B24 | Resume works; blocked ≠ failed; pytest coverage on `base.py` |
-| **5 — Deployed data engine (JSON only)** | Fresh data, live site, complete catalog shown, no database | §11 milestones **E1–E7**, with §12 fixes F1/F2/F3/F8 landing before E4 | §11.8 smoke checklist + §12.5 criteria green on the live URL; scheduled publishes unattended |
+| **5 — Deployed data engine (JSON only)** | Fresh data, live site, complete catalog shown, no database | §11 milestones **E1–E8** — F1/F2 land as the **E6** controlled unfreeze (before the E7 deploy), F3 is fixed data‑side at E3, F8 is substituted by the sanity gate | §11.8 smoke checklist + §12.5 criteria green on the live URL; scheduled publishes unattended |
 
 ---
 
@@ -401,10 +402,10 @@ Answering the two original questions in the new model:
 | `data/scraped_opportunities.json` | **canonical dataset — the only data store**: an array of opportunity objects, exactly the shape the app already consumes | ✅ **yes — this is a change: today it is gitignored, which is the protection gap (B9/B26)** |
 | `data/manifest.json` | `schema_version`, `generated_at`, `item_count`, `type_histogram`, `per_source_counts`, `rolling_count`, `sha256`, pipeline `run_id`, `duration_s`, `git_commit`, `validator_version`, `seed_version` | ✅ yes |
 | `data/reports/publish-YYYYMMDD.md` | publish report: validation result + diff (new/removed/changed, per source) | ✅ yes |
-| `data/scrapers_health.json` | per‑source health map (feeds `/api/sources`) | ✅ yes |
+| `data/scraper_health.json` | per‑source health map (feeds `/api/sources`) | ✅ yes |
 | `public/data/manifest.json` | published pointer the app reads first (cache‑busting) | ⬜ generated at publish |
 | `public/data/opportunities.<sha8>.json` | published copy, **byte‑identical**, immutable filename | ⬜ generated at publish |
-| `data/backups/scraped_YYYYMMDD_HHMM.json` | rotation: last 7 daily + last 8 weekly (and/or Actions artifacts, 90‑day retention) | ⬜ ignored |
+| `data/backups/scraped_YYYYMMDD_HHMMSS.json` | rotation: last 7 daily + last 8 weekly (and/or Actions artifacts, 90‑day retention) | ⬜ ignored |
 | `src/lib/storage.ts` → `SEED_DATA` | bundled snapshot used only for first paint / offline fallback | ✅ yes |
 
 **Shape:** the file stays a plain **array** (no wrapper object), so nothing about the current app breaks; all metadata lives in the manifest.
@@ -448,14 +449,14 @@ Answering the two original questions in the new model:
 | GET | `/api/opportunities` | filtered + paginated reads over the JSON: `q`, `type`, `source`, `tag`, `deadline_within`, `status=rolling`, `sort`, `page`, `page_size≤100` | `s-maxage=3600, swr=86400` |
 | GET | `/api/opportunities/:id` | single record — shareable link | `s-maxage=3600` |
 | GET | `/api/stats` | type/source histograms, rolling vs dated, closing‑soon counts (feeds Hero/Stats) | `s-maxage=3600` |
-| GET | `/api/sources` | source registry + health map (`data/scrapers_health.json`) | `s-maxage=3600` |
+| GET | `/api/sources` | source registry + health map (`data/scraper_health.json`) | `s-maxage=3600` |
 | GET | `/api/report/latest` | last publish report (validation + diffs) — an ops page anyone can audit | `s-maxage=300` |
 | GET | `/api/og?title=…&type=…` | dynamic OG image for shareable links (F11) | `s-maxage=86400` |
 | GET | `/api/export?format=csv\|ics\|json` | server‑side export of the filtered set (moves F15's export off the main thread) | `s-maxage=3600` |
 
 On a first screen the app uses at most **three** requests: `/data/manifest.json` → `/api/opportunities` (first page) → `/api/stats`; the full JSON is fetched in the background for the local cache.
 
-**Conventions:** JSON in/out; `{error, code}` error shape; every query param validated and clamped server‑side using **the same rules as the data validator** (`page_size ≤ 100`, `type` must be in the enum, dates empty or `YYYY-MM-DD`); 400 on bad params, 404 on unknown id, 429 via Vercel WAF rate limits; **no POST/PATCH/DELETE route exists anywhere**. If a submission feature is ever wanted it must be a PR/Issue flow — never a write to the dataset (§13 item 4).
+**Conventions:** JSON in/out; `{error, code}` error shape; every query param validated and clamped server‑side using **the same rules as the data validator** (`page_size ≤ 100`, `type` must be in the enum, dates empty or `YYYY-MM-DD`); 400 on bad params, 404 on unknown id, 429 via Vercel WAF rate limits; **no POST/PATCH/DELETE route exists anywhere**. If a submission feature is ever wanted it must be a PR/Issue flow — never a write to the dataset (§13 item 8).
 
 ### 11.5 How the app consumes the JSON (and still shows the complete data)
 
@@ -470,13 +471,15 @@ On a first screen the app uses at most **three** requests: `/data/manifest.json`
 
 ### 11.6 The engine — scheduled, unattended, always running
 
-Three workflows in `.github/workflows/`, all on the repository's clock (UTC; IST in brackets):
+Three workflows in `.github/workflows/`, all on the repository's clock (UTC; IST in brackets). **Cadence decided 2026‑10‑19: a full pipeline run every 8 hours.**
 
 | Workflow | Trigger | Command | Budget |
 |---|---|---|---|
-| `verify.yml` | `push`, `pull_request`, `workflow_dispatch` | `npm ci` → typecheck → test → build → `npm run validate` → Python schema validation | 3–6 min |
-| `scrape-quick.yml` | `schedule: 00:30 UTC` (06:30 IST) daily + manual | `run_all.py --multi --validate` | 10–20 min |
-| `scrape-full.yml` | `schedule: Sat 02:00 UTC` (07:30 IST) weekly + manual | `run_all.py --multi --detailed --enrich --validate` | 60–90 min |
+| `verify.yml` | `push`, `pull_request`, `workflow_dispatch` | `scripts/check_freeze.py` → `npm ci` → typecheck → test → build → `npm run validate` → Python schema validation | 3–6 min |
+| `scrape-full.yml` | `schedule: "0 */8 * * *"` — 00:00 / 08:00 / 16:00 UTC (05:30 / 13:30 / 21:30 IST) + manual | `run_all.py --multi --detailed --enrich --validate` → publish | 60–90 min |
+| `scrape-quick.yml` | `workflow_dispatch` only (no schedule) | `run_all.py --multi --validate` → publish | 10–20 min |
+
+> **⚠️ Budget check (the one open sub‑item on this decision):** 3 full runs/day × ~75 min ≈ **6,800 Actions minutes/month**. The repo is currently **private**, where the free tier allows **2,000**. One of these must hold before E5 goes live: **(i)** make the repo **public** at deploy — unlimited minutes, and recommended anyway for a public catalog; **(ii)** upgrade to a paid plan; or **(iii)** degrade the cadence to *every‑8‑h quick* + *weekly full* (~1,400 min/month). Default if nothing changes: the quota is hit mid‑month, remaining runs queue, and the E8 freshness watchdog fires — which is the intended alarm.
 
 Every scrape run is the same guarded sequence:
 
@@ -491,14 +494,14 @@ checkout → setup-python 3.13 (cached) → pip install -r requirements.txt
   → rotate backups → weekly tag / monthly Release
   → commit & push (single writer, rebase-retry)        → triggers a Vercel rebuild
   → upload artifacts (raw JSON + report, retention 90 days)
-  → GET https://<prod>/api/health → assert age < 24 h and sha8 matches
+  → GET https://<prod>/api/health → assert age < 12 h (8 h cadence + slack) and sha8 matches
 ```
 
-Guard rails: `timeout-minutes` 30 (quick) / 120 (full); `concurrency: {group: data-publish, cancel-in-progress: false}`; per‑source `continue-on-error` **inside** the pipeline so a dead source can't fail the job (B16), while the job itself fails on validation, sanity‑gate or post‑publish health‑check failure only. Failures open **one** tracking Issue (`data-pipeline-alert`) instead of spamming.
+Guard rails: `timeout-minutes` 120 (scheduled full) / 30 (manual quick); `concurrency: {group: data-publish, cancel-in-progress: false}`; **per‑source minimum interval ≈ 4 h** (at 3 runs/day, skip a source whose last successful fetch is newer, and skip `--enrich` re‑work on unchanged items) so the cadence never degenerates into hammering; per‑source `continue-on-error` **inside** the pipeline so a dead source can't fail the job (B16), while the job itself fails on validation, sanity‑gate or post‑publish health‑check failure only. Failures open **one** tracking Issue (`data-pipeline-alert`) instead of spamming.
 
 Caching that pays for itself: pip (~2 min), npm, and above all **`~/.cache/ms-playwright`** (~150 MB of Chromium that would otherwise be re‑downloaded every run).
 
-Publishing path is decided in §13 item 1: **(a)** commit to `main` → Vercel rebuild (~1–2 min, simplest); **(b)** commit to a `data` branch the app fetches directly → no rebuild, `main` stays clean; **(c)** both. Recommended: **(c), starting with (a)**.
+Publishing path **(decided 2026‑10‑19 — both, staged)**: **stage 1 = (a)** commit to `main` → Vercel rebuild (~1–2 min) for all of E1–E5; **stage 2 = the runtime fetch** (manifest‑first ladder, §11.5) lands with the **E6 unfreeze**, after which freshness needs no rebuild at all. Options not taken: **(b)** a `data` branch the app fetches directly, **(c)** doing both from day one. Rationale: nothing under `src/` can consume a runtime source until the freeze lifts — §14.1.
 
 ### 11.7 Files to add / change (written at execution time, not now)
 
@@ -525,7 +528,7 @@ Publishing path is decided in §13 item 1: **(a)** commit to `main` → Vercel r
 3. Add the three workflows; run `scrape-quick` once manually → confirm it commits data + report and the post‑publish health poll passes.
 4. Add the read‑only `/api/*` routes and the `public/data` copy step; set cache headers in `vercel.json`.
 5. Vercel: import the repo (Vite preset, `dist`), pin Node → deploy a **preview**, run the checklist below, then promote to production.
-6. Enable the schedules (daily quick + weekly full) and the weekly tag / monthly Release job.
+6. Enable the schedules (**full pipeline every 8 h**, `0 */8 * * *`, plus manual‑only `scrape-quick`) and the weekly tag / monthly Release job.
 7. Watchdog: a small daily freshness check (Actions step or Vercel Cron) that fails loudly if data is older than 48 h. *There is no database, so there is nothing to keep alive — no pause problem exists.*
 
 **Smoke checklist (all must pass on the live URL):**
@@ -560,11 +563,12 @@ Publishing path is decided in §13 item 1: **(a)** commit to `main` → Vercel r
 | **E2** | **Truth‑up the validator** (B2) + the sanity/regression gate | E1 | `npm run validate` exits 0 on current data **and** rejects a corrupted/short fixture |
 | **E3** | **Publish script**: manifest + `sha256` + `public/data` asset + report | E1, E2 | one command yields dataset + manifest with matching checksums |
 | **E4** | **Read‑only API** + cache headers (`health`, `manifest`, `opportunities`, `stats`, `og`, `export`) | E3 | smoke rows 1–5, 7 green on the preview URL |
-| **E5** | **The engine**: `verify` + `scrape-quick` + `scrape-full` workflows | E2, E3 | 3 consecutive green scheduled runs; bot commit carries a report; re‑run is a no‑op |
-| **E6** | **Production deploy** + runtime data consumption with the fallback ladder | E4, E5 | **all 9 rows of §11.8** green on prod; first‑load JS < 300 KB; complete catalog reachable |
-| **E7** | **Watchdog + retention**: freshness alert, weekly tags, monthly Release archive | E5 | data age never exceeds 48 h unnoticed; 3 tags + 1 archive exist |
+| **E5** | **The engine**: `verify` + `scrape-full` (every‑8‑h schedule) + `scrape-quick` (manual) workflows | E2, E3 | 3 consecutive green scheduled runs at the decided cadence; bot commit carries a report; re‑run is a no‑op |
+| **E6** | **Controlled unfreeze #1** — one allowlisted `src/` patch: **F1/F2 fixes** (evergreen *Rolling* presentation + reminder guard) **and stage‑2 runtime data fetch** (manifest‑first ladder, §11.5) | E3, E4, E5 | `check_freeze.py` green with exactly one allowlist entry; F‑1/F‑2 criteria (§12.5) pass; offline fallback still renders the complete catalog; freshness no longer needs a rebuild |
+| **E7** | **Production deploy** | E4, E5, E6 | **all 9 rows of §11.8** green on prod; F‑1/F‑2 green; complete catalog reachable; first‑load JS < 300 KB after the runtime fetch lands |
+| **E8** | **Watchdog + retention**: freshness alert (`age < 12 h`), weekly tags, monthly Release archive + **monthly squash** of the dataset history | E5 | data age never exceeds 12 h unnoticed; 3 tags + 1 archive exist; repo size growth bounded |
 
-**Status (2026‑10‑19):** E1 not started. The Supabase track was started and then **withdrawn the same day** — the `supabase/` scaffold (created earlier today) was deleted and the globally installed CLI uninstalled; the working tree contains no trace of it. `frontend/PLAN.md` still describes Supabase and needs the corresponding rewrite.
+**Status (2026‑10‑19):** E1 not started. **All four blocking decisions are settled (§14.8):** staged freshness (rebuild now, runtime fetch at E6), full pipeline every 8 h, unfreeze F1/F2 before the first public deploy, canonical JSON tracked in git with a monthly squash. The Supabase track was started and then **withdrawn the same day** — the `supabase/` scaffold (created earlier today) was deleted and the globally installed CLI uninstalled; the working tree contains no trace of it. `frontend/PLAN.md` still describes Supabase and needs the corresponding rewrite. **One open sub‑item:** repo visibility (private free tier = 2,000 Actions min vs ~6,800 needed at the chosen cadence — see the budget box in §11.6).
 
 ### 11.11 Risks & mitigations
 
@@ -587,7 +591,7 @@ Publishing path is decided in §13 item 1: **(a)** commit to `main` → Vercel r
 
 > Added on request (*"check on the frontend, working rule"*): the same working rule applies — **only this file is written**; no source file was changed. Method: full read of every view, hook, util and shadcn component, plus **execution of the real bundled modules** (`src/utils/date.ts`, `src/lib/storage.ts`) to verify behaviour and measure payloads.
 >
-> **Related file:** `frontend/PLAN.md` (author's own frontend plan — stack: Vite/React 18/TS/Tailwind v4/shadcn/**React Router**/Supabase/Vercel; all five phases ticked). It is the frontend execution counterpart to this section. Note **F21** below before trusting those ticks.
+> **Related file:** `frontend/PLAN.md` (author's own frontend plan — stack: Vite/React 18/TS/Tailwind v4/shadcn/**React Router**/Vercel; phases ticked as if done). It is the frontend execution counterpart to this section. **Read it as historical:** its Supabase, auth, account and DB‑backed‑dashboard phases were withdrawn on 2026‑10‑19 along with §11's database plan, and those phases are exactly the ones requiring `src/` changes now under freeze (§14.6). Note **F21** before trusting any tick.
 
 ### 12.1 Verified numbers (measured 2026‑10‑19, `SEED_VERSION 9`)
 
@@ -626,7 +630,7 @@ Publishing path is decided in §13 item 1: **(a)** commit to `main` → Vercel r
 | F18 | Low | Quality | No frontend tests, no ESLint (B5), no a11y automation; 4 Google font families from CDN with no preload |
 | F19 | Low | A11y | Severity conveyed by colour alone in Hero/Stats; toasts can't be dismissed; Escape handled twice (App + Radix) |
 | F20 | Info | Design system | The uncommitted shadcn migration (B1) mixes stock shadcn components with editorial custom ones — the boundary must be decided before §11 forms are built |
-| F21 | High | Doc vs state | `frontend/PLAN.md` ticks **all** phases (scaffold, Supabase wiring, auth, landing, DB‑backed dashboard, `vercel.json`, README) yet `frontend/` currently contains **only `PLAN.md`** — treat it as intent, and verify each item against the tree before marking anything done |
+| F21 | High | Doc vs state | `frontend/PLAN.md` ticks **all** phases (scaffold, Supabase wiring, auth, landing, DB‑backed dashboard, `vercel.json`, README) yet `frontend/` currently contains **only `PLAN.md`** — treat it as intent, and verify each item against the tree before marking anything done. **Update 2026‑10‑19:** the Supabase/auth/dashboard phases are now *withdrawn* (§11) — the file needs its Phase‑1+ rewritten around the file‑based model before it can serve as a plan |
 
 ### 12.3 Detail on the High findings
 
@@ -656,21 +660,22 @@ With reminders enabled, all 1,718 evergreen items pass the guard, producing one 
 
 ### 12.4 What the frontend must gain for §11 (prototype requirements)
 
-| Need | Reason | Milestone |
+> **Every row below needs a `src/` change.** Decision 2026‑10‑19: **F1/F2 + the data layer ship at milestone E6** (one allowlisted patch, before the E7 production deploy); the rest park until a later unfreeze (§14.6). `src/`‑free substitutes, where any exist, are noted.
+
+| Need | Reason | Unfreeze gate |
 |---|---|---|
-| Router with `/login`, `/signup`, `/events/new`, `/events/:id`, `/me` | F10 — shareable event URLs, guards, code splitting | M3/M4 |
-| Auth context/provider + protected routes | §11.4 session flow | M3 |
-| `ErrorBoundary` + safe meta lookups with fallbacks | F8 — new types must never white‑screen | M3 (before new types land) |
-| Server data layer (TanStack Query or SWR): pagination, caching, optimistic mutations | F4/F5 — stop re-parsing 1.38 MB per interaction | M4/M6 |
-| Shared form schema with the API contract: title required, **deadline optional**, type enum | F1 + B2 | M4 |
-| "Rolling / no deadline" presentation (badge + sorting + filters) | F1 — removes NaN everywhere | M4 |
-| Reminder guard hardened (`Number.isFinite`) | F2 | M4 |
-| Searchable tag/source comboboxes (search + top‑N) | F7 | M4 |
-| Windowed/paginated lists | F4 | M6 |
-| OG/Twitter meta + prerender or meta injection for event pages | F11 | M5 |
-| Quota/private‑mode read‑only fallback | F6 | M5 |
-| Trusted‑domain policy for outbound scraped links | F17 | M5 |
-| Design‑system decision (stock shadcn vs editorial) + token gap fixed | F9/F20 | M4 |
+| "Rolling / no deadline" presentation (badge + sorting + filters) | F1 — removes *NaN days left* on 1,718 cards | **E6 — decided** (with F2; the only visible defect class, §14.6) |
+| Reminder guard hardened (`Number.isFinite`) | F2 | **E6 — decided** (same patch as F1) |
+| `ErrorBoundary` + safe meta lookups with fallbacks | F8 — new types must never white‑screen | Later unfreeze (post‑E7); *substitute now:* `sanity_gate.py` blocks unknown `type` values before they reach the bundle |
+| Router with `/events/:id` + OG/Twitter meta per item | F10/F11 — shareable URLs (the `/api/og` + `/api/opportunities/:id` routes already exist from E4) | Later unfreeze (post‑E7) |
+| Server data layer (TanStack Query or SWR): pagination, caching, optimistic mutations | F4/F5 — stop re‑parsing 1.38 MB per interaction | **E6 — decided** (rides the stage‑2 runtime fetch, §14.8 item 1) |
+| Windowed/paginated lists | F4 | Later unfreeze (post‑E7) |
+| Shared form schema matching the API contract: title required, **deadline optional**, type enum | F1 + B2 | E6 (with F1) |
+| Searchable tag/source comboboxes (search + top‑N) | F7 | Later unfreeze (post‑E7) |
+| Quota/private‑mode read‑only fallback | F6 | **E6 — decided** (IndexedDB cache path, §11.5) |
+| Trusted‑domain policy for outbound scraped links | F17 | Before the E7 public launch — enforceable data/`api`‑side |
+| Design‑system decision (stock shadcn vs editorial) + token gap fixed | F9/F20 | Later unfreeze (post‑E7) |
+| ~~Auth context/provider + protected routes~~ | ~~§11.4 session flow~~ | **Deleted** — no auth exists in the revised §11 |
 
 ### 12.5 Frontend acceptance criteria (extends §11.8)
 
@@ -690,33 +695,31 @@ With reminders enabled, all 1,718 evergreen items pass the guard, producing one 
 
 ## 13. Open Decisions (need your call)
 
-1. **Schedule & plan** — Actions weekly‑full + daily‑quick (recommended) vs Vercel Cron for a light subset. Confirm cadence and whether the repo is public (unlimited Actions minutes) or private (2,000 min/month — still ample).
-2. **Data hosting** — keep generated data in git until Phase 3 (recommended) vs move to Vercel Blob/asset now.
-3. **Stable‑id scheme** — fingerprint‑hash ids (recommended; continuous with existing dedup) vs source+slug ids (human‑readable).
-4. **Type union** — add `Scholarship`/`Fellowship` to `Opportunity`? Backend can stage correct strings now; the union change is a frontend touch.
-5. **`merge_seeds.py`** — retire it (recommended) or update it to the current entry format.
-6. **Lint** — install + configure eslint (recommended for CI) or delete the `lint` script.
-7. **Supabase region** — `us-east-1` vs `eu-central` (pick nearest to Vercel region / primary users).
-8. **Auth providers at launch** — email+password only (fastest, recommended for the prototype) vs also enabling GitHub/Google OAuth now.
-9. **Catalog in DB timing** — import all 2,577 items at M2 (recommended, gives immediate parity gate) vs start with `events` only and defer the catalog to M6.
-10. **Routing** — *decided by `frontend/PLAN.md`: **React Router*** (SPA rewrite already in `vercel.json`). Confirm before M3.
-11. **Server data layer** — TanStack Query (recommended: caching + optimistic updates) vs SWR vs hand‑rolled fetch wrapper (F4/F5).
-12. **Rendering/SEO for the public site** — keep the Vite SPA + prerender plugin (fastest to ship) vs move to Next.js/Remix when shareable event pages and OG previews matter (F11).
-13. **Schema size at M1** — ship the two‑table minimum from `frontend/PLAN.md` (`profiles` + `opportunities`, recommended for the prototype) vs the five‑table model in §11.2 with `events`/`rsvps`/`saved`.
+> The four decisions that **blocked execution** were **settled on 2026‑10‑19** — answers and consequences recorded in **§14.8** (staged freshness, full pipeline every 8 h, F1/F2 unfreeze at E6, canonical JSON tracked + monthly squash). The list below is **non‑blocking** — each can be settled as its milestone arrives. Items about Supabase region, auth providers, DB import timing and schema size were removed on 2026‑10‑19 when the database plan was withdrawn. **One open sub‑item:** repo visibility for Actions minutes (§11.6 budget box).
+
+1. **Stable‑id scheme** — fingerprint‑hash ids (recommended; continuous with existing dedup, and also the F3 fix) vs source+slug ids (human‑readable).
+2. **Type union** — add `Scholarship`/`Fellowship` to `Opportunity`? Backend can stage correct strings now; the union change is a frontend touch (frozen `src/`).
+3. **`merge_seeds.py`** — retire it (recommended; it emits the pre‑v4 format that breaks TS2590) or update it to the current entry format.
+4. **Lint** — install + configure eslint (recommended for CI) or delete the `lint` script.
+5. **Routing** — *decided by `frontend/PLAN.md`: **React Router*** (SPA rewrite already in `vercel.json`). Confirm at the first `src/` unfreeze.
+6. **Server data layer** — TanStack Query (recommended: caching + optimistic updates) vs SWR vs hand‑rolled fetch wrapper (F4/F5) — decided when the freeze lifts.
+7. **Rendering/SEO for the public site** — keep the Vite SPA + prerender plugin (fastest to ship) vs move to Next.js/Remix when per‑item pages and OG previews matter (F11).
+8. **Accounts & submissions scope** — stay **read‑only** (catalog + localStorage state per visitor, recommended, matches the revised §11) vs add a PR/Issue‑based submission flow later (contributors propose entries as pull requests — never a write route).
 
 ---
 
 ## 14. Repository Model — Complete Code Base (`src/` frozen)
 
 > Derived from the live tree on 2026‑10‑19 (root: 14 files, `scripts/` 84 scrapers + 9 utility files, `data/` 8 files, `docs/` 14 markdowns, `tests/` 1 file, `public/` 1 file, no `.github/`, no `api/`).
-> **Hard constraint for every milestone that follows: nothing under `src/` may be created, edited, moved or deleted.** Everything outside `src/` is fair game. §11.7 and §14.5 list the exact files each milestone touches; if a step appears to need `src/`, it is either parked (§14.6) or it is a **generator write**, which is explicitly allowed (§14.1).
+> **Hard constraint for every milestone that follows: nothing under `src/` may be created, edited, moved or deleted.** Everything outside `src/` is fair game. §11.7 and §14.5 list the exact files each milestone touches; if a step appears to need `src/`, it is either parked (§14.6), a **generator write** (Exception A, §14.1), or the single allowlisted **E6 patch** (Exception B).
 
 ### 14.1 The freeze, and the one exception
 
 | Rule | How it is enforced (not just promised) |
 |---|---|
-| No hand‑edited file under `src/` | `scripts/check_freeze.py` runs in `verify.yml` on every push: `git diff --name-only <base>...HEAD -- src/` must be **empty except `src/lib/storage.ts`** — exit 1 otherwise |
-| **Exception:** `src/lib/storage.ts` may change, but **only** written by `scripts/regenerate_seeds.py` | the generator is the sole writer; `verify.yml` also runs `typecheck` + `npm test` (23 tests import the real bundled module) so a malformed write cannot merge |
+| No hand‑edited file under `src/` | `scripts/check_freeze.py` runs in `verify.yml` on every push: `git diff --name-only <base>...HEAD -- src/` must be **empty except `src/lib/storage.ts` and paths listed in `docs/FREEZE_ALLOWLIST.md`** — exit 1 otherwise |
+| **Exception A:** `src/lib/storage.ts` may change, but **only** written by `scripts/regenerate_seeds.py` | the generator is the sole writer; `verify.yml` also runs `typecheck` + `npm test` (23 tests import the real bundled module) so a malformed write cannot merge |
+| **Exception B:** `docs/FREEZE_ALLOWLIST.md` — today **exactly one entry: the E6 patch** (F1/F2 fixes + stage‑2 runtime fetch, decided 2026‑10‑19) | the allowlist is a committed file reviewed like any other; `check_freeze.py` fails on any `src/` diff not covered by it, and the entry must be retired once E6 merges so the freeze returns to strict |
 | Everything else outside `src/` | free to add/change: `.github/`, `api/`, `data/`, `public/data/`, `scripts/`, `tests/`, `docs/`, root configs |
 
 This distinction matters: the app reads its catalog from `SEED_DATA` **at build time**, and with `src/` frozen there is no runtime‑fetch hook to add. Therefore:
@@ -731,8 +734,8 @@ This distinction matters: the app reads its catalog from `SEED_DATA` **at build 
 OPP-Track/                       ← repo root = Vercel project root (framework: vite, output: dist)
 ├── .github/workflows/           ✚ NEW — the engine (§11.6, E5)
 │   ├── verify.yml               push/PR: freeze check + typecheck + test + build + node validate + py validate (3–6 min)
-│   ├── scrape-quick.yml         daily 00:30 UTC: --multi --validate → publish (10–20 min)
-│   └── scrape-full.yml          Sat 02:00 UTC: --multi --detailed --enrich --validate → publish (60–90 min)
+│   ├── scrape-quick.yml         workflow_dispatch only: --multi --validate → publish (10–20 min, manual spot runs)
+│   └── scrape-full.yml          cron 0 */8 * * * (00:00/08:00/16:00 UTC): --multi --detailed --enrich → publish (60–90 min)
 ├── api/                         ✚ NEW — 9 read‑only functions (§11.4, E4) + shared lib
 │   ├── _lib/
 │   │   ├── loadDataset.ts       reads data/scraped_opportunities.json once per cold start, caches in memory
@@ -826,7 +829,7 @@ cron (Actions) → run_all.py ──writes──▶ data/scraped_opportunities.j
 
 One command locally reproduces the whole right‑hand side: `npm run publish:data`.
 
-### 14.5 File‑touch plan per milestone (mechanical, `src/` untouched)
+### 14.5 File‑touch plan per milestone (mechanical; `src/` touched only at E6, allowlisted)
 
 | Milestone | Creates | Modifies | Retires/deletes |
 |---|---|---|---|
@@ -835,15 +838,16 @@ One command locally reproduces the whole right‑hand side: `npm run publish:dat
 | **E3** publish pipeline | `scripts/publish_dataset.py`, `data/reports/` | `scripts/regenerate_seeds.py` (idempotent, stable‑id mode for B6) | `scripts/merge_seeds.py` (B8) |
 | **E4** read API | `api/_lib/*.ts`, `api/*.ts`, `api/opportunities/[id].ts` | `vercel.json` (cache headers), `package.json` (`engines`) | — |
 | **E5** the engine | `.github/workflows/verify.yml`, `scrape-quick.yml`, `scrape-full.yml`, `requirements.txt`, `.nvmrc` | `scripts/scrapers/*.py` (atomic writes, relative paths B10, no fabricated links B11) | `scripts/scrapers/test_*.py`, `_check.py`, `_run_new.py` → `scripts/dev/` |
-| **E6** production | `docs/ENGINE.md` | `README.md` (real quickstart), `docs/ARCHITECTURE.md`, `docs/SCRAPING_WORKFLOW.md` | root stray logs/`validation_*.txt` |
-| **E7** watchdog & retention | `data/reports/` freshness job, tag/Release step in `scrape-full.yml` | — | `frontend/PLAN.md` rewrite (accounts/Supabase removed) |
+| **E6** controlled unfreeze #1 | `docs/FREEZE_ALLOWLIST.md` | **the single allowlisted `src/` patch:** F1/F2 fixes (`date`/`validation` guard) + stage‑2 runtime fetch (`src/lib/api.ts`, manifest‑first loader, IndexedDB cache) | — |
+| **E7** production deploy | `docs/ENGINE.md` | `README.md` (real quickstart), `docs/ARCHITECTURE.md`, `docs/SCRAPING_WORKFLOW.md` | root stray logs/`validation_*.txt` |
+| **E8** watchdog & retention | freshness job (`age < 12 h`), tag/Release + **monthly squash** step in `scrape-full.yml` | — | `frontend/PLAN.md` rewrite (accounts/Supabase removed) |
 
 ### 14.6 Frozen‑`src/` impact register — what we cannot fix, and the honest substitute
 
 | F‑finding | Visible consequence on the live site | Substitute while `src/` is frozen | Unfreeze needed? |
 |---|---|---|---|
-| **F1** evergreen deadline | **1,718 of 2,588 cards read "NaN days left"**; editing one is blocked by the form | **none** — an empty deadline can't be patched from data without fabricating dates, and dropping evergreen items would break the completeness rule (§11.2) | **Yes — highest‑priority unfreeze (~20 lines in `src/utils/date.ts` + `validation.ts`)** |
-| **F2** reminder storm | fires only if the visitor enables notifications | the same one‑line guard fix sits in the same unfreeze patch | Yes (with F1) |
+| **F1** evergreen deadline | **1,718 of 2,588 cards read "NaN days left"**; editing one is blocked by the form | **none** — an empty deadline can't be patched from data without fabricating dates, and dropping evergreen items would break the completeness rule (§11.2) | **Yes — decided: fixed at E6**, the single allowlisted patch (before the E7 public deploy) |
+| **F2** reminder storm | fires only if the visitor enables notifications | the same one‑line guard fix sits in the same patch | Yes — **E6**, with F1 (decided) |
 | **F3** migration drift / positional ids | statuses attach to the wrong row after a renumbering | **fixed at the generator level**: `regenerate_seeds.py` emits **fingerprint‑hash ids** (B6/B24) — data‑side change, no `src/` touch | No |
 | **F4** no virtualization (1,940 cards) | slow first interaction | none; page‑size clamping at the API doesn't help a bundled catalog | Yes (later, with the virtualised list) |
 | **F5/F6** re‑parse + quota | lag on every status change | none | Yes |
@@ -852,7 +856,7 @@ One command locally reproduces the whole right‑hand side: `npm run publish:dat
 | **F9/F16/F20** theme/dead code/design system | visual polish | none | Yes (with the shadcn cleanup) |
 | **F10/F11** router, OG/SEO | no deep links, no share previews | `/api/og` + `/api/opportunities/:id` are built in §11.4 **now**, so the URLs exist the day `src/` is unfrozen | Yes |
 
-Net: with `src/` frozen we can still ship **E1–E7** fully, and the site ships with exactly **one visible defect class** (the evergreen "NaN days left"). §13 item 4 asks whether to unfreeze that minimal patch before the first public deploy or ship as‑is.
+Net: **E1–E5 and E7–E8 ship with `src/` strictly frozen**, and the E6 patch (decided 2026‑10‑19 — see §14.8 item 3) removes the only visible defect class before the E7 public deploy while also adding the runtime fetch. Everything else stays parked with a named gate, so the freeze's cost is a written list rather than a vague backlog.
 
 ### 14.7 Efficiency notes — why this layout is the efficient one
 
@@ -863,12 +867,14 @@ Net: with `src/` frozen we can still ship **E1–E7** fully, and the site ships 
 - **No duplicate data stores**: JSON → manifest → SEED_DATA → public asset are four views of one write, produced by one command, verified by one `sha256`.
 - **Repo growth is capped by design**: only the canonical JSON + manifest + reports are tracked; weekly tags and monthly Release archives hold the history.
 
-### 14.8 Four questions that block execution
+### 14.8 Four blocking decisions (settled 2026‑10‑19)
 
-1. **Freshness model under the freeze** — accept rebuild‑on‑commit as the only path (recommended; zero `src/` touch), or unfreeze now to add a runtime fetch (`src/lib/api.ts` + a loader), which also unlocks `data`‑branch publishing with no rebuild?
-2. **Schedule & repo visibility** — confirm **daily quick 00:30 UTC + weekly full Sat 02:00 UTC**, and tell me whether the repo will be **public** (unlimited Actions minutes) or **private** (2,000 min/month, ~800 needed)?
-3. **The one visible defect** — unfreeze a minimal, generator‑safe patch for F1/F2 ("NaN days left", reminder storm) **before** the first public deploy, or ship as‑is and fix later? Also confirm the generator‑written `src/lib/storage.ts` is acceptable as the freeze's single exception.
-4. **Data protection posture** — track the canonical ~1.9 MB JSON in git (history = restore, with a monthly squash, recommended) versus keeping it out of git and relying on weekly Release assets only?
+| # | Question | **Decision** | Consequence / carry‑over |
+|---|---|---|---|
+| 1 | Freshness model under the `src/` freeze | **Both, staged** — rebuild‑on‑commit for E1–E5, then the runtime fetch as part of the E6 unfreeze | No rebuild needed for data after E6; publishing path (a) only until then (§11.6) |
+| 2 | Schedule | **Full pipeline every 8 h** — `0 */8 * * *` (00:00/08:00/16:00 UTC) | ⚠️ **Open sub‑item:** repo is **private** → ~6,800 Actions min/month vs 2,000 free. Make the repo public at deploy (recommended), pay, or degrade to every‑8‑h quick + weekly full — §11.6 budget box |
+| 3 | The visible defect (F1/F2) & the freeze's exception | **Unfreeze a minimal F1/F2 patch first** — milestone **E6**, before the E7 public deploy; generator‑written `src/lib/storage.ts` accepted as Exception A | One allowlist entry (`docs/FREEZE_ALLOWLIST.md`), retired after E6 merges; F‑1/F‑2 (§12.5) become deploy gates |
+| 4 | Data protection posture | **Track the canonical JSON in git + monthly squash** | git history = restore path; weekly tags + monthly Release archive; monthly squash keeps the 1.9 MB/refresh history bounded |
 
 ---
 
