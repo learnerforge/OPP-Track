@@ -7,7 +7,7 @@ name: scrape-full
 
 on:
   schedule:
-    - cron: "20 11 * * *" # TEMPORARY CANARY (fires 11:20 UTC) — reverted to 0 */8 below after verification
+    - cron: "0 */8 * * *" # 00:00 / 08:00 / 16:00 UTC (05:30 / 13:30 / 21:30 IST)
   workflow_dispatch:
 
 concurrency:
