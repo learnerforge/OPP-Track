@@ -8,6 +8,10 @@ import path from "path";
 // original app keeps building untouched alongside it.
 export default defineConfig({
   root: __dirname,
+  // The shared static assets (/data/*.json, /favicon.svg) live in the REPO-ROOT
+  // public/ dir, not app/public/. Point Vite there so they are copied verbatim
+  // into app/dist/ and served as real files (not swallowed by the SPA rewrite).
+  publicDir: path.resolve(__dirname, "..", "public"),
   plugins: [react(), tailwindcss()],
   build: {
     outDir: path.resolve(__dirname, "dist"),
