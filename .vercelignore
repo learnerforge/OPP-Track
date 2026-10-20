@@ -1,11 +1,14 @@
-# Only src/, api/, data/, and the root configs participate in the Vercel build.
-# Excluding the rest shrinks the upload and keeps Tailwind v4's automatic
-# content detection on the build server from scanning frontend/ (a separate
-# scaffold app) — the deployed CSS was 410 KB vs 57 KB locally.
+# Only api/, data/, public/, app/, and the root configs participate in the
+# Vercel build. src/ is EXCLUDED: it is the frozen original app and is no
+# longer deployed (the public 3-page app in app/ replaced it) — excluding it
+# also keeps Tailwind v4's build-server content scan off that tree.
+src/
 frontend/
 docs/
 tests/
 scripts/
+# root dist/ is the OLD app's build output — never shipped. app/dist/ is the
+# NEW app's build output and MUST be uploaded (Vercel reads outputDirectory).
 dist/
 data/backups/
 data/raw/
