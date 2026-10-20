@@ -1,20 +1,25 @@
-# Only api/, data/, public/, app/, and the root configs participate in the
-# Vercel build. src/ is EXCLUDED: it is the frozen original app and is no
-# longer deployed (the public 3-page app in app/ replaced it) — excluding it
-# also keeps Tailwind v4's build-server content scan off that tree.
-src/
-frontend/
-docs/
-tests/
-scripts/
-# root dist/ is the OLD app's build output — never shipped. app/dist/ is the
-# NEW app's build output and MUST be uploaded (Vercel reads outputDirectory).
-dist/
-data/backups/
-data/raw/
-fullstack.md
-# NOTE: do not add a blanket *.md rule — api/report/latest.ts reads
-# data/reports/publish-*.md from the deployed filesystem at runtime.
+# Upload rules for the Vercel build.
+#
+# Leading slashes anchor every pattern at the REPO ROOT. This matters: a bare
+# `src/` (or `dist/`) also matches nested directories such as app/src/ and
+# app/dist/, which silently stripped the new app's own sources from the upload
+# and broke the build. Anchored patterns cannot do that.
+#
+# The frozen top-level src/ tree IS uploaded — it is small, and Vercel needs
+# the repo layout intact. Only genuinely unused/heavy dirs are excluded here.
+/frontend/
+/docs/
+/tests/
+/scripts/
+# root dist/ is the OLD app's build output — never shipped. Vercel rebuilds
+# app/dist/ on its own machine and reads it as outputDirectory, so it is NOT
+# ignored.
+/dist/
+/data/backups/
+/data/raw/
+/fullstack.md
+# NOTE: no blanket *.md rule — api/report/latest.ts reads data/reports/publish-*.md
+# from the deployed filesystem at runtime.
 # .vercelignore replaces .gitignore for uploads — carry over the safety entries
 .env*
 .vercel_python_packages/
