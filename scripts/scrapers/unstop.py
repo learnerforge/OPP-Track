@@ -27,6 +27,10 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+# Venue strings Unstop uses when no real venue is set; never treat these as a
+# place name, or the geocoder would chase nonsense ("TBA, Noida, India").
+_LOCATION_PLACEHOLDERS = {"TBA", "TBD", "-", "N/A", "NA", "NONE", "NULL", "ONLINE", "VARIOUS"}
+
 
 def _is_junk_title(title: str) -> bool:
     """Detect low-value/placeholder Unstop listings (quiz tests, generic titles)."""
@@ -145,11 +149,20 @@ def _extract_tags(item: dict) -> list[str]:
 
 
 def _extract_location(item: dict) -> str:
-    """Extract location from region and address data."""
+    """Extract location from region and address data.
+
+    Prefers the venue name (``address``) so the geocoder can place the event
+    precisely — "IIIT Delhi, New Delhi, Delhi, India" resolves to the campus,
+    while "New Delhi, Delhi, India" only resolves to the city. Placeholder
+    values Unstop uses when no venue is set ("TBA", "-", "N/A") are dropped.
+    """
     region = item.get("region", "")
     address = item.get("address_with_country_logo", {})
     if isinstance(address, dict):
         parts = []
+        venue = str(address.get("address") or "").strip()
+        if venue and venue.upper() not in _LOCATION_PLACEHOLDERS:
+            parts.append(venue)
         for key in ("city", "state", "country"):
             val = address.get(key)
             if isinstance(val, dict):

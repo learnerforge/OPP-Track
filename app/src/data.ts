@@ -9,6 +9,7 @@
  */
 
 export interface Opportunity {
+  id?: string;
   title: string;
   type: string;
   source: string;
@@ -23,7 +24,44 @@ export interface Opportunity {
   duration?: string;
   date_added?: string;
   notes?: string;
+  /** True when this record carries a stored user edit. */
+  edited?: boolean;
+  /** When the edit was saved (ISO). */
+  edited_at?: string;
 }
+
+/** A stored user override for one opportunity, as returned by /api/edits. */
+export interface StoredEdit {
+  fields: Partial<Record<EditableField, string>>;
+  updated_at: string;
+  updated_by: string;
+}
+
+/** Fields a user may edit — mirrors api/_lib/edits.ts EDITABLE_FIELDS. */
+export const EDITABLE_FIELDS = [
+  "title",
+  "type",
+  "link",
+  "deadline",
+  "location",
+  "prize_pool",
+  "eligibility",
+  "notes",
+] as const;
+
+export type EditableField = (typeof EDITABLE_FIELDS)[number];
+
+/** Human labels for the edit form. */
+export const FIELD_LABELS: Record<EditableField, string> = {
+  title: "Title",
+  type: "Type",
+  link: "Link",
+  deadline: "Deadline",
+  location: "Location",
+  prize_pool: "Prize",
+  eligibility: "Eligibility",
+  notes: "Notes",
+};
 
 /** Which field a prize string belongs to, so 1,000 USD never sorts above 2,000. */
 export interface PrizeValue {
@@ -176,4 +214,102 @@ export async function loadCatalog(): Promise<LoadedCatalog> {
   const items = pickItems(await res.json());
   if (!items) throw new Error("catalog unavailable (unexpected shape)");
   return { items, manifest, origin: "api-fallback" };
+}
+
+/** Identity of an opportunity, matching the API's id/fingerprint rule. */
+export function recordId(item: Opportunity): string {
+  return item.id ?? "";
+}
+
+/**
+ * Apply stored user edits over a catalog.
+ *
+ * The published snapshot is immutable and the pipeline rewrites it every 8
+ * hours, so edits are layered on in the browser rather than written into it.
+ * Records with no edit are returned by reference so React sees a stable list.
+ */
+export function applyEdits(
+  items: Opportunity[],
+  edits: Record<string, StoredEdit>,
+): Opportunity[] {
+  if (!edits || Object.keys(edits).length === 0) return items;
+  return items.map((item) => {
+    const id = recordId(item);
+    const edit = id ? edits[id] : undefined;
+    if (!edit?.fields) return item;
+    const merged: Opportunity = { ...item };
+    for (const field of EDITABLE_FIELDS) {
+      const value = edit.fields[field];
+      if (typeof value === "string") merged[field] = value;
+    }
+    merged.edited = true;
+    merged.edited_at = edit.updated_at;
+    return merged;
+  });
+}
+
+/** Result of loading the shared edit store. */
+export interface EditsState {
+  edits: Record<string, StoredEdit>;
+  /** False when the deployment has no Blob credentials — editing is disabled. */
+  configured: boolean;
+}
+
+/**
+ * Load the shared edit document. A failure degrades to "no edits, not
+ * configured" so a storage outage never blocks reading the catalog.
+ */
+export async function loadEdits(): Promise<EditsState> {
+  try {
+    const res = await fetch("/api/edits", { cache: "no-cache" });
+    if (!res.ok) return { edits: {}, configured: false };
+    const body = (await res.json()) as Partial<EditsState>;
+    return {
+      edits: body.edits && typeof body.edits === "object" ? body.edits : {},
+      configured: body.configured === true,
+    };
+  } catch {
+    return { edits: {}, configured: false };
+  }
+}
+
+/** Outcome of a save attempt, so the UI can show a real message. */
+export interface SaveResult {
+  ok: boolean;
+  error?: string;
+  edit?: StoredEdit;
+}
+
+/**
+ * Save an edit through to the shared store.
+ *
+ * Goes to `/api/edits` (the only write path in the API). The `x-edits-token`
+ * header carries the same shared secret the login gate uses, configured in the
+ * app as VITE_EDITS_TOKEN at build time. When it is not configured the caller
+ * gets a clear error rather than a silent no-op.
+ */
+export async function saveEdit(
+  id: string,
+  fields: Partial<Record<EditableField, string>>,
+  updatedBy = "learnerforge",
+): Promise<SaveResult> {
+  const token = import.meta.env.VITE_EDITS_TOKEN as string | undefined;
+  try {
+    const res = await fetch("/api/edits", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "x-edits-token": token } : {}),
+      },
+      body: JSON.stringify({ id, fields, updated_by: updatedBy }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      edit?: StoredEdit;
+    };
+    if (!res.ok) return { ok: false, error: body.error ?? `save failed (HTTP ${res.status})` };
+    return { ok: true, edit: body.edit };
+  } catch (err) {
+    return { ok: false, error: String((err as Error)?.message ?? err) };
+  }
 }

@@ -689,6 +689,28 @@ def main():
 
     logging.info(f"\nSaved {len(valid_items)} items to {output_path}")
 
+    # ── Geocode locations (OpenStreetMap) ──────────────────────────
+    # Writes public/data/locations.json so the frontend can sort by true
+    # distance. Only a canonical run may rewrite it — a scratch `--output`
+    # run must not clobber the published coordinates (same rule as the
+    # health file below). Skipped by --quick, which must stay fast.
+    if output_path.resolve() == OUTPUT_FILE.resolve() and not args.quick:
+        try:
+            from scripts.scrapers.geocode import (
+                geocode_dataset,
+                load_cache,
+                save_cache,
+                write_locations_file,
+            )
+
+            cache = load_cache()
+            resolved = geocode_dataset(output_data, cache)
+            save_cache(cache)
+            path = write_locations_file(resolved)
+            logging.info(f"Wrote {len(resolved)} location(s) to {path}")
+        except Exception as exc:  # never let geocoding break a publish
+            logging.warning(f"Geocoding skipped: {exc}")
+
     # ── Summary ────────────────────────────────────────────────────
     by_source: dict[str, int] = {}
     by_type: dict[str, int] = {}

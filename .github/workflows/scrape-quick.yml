@@ -97,6 +97,7 @@ jobs:
             data/scraped_opportunities.json \
             data/manifest.json \
             data/scraper_health.json \
+            data/location_cache.json \
             data/reports \
             public/data \
             src/lib/storage.ts

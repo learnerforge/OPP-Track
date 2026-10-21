@@ -204,8 +204,16 @@ def _build_item_from_api(h: dict) -> ScrapeItem | None:
     if h.get("is_online"):
         location = "Online"
     else:
-        parts = [p for p in (h.get("city"), h.get("country")) if p]
-        location = ", ".join(parts)
+        # Prefer the full address the API publishes — it carries the venue
+        # ("JIS College of Engineering") and the state, which is what the
+        # geocoder needs to place the event precisely. Fall back to
+        # city + country, then to whichever of the two is present.
+        full = (h.get("location") or "").strip()
+        if full:
+            location = full
+        else:
+            parts = [p for p in (h.get("city"), h.get("country")) if p]
+            location = ", ".join(parts)
 
     participants = h.get("participants_count") or 0
     notes_parts = ["Source: Devfolio."]

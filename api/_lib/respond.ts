@@ -13,8 +13,9 @@ export const CACHE = {
   report: 'public, s-maxage=300',
   /** /api/opportunities, /api/stats, /api/sources, /api/export. */
   dataset: 'public, s-maxage=3600, stale-while-revalidate=86400',
-  /** /api/opportunities/[id] — single record, no SWR needed but harmless. */
-  record: 'public, s-maxage=3600',
+  /** /api/opportunities/[id] — single record. Short cache: user edits must
+   *  become visible promptly, and one record is cheap to serve. */
+  record: 'public, s-maxage=60',
   /** /api/og — derived image, cache a day. */
   og: 'public, s-maxage=86400',
 } as const;

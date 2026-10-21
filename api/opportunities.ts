@@ -1,4 +1,5 @@
 import { loadDataset, DatasetError } from './_lib/loadDataset.js';
+import { applyEdits, loadEdits } from './_lib/edits.js';
 import { CACHE, datasetUnavailable, fail, json, requireGet } from './_lib/respond.js';
 import type { ApiRequest, ApiResponse } from './_lib/types.js';
 import { ParamError, filterItems, parseListParams, sortItems } from './_lib/validate.js';
@@ -7,13 +8,18 @@ import { ParamError, filterItems, parseListParams, sortItems } from './_lib/vali
  * GET /api/opportunities — filtered + paginated reads over the full dataset (§11.4).
  * Params: q, type, source, tag, status=rolling, deadline_within (days), sort, page, page_size.
  * Returns {items, page, page_size, total, total_pages}.
+ *
+ * Stored user edits are merged over the records before filtering so an edited
+ * deadline/prize sorts and filters by its edited value, not the scraped one.
  */
-export default function handler(req: ApiRequest, res: ApiResponse): unknown {
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<unknown> {
   if (!requireGet(req, res)) return;
   try {
     const params = parseListParams(req.query);
     const ds = loadDataset();
-    const filtered = sortItems(filterItems(ds.items, params), params);
+    const edits = await loadEdits();
+    const merged = applyEdits(ds.items, edits);
+    const filtered = sortItems(filterItems(merged, params), params);
     const total = filtered.length;
     const total_pages = Math.max(1, Math.ceil(total / params.pageSize));
     const start = (params.page - 1) * params.pageSize;

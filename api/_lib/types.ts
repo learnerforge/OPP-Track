@@ -10,6 +10,13 @@ export interface ApiRequest {
   method?: string;
   query?: Record<string, QueryValue>;
   url?: string;
+  /**
+   * Parsed JSON body. The Vercel Node runtime populates this for requests with
+   * `Content-Type: application/json`; the read-only GET routes never look at
+   * it, so it stays optional and unused outside the write endpoint.
+   */
+  body?: unknown;
+  headers?: Record<string, string | string[] | undefined>;
 }
 
 export interface ApiResponse {
