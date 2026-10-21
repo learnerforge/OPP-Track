@@ -11,7 +11,13 @@ import logging
 import time
 from datetime import datetime
 from scrapling.fetchers import StealthyFetcher
-from scripts.scrapers.base import ScrapeItem, parse_deadline, clean_text
+from scripts.scrapers.base import (
+    ScrapeItem,
+    ScrapeBlocked,
+    parse_deadline,
+    clean_text,
+    is_blocked_response,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +27,33 @@ HACKEREARTH_URLS = [
 ]
 
 REQUEST_DELAY = 1.5
+
+
+def _probe(url: str) -> int:
+    """Reachability probe so a 403 is reported and skipped, not rendered.
+
+    Plain HTTP gets a 200 (the JS nav shell); the headless browser gets a 403.
+    Either way, a hard block must be distinguishable from "no challenges live".
+    """
+    import httpx
+
+    try:
+        resp = httpx.get(
+            url,
+            timeout=10.0,
+            follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; OPP-Track/1.0)"},
+        )
+    except Exception as e:
+        logger.warning("HackerEarth probe failed for %s: %s", url, e)
+        return 0
+    if is_blocked_response(resp):
+        raise ScrapeBlocked(
+            f"HackerEarth probe returned HTTP {resp.status_code} for {url} (forbidden/blocked)",
+            source="HackerEarth",
+            status=resp.status_code,
+        )
+    return resp.status_code
 
 
 def _extract_challenge_link(card) -> str:
@@ -239,9 +272,17 @@ def _extract_detail_data(page, url: str) -> dict:
 
 
 def scrape_hackerearth() -> list[ScrapeItem]:
-    """Scrape challenges from HackerEarth with Tier-2 detail enrichment."""
+    """Scrape challenges from HackerEarth with Tier-2 detail enrichment.
+
+    Probes first: an outright block is raised as ``ScrapeBlocked`` so the
+    orchestrator can report and skip it, instead of recording a silent 0.
+    """
     items: list[ScrapeItem] = []
 
+    # Probe once, up front: a hard 403 should not cost two 30 s browser runs.
+    _probe(HACKEREARTH_URLS[0])
+
+    blocked_statuses: list[int] = []
     for url in HACKEREARTH_URLS:
         logger.info(f"Fetching HackerEarth: {url}")
         try:
@@ -255,7 +296,9 @@ def scrape_hackerearth() -> list[ScrapeItem]:
 
             if page.status != 200:
                 logger.warning(f"HackerEarth returned status {page.status} for {url}")
+                blocked_statuses.append(page.status)
                 continue
+            blocked_statuses.clear()  # one good page is enough: not blocked
 
             _CARD_SELECTOR = "div.group.relative.w-full.block"
             cards = list(page.css(_CARD_SELECTOR))
@@ -361,8 +404,20 @@ def scrape_hackerearth() -> list[ScrapeItem]:
                 items.append(item)
                 logger.info(f"  Found: {title} | {status} | tags={tags} | {link}")
 
+        except ScrapeBlocked:
+            raise
         except Exception as e:
             logger.error(f"Error scraping HackerEarth {url}: {e}")
+
+    # Every listing URL refused us and nothing was collected: that is a block,
+    # not an empty source — report it so it is skipped explicitly.
+    if not items and blocked_statuses:
+        raise ScrapeBlocked(
+            f"HackerEarth blocked on all {len(blocked_statuses)} listing URL(s) "
+            f"(statuses {blocked_statuses})",
+            source="HackerEarth",
+            status=blocked_statuses[0],
+        )
 
     logger.info(f"HackerEarth: scraped {len(items)} challenges")
 

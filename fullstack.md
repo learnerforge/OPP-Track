@@ -7,6 +7,30 @@
 
 ---
 
+## 0. Status addendum — 2026‑10‑21 (authoritative over the body where they disagree)
+
+The plan body above describes the *original* design (a deploy of the existing `src/` app, no login). Execution diverged in four ways. Where §11/§14 contradict this section, **this section wins** until it is folded back in.
+
+**1. The live site is a separate app in `app/`, not a deploy of `src/`.** The `src/` freeze (§14.1) made the existing app undeployable as‑is, so the public site was built self‑contained in `app/` (Vite + React, its own `index.css` theme subset, plain client router — no React Router dependency). Deploy was switched via `vercel.json` (`buildCommand: npm run build:app`, `outputDirectory: app/dist`). `src/` remains strictly frozen; nothing under it was created, edited, moved or deleted. Exception A (`regenerate_seeds.py` → `src/lib/storage.ts`) is still the only generator write; Exception B (the E6 allowlist entry) is still commented out in `docs/FREEZE_ALLOWLIST.md`.
+
+**2. There *is* a login, and it is a UI‑only gate.** The body states "no accounts, no auth". Reality: a single hardcoded user (`learnerforge`) gates the `/events` page. It is deliberately a **client‑side gate** — the underlying `/api/*` and `/data/*.json` remain publicly readable, so the gate is presentational and **must not be described as security**. The password is stored as a SHA‑256 digest (`app/src/auth.ts`) so plaintext never ships. This is a product decision, not an oversight; a real auth layer would require a backend and is out of scope.
+
+**3. Three pages ship, not the §11.4 surface.** `/` (public landing), `/login` (public), `/events` (gated). The 9 read‑only API functions and the manifest‑first data ladder (§11.5) exist and are used by the app; the app reads `/data/manifest.json` → the sha‑named snapshot → `/api/opportunities` as fallback.
+
+**4. The catalog has one more source: `events.heapheaphurray.com`.** Added as `scripts/scrapers/heapheaphurray.py` and registered in `run_all.py`'s `SCRAPERS` map (so it runs on every pass, no `--multi` needed; it is deliberately *not* added to `sources.json`, which would be dead config since `SCRAPERS` takes precedence). It is an **aggregator**: every listing links out to the organiser's own page. Because Unstop, MLH, Devfolio, Devpost and HackIndia already scrape many of those pages first‑hand, the scraper carries a **cross‑source replica guard** that reads the current dataset and skips items whose normalised link *or* title already exists from another source. This keeps the "no replica of an opportunity from this website to another" requirement local to this source instead of hardcoding a host list that would rot.
+
+**5. Shared dedup got stricter, deliberately.** `base.normalize_link()` now strips scheme, `www.`, *tracking‑only* query params (`utm_*`, `ref*`, `fbclid`, …) and the trailing slash before `deduplicate_by_link` compares. It does **not** strip meaningful query params or fragments: `?competition=<id>` distinguishes 44 SIGNATE competitions that share one path, and `#anchor` distinguishes NASA/Mitacs items that share one page. An earlier, blunter version was caught by regression test destroying 62 legitimate items — the narrow rule removes exactly 1 real duplicate from the 2,588.
+
+**6. The sanity gate is size‑aware.** `scripts/sanity_gate.py` now skips the per‑source ±50% rule when the baseline is below `MIN_SOURCE_BASELINE` (5) and emits a warning instead. A 2‑item source dropping to 0 is "−100%" but says nothing about scrape health; four consecutive scheduled runs were blocked by exactly that false positive while the run itself was healthy (2,577 vs 2,588 items, −0.4%, well inside ±20%).
+
+**7. `run_all.py` refuses to clobber the canonical dataset.** A single‑source run (`--source X`, or any of the legacy per‑site flags) that would write to `data/scraped_opportunities.json` now exits 2 and prints the fix. The dataset was silently overwritten three times by exactly that command.
+
+**8. Frontend sorting.** `/events` supports sorting by deadline (soonest/latest), prize (highest/lowest), recently added, title and source, plus the existing type filter and search. `app/src/data.ts` exports `parsePrize()`, which normalises free‑text prize strings (`$29,376`, `€12,000`, `₹1,00,000`, `10,000 AUD`, `R250 000 ZAR`, `1500万円` → ×10,000) and returns `null` for non‑cash prizes so they sort last rather than as zero. Currencies are compared within a currency only — no invented exchange rates.
+
+**Still open (unchanged by the above):** fresh publishing is blocked by the gate on genuinely‑decaying sources, not by the false‑positive class (see §11.8); Vercel's GitHub App is not yet installed on `learnerforge/OPP-Track`, so data commits do not auto‑deploy; Topcoder and HackerEarth are both now **anti‑bot blocked on the headless path** while still answering plain HTTP — Topcoder's public challenge API has been retired (all `v4`/`v5` endpoints 404), and HackerEarth's reachable JSON endpoint (`/api/community/challenges/compete/`) returns a stale historical set, not a live listing.
+
+---
+
 ## 1. Executive Summary
 
 The repository has silently outgrown its own documentation: `docs/ARCHITECTURE.md` still describes a manual, human‑paste tracker with "no scraper to maintain", while the codebase is actually an **89‑site scraping pipeline → seed generator → static React app** with a versioned localStorage migration layer. The backend works, but it is entirely manual and machine‑dependent.

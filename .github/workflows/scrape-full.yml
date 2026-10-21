@@ -183,6 +183,29 @@ jobs:
           set -euo pipefail
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           BODY="Scheduled full-pipeline run failed: ${RUN_URL}"
+          # Append the blocked/errored source digest so triage does not require
+          # opening the run log. run_all.py writes this on every scrape.
+          if [ -f data/scraper_health.json ]; then
+            DIGEST="$(python - <<'PYEOF'
+          import json
+          try:
+              with open("data/scraper_health.json", encoding="utf-8") as fh:
+                  h = json.load(fh)
+          except Exception:
+              raise SystemExit
+          src = h.get("sources", {})
+          blocked = sorted(k for k, v in src.items() if v.get("status") == "blocked")
+          errored = sorted(k for k, v in src.items() if v.get("status") == "error")
+          if blocked:
+              print("- blocked (403/429/Cloudflare): " + ", ".join(blocked))
+          if errored:
+              print("- errored: " + ", ".join(errored))
+          PYEOF
+          )"
+            if [ -n "${DIGEST}" ]; then
+              BODY="${BODY}"$'\n\n'"Sources:"$'\n'"${DIGEST}"
+            fi
+          fi
           EXISTING="$(gh issue list --repo "${{ github.repository }}" --state open --limit 100 \
             --json number,title \
             --jq '.[] | select(.title == "data-pipeline-alert") | .number' | head -n 1 || true)"

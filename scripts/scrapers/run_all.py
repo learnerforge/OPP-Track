@@ -34,7 +34,15 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.scrapers.base import ScrapeItem, deduplicate, deduplicate_by_link, filter_stale, quality_score, classify_location
+from scripts.scrapers.base import (
+    ScrapeItem,
+    ScrapeBlocked,
+    deduplicate,
+    deduplicate_by_link,
+    filter_stale,
+    quality_score,
+    classify_location,
+)
 from scripts.scrapers.devfolio import scrape_devfolio
 from scripts.scrapers.devpost import scrape_devpost
 from scripts.scrapers.unstop import scrape_unstop
@@ -130,10 +138,17 @@ from scripts.scrapers.virtual_internships import scrape_virtual_internships
 from scripts.scrapers.fastweb import scrape_fastweb
 from scripts.scrapers.scholarshipowl import scrape_scholarshipowl
 from scripts.scrapers.reskilll import scrape_reskilll
+from scripts.scrapers.heapheaphurray import scrape_heapheaphurray
 
 OUTPUT_FILE = PROJECT_ROOT / "data" / "scraped_opportunities.json"
 SOURCES_FILE = PROJECT_ROOT / "scripts" / "scrapers" / "sources.json"
+# Per-source health/status report written every run (and committed by the CI
+# workflows, which already `git add` it). Previously nothing generated this
+# file — the tracked copy was a stale artefact of a manual local script.
+HEALTH_FILE = PROJECT_ROOT / "data" / "scraper_health.json"
 ENRICH_THRESHOLD = 50
+# Back-off before retrying a blocked source, multiplied by the attempt number.
+BLOCK_RETRY_DELAY_S = 5.0
 
 SCRAPERS = {
     "devfolio": ("Devfolio", scrape_devfolio),
@@ -231,6 +246,7 @@ SCRAPERS = {
     "fastweb": ("Fastweb", scrape_fastweb),
     "scholarshipowl": ("ScholarshipOwl", scrape_scholarshipowl),
     "reskilll": ("Reskilll", scrape_reskilll),
+    "heapheaphurray": ("Heap Heap Hurray", scrape_heapheaphurray),
 }
 
 
@@ -247,40 +263,118 @@ def _load_multi_sources() -> dict[str, dict]:
     }
 
 
-def run_scraper(name: str, func) -> list[ScrapeItem]:
-    """Run a single scraper with error handling and timing."""
-    logging.info(f"--- Running {name} scraper ---")
-    t0 = time.time()
+def run_scraper(name: str, func, *, retries: int = 1) -> tuple[list[ScrapeItem], dict]:
+    """Run a single scraper, classifying the outcome.
+
+    Returns ``(items, status)`` where ``status`` is a dict with keys
+    ``status`` (``ok`` | ``empty`` | ``blocked`` | ``error``), ``items``,
+    ``elapsed_s`` and an optional ``detail`` string.
+
+    Classification matters because a blocked source and an empty source were
+    previously indistinguishable — both were just ``[]``. A ``blocked`` outcome
+    is retried once after a short back-off (a 429 or a transient Cloudflare
+    challenge often clears), whereas a hard error is not retried.
+
+    The three previous outcomes and their replacements:
+
+        raised  -> status "error"   (unchanged: still ``[]`` items)
+        []      -> status "blocked" if the scraper raised ScrapeBlocked,
+                   otherwise "empty"
+        items   -> status "ok"
+    """
+    for attempt in range(1, retries + 2):
+        logging.info(f"--- Running {name} scraper" + (f" (attempt {attempt})" if attempt > 1 else "") + " ---")
+        t0 = time.time()
+        try:
+            results = func()
+            elapsed = time.time() - t0
+            status = "ok" if results else "empty"
+            logging.info(f"    {name} finished in {elapsed:.1f}s — {len(results)} items [{status}]")
+            return results, {"status": status, "items": len(results), "elapsed_s": round(elapsed, 1)}
+        except ScrapeBlocked as e:
+            elapsed = time.time() - t0
+            if attempt <= retries:
+                delay = BLOCK_RETRY_DELAY_S * attempt
+                logging.warning(
+                    f"    {name} BLOCKED after {elapsed:.1f}s ({e}) — "
+                    f"retrying in {delay}s (attempt {attempt + 1}/{retries + 1})"
+                )
+                time.sleep(delay)
+                continue
+            logging.error(
+                f"    {name} BLOCKED after {elapsed:.1f}s ({e}) — giving up after {attempt} attempt(s); "
+                "source skipped, not counted as a data regression"
+            )
+            return [], {
+                "status": "blocked",
+                "items": 0,
+                "elapsed_s": round(elapsed, 1),
+                "detail": str(e) or "blocked",
+            }
+        except Exception as e:
+            elapsed = time.time() - t0
+            logging.error(f"Scraper {name} failed after {elapsed:.1f}s: {e}")
+            return [], {
+                "status": "error",
+                "items": 0,
+                "elapsed_s": round(elapsed, 1),
+                "detail": str(e)[:200],
+            }
+    return [], {"status": "error", "items": 0, "elapsed_s": 0.0, "detail": "unreachable"}
+
+
+def probe_source(url: str, *, timeout: float = 10.0) -> int:
+    """Cheap reachability probe: return the HTTP status of ``url``.
+
+    Used to tell a *permanent* block from a transient one before spending a full
+    scrape on a source. A 4xx that is not 429 means "forbidden/not found" — the
+    caller should report it and skip, not retry forever. Returns 0 when the
+    request itself failed (DNS, timeout, TLS).
+    """
     try:
-        results = func()
-        elapsed = time.time() - t0
-        logging.info(f"    {name} finished in {elapsed:.1f}s — {len(results)} items")
-        return results
+        import httpx
+    except ImportError:
+        return 0
+    try:
+        resp = httpx.get(
+            url,
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; OPP-Track/1.0)"},
+        )
+        return resp.status_code
     except Exception as e:
-        elapsed = time.time() - t0
-        logging.error(f"Scraper {name} failed after {elapsed:.1f}s: {e}")
-        return []
+        logging.warning(f"probe_source({url}) failed: {e}")
+        return 0
 
 
-def run_multi_source_scraper(source_id: str, source_config: dict) -> list[ScrapeItem]:
-    """Attempt to scrape a source from sources.json via multi_source module."""
+def run_multi_source_scraper(source_id: str, source_config: dict) -> tuple[list[ScrapeItem], dict]:
+    """Attempt to scrape a source from sources.json via multi_source module.
+
+    Returns ``(items, status)`` using the same classification as
+    ``run_scraper`` so blocked/empty/error stay distinguishable.
+    """
     try:
         from scripts.scrapers.multi_source import scrape_source
         t0 = time.time()
         logging.info(f"--- Running multi-source: {source_config.get('name', source_id)} ---")
         results = scrape_source(source_config)
         elapsed = time.time() - t0
-        logging.info(f"    {source_id} finished in {elapsed:.1f}s — {len(results)} items")
-        return results
+        status = "ok" if results else "empty"
+        logging.info(f"    {source_id} finished in {elapsed:.1f}s — {len(results)} items [{status}]")
+        return results, {"status": status, "items": len(results), "elapsed_s": round(elapsed, 1)}
+    except ScrapeBlocked as e:
+        logging.error(f"Multi-source scraper {source_id} BLOCKED: {e}")
+        return [], {"status": "blocked", "items": 0, "elapsed_s": 0.0, "detail": str(e) or "blocked"}
     except ImportError:
         logging.warning(
             f"multi_source.py not found — cannot scrape {source_id}. "
             "Create scripts/scrapers/multi_source.py to enable additional sources."
         )
-        return []
+        return [], {"status": "error", "items": 0, "elapsed_s": 0.0, "detail": "multi_source missing"}
     except Exception as e:
         logging.error(f"Multi-source scraper {source_id} failed: {e}")
-        return []
+        return [], {"status": "error", "items": 0, "elapsed_s": 0.0, "detail": str(e)[:200]}
 
 
 def score_items(items: list[ScrapeItem]) -> list[ScrapeItem]:
@@ -292,13 +386,33 @@ def score_items(items: list[ScrapeItem]) -> list[ScrapeItem]:
     return items
 
 
-def enrich_low_quality(items: list[ScrapeItem], threshold: int = ENRICH_THRESHOLD) -> list[ScrapeItem]:
+def enrich_low_quality(
+    items: list[ScrapeItem],
+    threshold: int = ENRICH_THRESHOLD,
+    target_path: Path | None = None,
+) -> list[ScrapeItem]:
     """Enrich items below the quality threshold by visiting detail pages.
 
     Saves current items to disk, runs enrich_items, then reloads.
+
+    ``enrich_items`` only ever reads and writes the canonical ``OUTPUT_FILE``,
+    so enrichment is bound to the canonical path. When this run targets a
+    different ``--output`` (a scratch/partial run), writing our items to the
+    canonical file first would clobber production data — so enrichment is
+    skipped for scratch runs instead.
     """
+    output_path = target_path or OUTPUT_FILE
+    if output_path.resolve() != OUTPUT_FILE.resolve():
+        logging.warning(
+            "Skipping enrichment: this run targets %s but the enricher only "
+            "operates on the canonical dataset %s. Re-run without --output to "
+            "enrich, or use a scratch run for a raw listing pass.",
+            output_path,
+            OUTPUT_FILE,
+        )
+        return items
+
     # Save current items so enrich can read them
-    output_path = OUTPUT_FILE
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump([item.to_dict() for item in items], f, indent=2, ensure_ascii=False)
@@ -388,6 +502,25 @@ def main():
 
     output_path = Path(args.output)
     pipeline_start = time.time()
+
+    # ── Refuse to clobber the canonical dataset with a partial run ──
+    # A single-source (or single-flag) run produces a subset of the catalog;
+    # writing it to the canonical path silently destroys every other source's
+    # items. Require an explicit --output for any partial run.
+    partial_run = bool(
+        args.source or args.devfolio or args.devpost or args.unstop
+        or args.hackerearth or args.internshala
+    )
+    if partial_run and output_path.resolve() == OUTPUT_FILE.resolve():
+        logging.error(
+            "Refusing to write a partial run to the canonical dataset:\n"
+            f"  output path: {output_path}\n"
+            "A single-source run would replace all other sources' items.\n"
+            "Pass an explicit --output, e.g.:\n"
+            f"  python scripts/scrapers/run_all.py --source {args.source or '<flag>'} "
+            "--output data/_scratch.json"
+        )
+        sys.exit(2)
 
     # ── Validate-only mode ─────────────────────────────────────────
     if args.validate:
@@ -482,23 +615,40 @@ def main():
     # ── Scrape ─────────────────────────────────────────────────────
     all_items: list[ScrapeItem] = []
     scraper_timings: dict[str, float] = {}
+    source_status: dict[str, dict] = {}
 
     for name in scraper_names:
         label, func = SCRAPERS[name]
-        t0 = time.time()
-        results = run_scraper(name, func)
-        scraper_timings[label] = time.time() - t0
+        results, status = run_scraper(name, func)
+        scraper_timings[label] = status["elapsed_s"]
+        source_status[label] = status
         all_items.extend(results)
         logging.info(f"{label}: {len(results)} items")
 
     for sid in multi_source_ids:
         all_sources = _load_multi_sources()
         if sid in all_sources:
-            t0 = time.time()
-            results = run_multi_source_scraper(sid, all_sources[sid])
-            scraper_timings[sid] = time.time() - t0
+            results, status = run_multi_source_scraper(sid, all_sources[sid])
+            scraper_timings[sid] = status["elapsed_s"]
+            source_status[sid] = status
             all_items.extend(results)
             logging.info(f"{sid}: {len(results)} items")
+
+    # ── Source-health report ───────────────────────────────────────
+    # Classified outcomes (blocked/empty/error), not just an item count. This is
+    # what lets the sanity gate and the alert issue tell "we were blocked" apart
+    # from "the source shrank".
+    blocked = sorted(k for k, v in source_status.items() if v["status"] == "blocked")
+    errored = sorted(k for k, v in source_status.items() if v["status"] == "error")
+    empties = sorted(k for k, v in source_status.items() if v["status"] == "empty")
+    if blocked:
+        logging.warning(f"\nBLOCKED sources ({len(blocked)}): {', '.join(blocked)}")
+    if errored:
+        logging.warning(f"ERRORED sources ({len(errored)}): {', '.join(errored)}")
+    logging.info(
+        f"Source outcomes — ok: {sum(1 for v in source_status.values() if v['status'] == 'ok')}, "
+        f"empty: {len(empties)}, blocked: {len(blocked)}, error: {len(errored)}"
+    )
 
     logging.info(f"\nTotal scraped items: {len(all_items)}")
 
@@ -520,7 +670,7 @@ def main():
 
     # ── Enrichment ─────────────────────────────────────────────────
     if args.detailed and not args.quick:
-        all_items = enrich_low_quality(all_items)
+        all_items = enrich_low_quality(all_items, target_path=output_path)
     elif not args.quick:
         logging.info("Skipping enrichment (use --detailed to enable)")
 
@@ -552,6 +702,28 @@ def main():
     logging.info("\nBy type:")
     for t, count in sorted(by_type.items()):
         logging.info(f"  {t}: {count}")
+
+    # ── Source-health report (committed by CI) ─────────────────────
+    # Only a run that produced the canonical dataset may rewrite the tracked
+    # health file; a scratch `--output` run must not clobber it.
+    if output_path.resolve() == OUTPUT_FILE.resolve():
+        health = {
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "total_items": len(valid_items),
+            "sources": {
+                name: {
+                    "status": st["status"],
+                    "items": st["items"],
+                    "time_s": st["elapsed_s"],
+                    **({"detail": st["detail"]} if st.get("detail") else {}),
+                }
+                for name, st in sorted(source_status.items())
+            },
+        }
+        HEALTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(HEALTH_FILE, "w", encoding="utf-8") as f:
+            json.dump(health, f, indent=2, ensure_ascii=False)
+        logging.info(f"\nWrote source health for {len(source_status)} sources to {HEALTH_FILE}")
 
     # Quality summary
     print_quality_summary(valid_items)

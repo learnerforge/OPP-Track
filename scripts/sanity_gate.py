@@ -17,6 +17,9 @@ Checks (absolute, always):
 Checks (relative, when a baseline is available):
   * total item count within +/-20% of the previous manifest's ``item_count``
   * per-source counts within +/-50%
+  * per-source counts below ``MIN_SOURCE_BASELINE`` warn instead of error
+  * sources marked ``blocked`` in the health report warn instead of error
+    (a 403/429/Cloudflare block is a transport failure, not a regression)
 
 Baseline resolution:
   1. ``--previous`` manifest (default ``data/manifest.json``) if it exists
@@ -43,8 +46,45 @@ VALID_TYPES = ("Hackathon", "Internship", "Certification", "Competition")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TOTAL_TOLERANCE = 0.20
 SOURCE_TOLERANCE = 0.50
+# A percentage rule on a source this small is noise, not signal: a 2-item
+# source dropping to 0 is "-100%" but says nothing about scrape health, and a
+# 2-item source doubling is "+100%" for one extra item. Below this baseline we
+# only warn. Real regressions in the big sources are unaffected.
+MIN_SOURCE_BASELINE = 5
 MAX_TYPE_SHARE = 0.98
 DEFAULT_PREVIOUS = "data/manifest.json"
+# Source-health report written by run_all.py each scrape. Maps a source *label*
+# (e.g. "Topcoder") to its classified outcome. Used to distinguish a blocked
+# source from a genuine data regression.
+DEFAULT_HEALTH = "data/scraper_health.json"
+
+
+def load_blocked_sources(health_path: Optional[str]) -> set:
+    """Return the set of source *labels* marked ``blocked`` in the health file.
+
+    run_all.py records health keyed by source label ("Devpost"), which is the
+    same string the dataset uses as ``source``. Missing/unreadable file => empty
+    set (the check simply does not apply; never a hard failure).
+    """
+    if not health_path:
+        return set()
+    path = Path(health_path)
+    if not path.is_file():
+        return set()
+    data, err = load_json(path)
+    if err is not None or not isinstance(data, dict):
+        return set()
+    sources = data.get("sources")
+    if not isinstance(sources, dict):
+        return set()
+    blocked = set()
+    for name, entry in sources.items():
+        if not isinstance(entry, dict):
+            continue
+        label = entry.get("source") or name
+        if entry.get("status") == "blocked":
+            blocked.add(str(label))
+    return blocked
 
 
 # --------------------------------------------------------------------------- #
@@ -172,9 +212,11 @@ def regression_checks(
     current: List[Any],
     baseline_total: Optional[int],
     baseline_per_source: Optional[Dict[str, int]],
+    blocked_sources: Optional[set] = None,
 ) -> Tuple[List[str], List[str]]:
     errors: List[str] = []
     warnings: List[str] = []
+    blocked_sources = blocked_sources or set()
 
     current_total = len(current)
 
@@ -200,10 +242,29 @@ def regression_checks(
             if prev <= 0:
                 continue
             cur = current_per_source.get(source, 0)
+            delta = 100 * (cur - prev) / prev
+            # A blocked source is a transport failure, not a data regression.
+            # Reporting "18 -> 0 (-100%)" for a 403 is a lie that sends the
+            # reader looking for a broken parser. Warn instead of error so the
+            # scheduled run does not fail on a site that simply refuses us.
+            if source in blocked_sources:
+                if cur != prev:
+                    warnings.append(
+                        f"source '{source}' BLOCKED (403/429/Cloudflare): {prev} -> {cur} items "
+                        f"- transport failure, not a data regression; source skipped this run"
+                    )
+                continue
+            if prev < MIN_SOURCE_BASELINE:
+                # Too small for a percentage rule to mean anything.
+                if cur != prev:
+                    warnings.append(
+                        f"source '{source}' changed: {prev} -> {cur} items ({delta:+.0f}%) "
+                        f"- baseline below {MIN_SOURCE_BASELINE}, not treated as a regression"
+                    )
+                continue
             lo = prev * (1 - SOURCE_TOLERANCE)
             hi = prev * (1 + SOURCE_TOLERANCE)
             if not (lo <= cur <= hi):
-                delta = 100 * (cur - prev) / prev
                 errors.append(
                     f"source '{source}' regressed: {prev} -> {cur} items ({delta:+.0f}%) "
                     f"outside +/-{100 * SOURCE_TOLERANCE:.0f}%"
@@ -291,6 +352,7 @@ def run_gate(
     current_path: str,
     previous_path: Optional[str] = DEFAULT_PREVIOUS,
     allow_init: bool = False,
+    health_path: Optional[str] = DEFAULT_HEALTH,
 ) -> GateResult:
     """Run every check against ``current_path``. Never writes to any file."""
     current = Path(current_path)
@@ -309,7 +371,10 @@ def run_gate(
     base_total, base_per_source, base_note, base_errors, base_warnings = resolve_baseline(
         current, previous_path, allow_init
     )
-    reg_errors, reg_warnings = regression_checks(data, base_total, base_per_source)
+    blocked_sources = load_blocked_sources(health_path)
+    reg_errors, reg_warnings = regression_checks(
+        data, base_total, base_per_source, blocked_sources=blocked_sources
+    )
 
     errors = abs_errors + base_errors + reg_errors
     warnings = abs_warnings + base_warnings + reg_warnings
@@ -358,9 +423,20 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="first run: if no baseline exists, run only the absolute checks",
     )
+    parser.add_argument(
+        "--health",
+        default=DEFAULT_HEALTH,
+        help=f"source-health report written by run_all.py (default: {DEFAULT_HEALTH}); "
+        "sources marked 'blocked' are reported as transport failures, not regressions",
+    )
     args = parser.parse_args(argv)
 
-    result = run_gate(args.current, previous_path=args.previous, allow_init=args.allow_init)
+    result = run_gate(
+        args.current,
+        previous_path=args.previous,
+        allow_init=args.allow_init,
+        health_path=args.health,
+    )
     print(format_report(result))
     return 0 if result.ok else 1
 

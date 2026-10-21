@@ -170,6 +170,68 @@ def filter_stale(items: list[ScrapeItem]) -> list[ScrapeItem]:
     return kept
 
 
+class ScrapeBlocked(Exception):
+    """Raised when a source refuses to serve us (403/429/Cloudflare/etc).
+
+    This is deliberately distinct from "the source returned no items". A blocked
+    source is a *transport* failure: the site is up, we are not allowed to read
+    it. Conflating the two (the previous behaviour — every scraper just
+    ``return []``) makes a block indistinguishable from a genuinely empty
+    listing, so the daily pipeline reported "source regressed -100%" instead of
+    "we were blocked", and the real cause was invisible in the logs.
+
+    ``run_all.run_scraper`` catches this separately and records the source as
+    ``blocked`` rather than ``error`` or ``empty``.
+
+    Attributes:
+        source: human-readable source label, when known.
+        status: the HTTP status code that triggered the block, if any.
+    """
+
+    def __init__(self, message: str = "", *, source: str = "", status: int | None = None):
+        super().__init__(message)
+        self.source = source
+        self.status = status
+
+
+# Responses that mean "you may not read this", not "this is empty":
+#   403 forbidden, 429 rate-limited, 503 with a challenge body.
+_BLOCK_STATUS = frozenset({403, 429, 503})
+# Cloudflare / Akamai / generic interstitial markers. Matched case-insensitively
+# against the first few KB of the body only.
+_INTERSTITIAL_MARKERS = (
+    "just a moment",
+    "attention required",
+    "checking your browser",
+    "enable javascript and cookies",
+    "cf-browser-verification",
+    "access denied",
+    "captcha",
+    "unusual traffic",
+)
+
+
+def is_blocked_response(resp) -> bool:
+    """True when an httpx-like response is a bot block rather than content.
+
+    Shared so scrapers stop re-implementing this: ``angelhack.py`` had its own
+    ``_is_cloudflare_block`` whose result was then thrown away and reported as
+    an empty list.
+
+    Detect by status code first, then by interstitial markers in the body.
+    Only the head of the body is inspected, so a page that merely *mentions*
+    a captcha further down is not misclassified.
+    """
+    status = getattr(resp, "status_code", None)
+    if status in _BLOCK_STATUS:
+        return True
+    try:
+        head = (resp.text or "")[:4096].lower()
+    except Exception:  # a streaming/errored response has no .text
+        return False
+    return any(marker in head for marker in _INTERSTITIAL_MARKERS)
+
+
 def deduplicate(items: list[ScrapeItem]) -> list[ScrapeItem]:
     """Remove duplicates by fingerprint, keeping first occurrence."""
     seen: set[str] = set()
@@ -183,11 +245,16 @@ def deduplicate(items: list[ScrapeItem]) -> list[ScrapeItem]:
 
 
 def deduplicate_by_link(items: list[ScrapeItem]) -> list[ScrapeItem]:
-    """Remove duplicates by link URL, keeping the item with more data."""
+    """Remove duplicates by link URL, keeping the item with more data.
+
+    Links are compared through ``normalize_link``, so scheme, ``www.``, query
+    strings, fragments and trailing slashes do not disguise the same
+    opportunity as two separate ones.
+    """
     link_map: dict[str, ScrapeItem] = {}
     result: list[ScrapeItem] = []
     for item in items:
-        link_key = item.link.rstrip("/").lower()
+        link_key = normalize_link(item.link)
         if not link_key:
             result.append(item)
             continue
@@ -197,13 +264,52 @@ def deduplicate_by_link(items: list[ScrapeItem]) -> list[ScrapeItem]:
             new_score = sum(1 for v in [item.deadline, item.eligibility, item.location, item.prize_pool, item.organizer, item.participants] if v)
             if new_score > existing_score:
                 # Replace existing with richer item
-                result = [x for x in result if x.link.rstrip("/").lower() != link_key]
+                result = [x for x in result if normalize_link(x.link) != link_key]
                 result.append(item)
                 link_map[link_key] = item
         else:
             link_map[link_key] = item
             result.append(item)
     return result
+
+
+# Query parameters that never identify a resource — tracking/campaign cruft.
+# Everything else in a query string is preserved: for sites like SIGNATE every
+# competition shares one path and is distinguished only by `?competition=<id>`.
+_TRACKING_PARAM_RE = re.compile(
+    r'^(utm_[a-z_]+|ref[a-z_]*|referrer|source|fbclid|gclid|mc_cid|mc_eid|igshid|si)$',
+    re.I,
+)
+
+
+def normalize_link(url: str) -> str:
+    """Reduce a URL to a canonical form for cross-source comparison.
+
+    Strips the scheme, a leading ``www.``, any *tracking* query parameters, and
+    a trailing slash, then lowercases. Tracking parameters (``?ref_feature=...``
+    on Devpost, ``?utm_source=...`` elsewhere) otherwise make the same
+    opportunity look like two different links.
+
+    Meaningful parts of the URL are kept, because several sources encode the
+    identity there: ``?competition=<id>`` distinguishes SIGNATE competitions
+    that share one path, and ``#funding`` / ``#eligibility`` distinguish the
+    sections of a single Mitacs page that are each listed as its own item.
+    """
+    if not url:
+        return ""
+    key = url.strip().lower()
+    key = re.sub(r'^https?://', '', key)
+    key = re.sub(r'^www\.', '', key)
+
+    if '?' in key:
+        path, _, query = key.partition('?')
+        kept = [
+            part for part in query.split('&')
+            if part and not _TRACKING_PARAM_RE.match(part.split('=', 1)[0])
+        ]
+        key = f"{path}?{'&'.join(kept)}" if kept else path
+
+    return key.rstrip('/')
 
 
 _OFFLINE_KEYWORDS = re.compile(

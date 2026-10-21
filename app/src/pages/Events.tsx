@@ -2,7 +2,91 @@ import { useEffect, useMemo, useState } from "react";
 import Nav from "../components/Nav";
 import { isLoggedIn } from "../auth";
 import { navigate } from "../router";
-import { loadCatalog, type LoadedCatalog } from "../data";
+import {
+  loadCatalog,
+  parsePrize,
+  type LoadedCatalog,
+  type Opportunity,
+} from "../data";
+
+/** Sort keys offered in the toolbar. */
+type SortKey =
+  | "deadline-asc"
+  | "deadline-desc"
+  | "prize-desc"
+  | "prize-asc"
+  | "added-desc"
+  | "title-asc"
+  | "source-asc";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "deadline-asc", label: "Deadline · soonest" },
+  { value: "deadline-desc", label: "Deadline · latest" },
+  { value: "prize-desc", label: "Prize · highest" },
+  { value: "prize-asc", label: "Prize · lowest" },
+  { value: "added-desc", label: "Recently added" },
+  { value: "title-asc", label: "Title · A–Z" },
+  { value: "source-asc", label: "Source · A–Z" },
+];
+
+/**
+ * Sort a copy of the visible items.
+ *
+ * Every key puts items with no value for that field last, whichever direction
+ * is chosen — an empty deadline is not the "soonest" one, and an unpublished
+ * prize is not the "lowest" one. Ties fall back to title so the order is
+ * stable rather than dependent on the input sequence.
+ */
+function sortItems(items: Opportunity[], key: SortKey): Opportunity[] {
+  const byTitle = (a: Opportunity, b: Opportunity) =>
+    a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+
+  const copy = [...items];
+  copy.sort((a, b) => {
+    switch (key) {
+      case "deadline-asc":
+      case "deadline-desc": {
+        const av = a.deadline || "";
+        const bv = b.deadline || "";
+        if (!av && !bv) return byTitle(a, b);
+        if (!av) return 1;
+        if (!bv) return -1;
+        const cmp = av.localeCompare(bv);
+        return key === "deadline-asc" ? cmp || byTitle(a, b) : -cmp || byTitle(a, b);
+      }
+      case "prize-desc":
+      case "prize-asc": {
+        const ap = parsePrize(a.prize_pool);
+        const bp = parsePrize(b.prize_pool);
+        if (!ap && !bp) return byTitle(a, b);
+        if (!ap) return 1;
+        if (!bp) return -1;
+        // Amounts are only comparable inside one currency.
+        if (ap.currency !== bp.currency) return ap.currency.localeCompare(bp.currency);
+        const cmp = ap.amount - bp.amount;
+        return key === "prize-desc" ? -cmp || byTitle(a, b) : cmp || byTitle(a, b);
+      }
+      case "added-desc": {
+        const av = a.date_added || "";
+        const bv = b.date_added || "";
+        if (!av && !bv) return byTitle(a, b);
+        if (!av) return 1;
+        if (!bv) return -1;
+        return -av.localeCompare(bv) || byTitle(a, b);
+      }
+      case "source-asc": {
+        const cmp = a.source.localeCompare(b.source, undefined, {
+          sensitivity: "base",
+        });
+        return cmp || byTitle(a, b);
+      }
+      case "title-asc":
+      default:
+        return byTitle(a, b);
+    }
+  });
+  return copy;
+}
 
 /** Gated events page — only rendered for a logged-in session. */
 export default function Events() {
@@ -10,6 +94,7 @@ export default function Events() {
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("deadline-asc");
 
   // Gate: bounce to login when there is no session flag.
   useEffect(() => {
@@ -36,7 +121,7 @@ export default function Events() {
   const visible = useMemo(() => {
     if (!data) return [];
     const q = query.trim().toLowerCase();
-    return data.items.filter((item) => {
+    const filtered = data.items.filter((item) => {
       if (typeFilter !== "All" && item.type !== typeFilter) return false;
       if (!q) return true;
       return (
@@ -44,7 +129,8 @@ export default function Events() {
         item.source.toLowerCase().includes(q)
       );
     });
-  }, [data, typeFilter, query]);
+    return sortItems(filtered, sortKey);
+  }, [data, typeFilter, query, sortKey]);
 
   if (!isLoggedIn()) {
     return (
@@ -88,6 +174,22 @@ export default function Events() {
             placeholder="Search title or source…"
             className="w-64 rounded-md border border-rule-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
           />
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <span className="font-mono text-xs uppercase tracking-widest">
+              Sort
+            </span>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="rounded-md border border-rule-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex flex-wrap gap-2">
             {types.map((t) => (
               <button
@@ -118,8 +220,11 @@ export default function Events() {
 
         {data && (
           <ul className="mt-8 divide-y divide-rule border-y border-rule">
-            {visible.map((item, i) => (
-              <li key={i} className="py-4">
+            {visible.map((item) => (
+              <li
+                key={item.link || `${item.source}:${item.title}`}
+                className="py-4"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <a
@@ -133,7 +238,13 @@ export default function Events() {
                     <p className="mt-1 text-sm text-ink-muted">
                       {item.source}
                       {item.eligibility && <> · {item.eligibility}</>}
+                      {item.location && <> · {item.location}</>}
                     </p>
+                    {item.prize_pool && (
+                      <p className="mt-1 font-mono text-xs text-safe">
+                        {item.prize_pool}
+                      </p>
+                    )}
                   </div>
                   <div className="shrink-0 text-right">
                     <span className="rounded-md bg-paper-raised px-2 py-1 font-mono text-xs text-ink-soft">
