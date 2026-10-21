@@ -22,6 +22,11 @@
       "lon": 144.96317,
       "display": "Melbourne, Victoria, Australia"
     },
+    "Acharya Institute of Technology, Acharya College Main Road, Soladevanahalli, Bengaluru, Karnataka, India": {
+      "lat": 14.9562,
+      "lon": 75.78967,
+      "display": "Karnataka, India"
+    },
     "Ajmer, Rajasthan": {
       "lat": 26.4691,
       "lon": 74.639,
@@ -46,11 +51,6 @@
       "lat": 33.95977,
       "lon": -83.3764,
       "display": "Athens, Clarke County, Georgia, United States"
-    },
-    "Atlanta, GA": {
-      "lat": 33.75447,
-      "lon": -84.38982,
-      "display": "Atlanta, Fulton County, Georgia, United States"
     },
     "Atlanta, US": {
       "lat": 33.75447,
@@ -387,6 +387,11 @@
       "lon": 75.50048,
       "display": "Punjab, India"
     },
+    "Guru Tegh Bahadur Institute of Technology, G-8 Area, Press Colony, Rajouri Garden, New Delhi:, Delhi, India": {
+      "lat": 28.6328,
+      "lon": 77.21977,
+      "display": "Delhi, India"
+    },
     "Gwalior West, Madhya Pradesh": {
       "lat": 23.81434,
       "lon": 77.53407,
@@ -477,15 +482,15 @@
       "lon": 75.50048,
       "display": "Punjab, India"
     },
+    "Indore, Madhya Pradesh": {
+      "lat": 22.72036,
+      "lon": 75.8682,
+      "display": "Indore, Juni Indore Tahsil, Indore, Madhya Pradesh, 452001, India"
+    },
     "Ireland": {
       "lat": 52.8652,
       "lon": -7.97946,
       "display": "Éire / Ireland"
-    },
-    "Irvine, CA": {
-      "lat": 33.6857,
-      "lon": -117.82598,
-      "display": "Irvine, Orange County, California, United States"
     },
     "Israel": {
       "lat": 30.81242,
@@ -777,11 +782,6 @@
       "lon": -94.81887,
       "display": "Olathe, Johnson County, Kansas, United States"
     },
-    "Omaha, NE": {
-      "lat": 41.25875,
-      "lon": -95.93838,
-      "display": "Omaha, Douglas County, Nebraska, United States"
-    },
     "Ottawa, CA": {
       "lat": 45.42088,
       "lon": -75.69011,
@@ -791,6 +791,11 @@
       "lat": 38.97425,
       "lon": -94.68517,
       "display": "Overland Park, Johnson County, Kansas, United States"
+    },
+    "Owensboro, KY": {
+      "lat": 37.77422,
+      "lon": -87.11333,
+      "display": "Owensboro, Daviess County, Kentucky, United States"
     },
     "Oxford, GB": {
       "lat": 51.75201,
@@ -806,11 +811,6 @@
       "lat": 28.70327,
       "lon": 77.13225,
       "display": "Madhuban Chowk, Lala Jagat Narayan marg, Kapil Vihar, Pitampura, Keshavpuram, Delhi, Central North Delhi, Delhi, 110034, India"
-    },
-    "Pittsburgh, PA": {
-      "lat": 40.4407,
-      "lon": -80.00257,
-      "display": "Pittsburgh, Allegheny County, Pennsylvania, United States"
     },
     "Port Arthur, TX": {
       "lat": 29.87166,
@@ -872,6 +872,11 @@
       "lon": -122.40752,
       "display": "San Francisco, California, United States"
     },
+    "Seattle, WA": {
+      "lat": 47.60383,
+      "lon": -122.33006,
+      "display": "Seattle, King County, Washington, United States"
+    },
     "Singapore": {
       "lat": 1.35711,
       "lon": 103.8195,
@@ -881,11 +886,6 @@
       "lat": 1.29598,
       "lon": 103.77662,
       "display": "National University of Singapore, one-north, Queenstown, Central Region, Singapore"
-    },
-    "Spokane, WA": {
-      "lat": 47.65719,
-      "lon": -117.42351,
-      "display": "Spokane, Spokane County, Washington, United States"
     },
     "St Louis, MO": {
       "lat": 38.62541,
