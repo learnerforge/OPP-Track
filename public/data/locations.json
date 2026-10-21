@@ -1,5 +1,5 @@
 {
-  "count": 204,
+  "count": 219,
   "source": "OpenStreetMap Nominatim",
   "locations": {
     "AE, Dubai": {
@@ -12,11 +12,6 @@
       "lon": -58.38879,
       "display": "Buenos Aires, Comuna 1, Ciudad Autónoma de Buenos Aires, Argentina"
     },
-    "AU, NSW, Horsley Park": {
-      "lat": -33.83877,
-      "lon": 150.84846,
-      "display": "Horsley Park, Sydney, New South Wales, 2175, Australia"
-    },
     "AU, NSW, Sydney": {
       "lat": -33.86984,
       "lon": 151.20828,
@@ -27,15 +22,20 @@
       "lon": 144.96317,
       "display": "Melbourne, Victoria, Australia"
     },
+    "Ajmer, Rajasthan": {
+      "lat": 26.4691,
+      "lon": 74.639,
+      "display": "Ajmer, Ajmer Tehsil, Ajmer, Rajasthan, India"
+    },
+    "Amal College of Advanced Studies, Nilambur, Myladi, Eranhimangad, Kerala, India": {
+      "lat": 10.35287,
+      "lon": 76.51204,
+      "display": "Kerala, India"
+    },
     "Amherst, US": {
       "lat": 42.37319,
       "lon": -72.51988,
       "display": "Amherst, Hampshire County, Massachusetts, United States"
-    },
-    "Amroha, Uttar Pradesh": {
-      "lat": 28.79526,
-      "lon": 78.34362,
-      "display": "Amroha, Uttar Pradesh, India"
     },
     "Arlington, US": {
       "lat": 32.73558,
@@ -46,6 +46,11 @@
       "lat": 33.95977,
       "lon": -83.3764,
       "display": "Athens, Clarke County, Georgia, United States"
+    },
+    "Atlanta, GA": {
+      "lat": 33.75447,
+      "lon": -84.38982,
+      "display": "Atlanta, Fulton County, Georgia, United States"
     },
     "Atlanta, US": {
       "lat": 33.75447,
@@ -77,15 +82,20 @@
       "lon": 77.59008,
       "display": "Bengaluru, Bangalore North, Bengaluru Urban, Karnataka, India"
     },
-    "Bengaluru, India": {
+    "Bengaluru, Karnataka": {
       "lat": 12.97679,
       "lon": 77.59008,
       "display": "Bengaluru, Bangalore North, Bengaluru Urban, Karnataka, India"
     },
-    "Bhopal, India": {
+    "Bhopal, Madhya Pradesh": {
       "lat": 23.25849,
       "lon": 77.40199,
       "display": "Bhopal, Huzur Tahsil, Bhopal, Madhya Pradesh, 462001, India"
+    },
+    "Bhubaneswar, Odisha": {
+      "lat": 20.2603,
+      "lon": 85.83945,
+      "display": "Bhubaneswar, Bhubaneswar Municipal Corporation, Bhubaneswar (M.Corp.), Khordha, Odisha, 751001, India"
     },
     "Bilaspur, Chhattisgarh": {
       "lat": 22.16385,
@@ -117,11 +127,6 @@
       "lon": 26.10268,
       "display": "București, România"
     },
-    "Buffalo, NY": {
-      "lat": 42.88642,
-      "lon": -78.87815,
-      "display": "Buffalo, Erie County, New York, United States"
-    },
     "Buffalo, US": {
       "lat": 42.88642,
       "lon": -78.87815,
@@ -152,30 +157,20 @@
       "lon": -114.05754,
       "display": "Calgary, Alberta, Canada"
     },
-    "California City, California": {
-      "lat": 35.12593,
-      "lon": -117.95987,
-      "display": "California City, Kern County, California, United States"
-    },
     "Canada": {
       "lat": 61.06669,
       "lon": -107.99171,
       "display": "Canada"
     },
-    "Chandigarh State, India": {
-      "lat": 30.71579,
-      "lon": 76.84323,
-      "display": "State Bank of India, Madhya Marg, Sector 7, Ward 24, Panchkula, Chandigarh, 134114, India"
+    "Chandigarh University, NH-05, Ludhiana - Chandigarh NH, Chandigarh State, Punjab 140413, India": {
+      "lat": 30.77071,
+      "lon": 76.57646,
+      "display": "State Bank of India, CU, Ludhiana - Chandigarh Highway, Lahra, Gharuan, Kharar Tahsil, Sahibzada Ajit Singh Nagar, Punjab, 140413, India"
     },
     "Chennai, Tamil Nadu": {
       "lat": 13.08009,
       "lon": 80.2808,
       "display": "Chennai, Chennai Metropolitan Area, Chennai District, Tamil Nadu, India"
-    },
-    "Chicago, Illinois": {
-      "lat": 41.87556,
-      "lon": -87.62442,
-      "display": "Chicago, South Chicago Township, Cook County, Illinois, United States"
     },
     "Cincinnati, OH": {
       "lat": 39.10128,
@@ -227,6 +222,11 @@
       "lon": -90.57564,
       "display": "Davenport, Rockingham Township, Scott County, Iowa, United States"
     },
+    "Dayton, OH": {
+      "lat": 39.75895,
+      "lon": -84.19161,
+      "display": "Dayton, Montgomery County, Ohio, United States"
+    },
     "Delaware, OH": {
       "lat": 40.23177,
       "lon": -82.9651,
@@ -267,7 +267,12 @@
       "lon": 2.17707,
       "display": "Barcelona, Barcelonès, Barcelona, Catalunya, España"
     },
-    "ES, M, Madrid": {
+    "ES, B, Castellbisbal": {
+      "lat": 41.47651,
+      "lon": 1.9833,
+      "display": "Castellbisbal, Vallès Occidental, Barcelona, Catalunya, 08755, España"
+    },
+    "ES, Madrid": {
       "lat": 40.41678,
       "lon": -3.70351,
       "display": "Madrid, Comunidad de Madrid, España"
@@ -297,10 +302,20 @@
       "lon": -106.48705,
       "display": "El Paso, El Paso County, Texas, United States"
     },
+    "Era Sezhiyan Auditorium, Mahatma Gandhi Block, III floor, Vellore, Tamil Nadu, India": {
+      "lat": 11.33237,
+      "lon": 78.60986,
+      "display": "Tamil Nadu, India"
+    },
     "Espoo, FI": {
       "lat": 60.20497,
       "lon": 24.65598,
       "display": "Espoo, Helsingin seutukunta, Uusimaa, Manner-Suomi, Suomi / Finland"
+    },
+    "Everett, WA": {
+      "lat": 47.97934,
+      "lon": -122.2127,
+      "display": "Everett, Snohomish County, Washington, United States"
     },
     "FR, Clichy": {
       "lat": 48.9026,
@@ -317,15 +332,45 @@
       "lon": -0.12777,
       "display": "Greater London, England, United Kingdom"
     },
+    "Gauteng, Johannesburg": {
+      "lat": -26.205,
+      "lon": 28.04972,
+      "display": "Johannesburg, City of Johannesburg Metropolitan Municipality, Gauteng, 2001, South Africa"
+    },
     "Geneva, Switzerland": {
       "lat": 46.20176,
       "lon": 6.1466,
       "display": "Genève, Schweiz/Suisse/Svizzera/Svizra"
     },
+    "Georgia, Atlanta": {
+      "lat": 33.75447,
+      "lon": -84.38982,
+      "display": "Atlanta, Fulton County, Georgia, United States"
+    },
     "Germany": {
       "lat": 51.16382,
       "lon": 10.44783,
       "display": "Deutschland"
+    },
+    "Glendale, WI": {
+      "lat": 43.12502,
+      "lon": -87.92859,
+      "display": "Glendale, Milwaukee County, Wisconsin, United States"
+    },
+    "Government College of Engineering and Leather Technology, Eastern Metropolitan Bypass, LB Block, Sector 3, Bidhannagar, Kolkata, West Bengal, India": {
+      "lat": 22.99649,
+      "lon": 87.68559,
+      "display": "West Bengal, India"
+    },
+    "Graham, KY": {
+      "lat": 37.25171,
+      "lon": -87.27972,
+      "display": "Graham, Muhlenberg County, Kentucky, 42344, United States"
+    },
+    "Greater Milwaukee": {
+      "lat": 43.05288,
+      "lon": -87.91321,
+      "display": "United Way of Greater Milwaukee & Waukesha County, 225, West Vine Street, Brewers Hill, Lindsay Heights, Milwaukee, Milwaukee County, Wisconsin, 53212, United S"
     },
     "Green Bay, WI": {
       "lat": 44.51264,
@@ -337,15 +382,25 @@
       "lon": 77.02992,
       "display": "Gurugram, Haryana, India"
     },
-    "Haldwani, Uttarakhand": {
-      "lat": 29.21448,
-      "lon": 79.5279,
-      "display": "Haldwani, Nainital, Uttarakhand, India"
+    "Guru Nanak Dev Engineering College, Gill Road, Gill Park, Ludhiana, Punjab, India": {
+      "lat": 30.92932,
+      "lon": 75.50048,
+      "display": "Punjab, India"
+    },
+    "Gwalior West, Madhya Pradesh": {
+      "lat": 23.81434,
+      "lon": 77.53407,
+      "display": "Madhya Pradesh, India"
     },
     "Hamilton, CA": {
       "lat": 43.25608,
       "lon": -79.87286,
       "display": "Hamilton, Ontario, Canada"
+    },
+    "Hennepin County, MN": {
+      "lat": 45.02572,
+      "lon": -93.48651,
+      "display": "Hennepin County, Minnesota, United States"
     },
     "Hernando, MS": {
       "lat": 34.82395,
@@ -362,15 +417,25 @@
       "lon": 114.15828,
       "display": "香港 Hong Kong, 中国"
     },
-    "Honolulu, HI": {
-      "lat": 21.30455,
-      "lon": -157.85568,
-      "display": "Honolulu, Honolulu County, Hawaii, United States"
+    "House of Communication, Friedenstraße, Munich, Germany": {
+      "lat": 48.12755,
+      "lon": 11.60937,
+      "display": "Serviceplan - House Of Communication, 24, Friedenstraße, Werksviertel, Berg am Laim, München, Bayern, 81671, Deutschland"
     },
-    "Huntsville, AL": {
-      "lat": 34.72985,
-      "lon": -86.5859,
-      "display": "Huntsville, Madison County, Alabama, United States"
+    "Hubbard, IA": {
+      "lat": 42.30563,
+      "lon": -93.29738,
+      "display": "Hubbard, Hardin County, Iowa, 50122, United States"
+    },
+    "Huntington, IN": {
+      "lat": 40.80083,
+      "lon": -85.50185,
+      "display": "Huntington County, Indiana, United States"
+    },
+    "Hyderabad, Telangana": {
+      "lat": 17.36059,
+      "lon": 78.47406,
+      "display": "Hyderabad, Bahadurpura mandal, Hyderabad, Telangana, India"
     },
     "IE, D, Dublin": {
       "lat": 53.34938,
@@ -397,10 +462,20 @@
       "lon": 12.48293,
       "display": "Roma, Roma Capitale, Lazio, Italia"
     },
+    "Independence, MO": {
+      "lat": 39.09248,
+      "lon": -94.41379,
+      "display": "Independence, Jackson County, Missouri, United States"
+    },
     "India": {
       "lat": 22.35111,
       "lon": 78.66774,
       "display": "India"
+    },
+    "Indo Global Colleges, New Chandigarh, Abhipur, Punjab, India": {
+      "lat": 30.92932,
+      "lon": 75.50048,
+      "display": "Punjab, India"
     },
     "Ireland": {
       "lat": 52.8652,
@@ -417,25 +492,30 @@
       "lon": 34.85948,
       "display": "ישראל"
     },
-    "Jackson, MN": {
-      "lat": 43.67001,
-      "lon": -95.15006,
-      "display": "Jackson County, Minnesota, United States"
+    "Jabalpur, Madhya Pradesh": {
+      "lat": 23.17015,
+      "lon": 79.93245,
+      "display": "Jabalpur, Ranjhi Tahsil, Jabalpur, Madhya Pradesh, 482001, India"
     },
     "Jaipur, Rajasthan": {
       "lat": 26.91546,
       "lon": 75.81898,
       "display": "Jaipur, Jaipur Municipal Corporation, Jaipur Tehsil, Jaipur, Rajasthan, 302001, India"
     },
-    "KSR Kalvi Nagar, India": {
-      "lat": 11.36394,
-      "lon": 77.83548,
-      "display": "KSR Kalvi Nagar, Pudur Weavers Colony, Tiruchengode, Namakkal, Tamil Nadu, 637215, India"
+    "K S R College of Engineering, KSR Kalvi Nagar, Tamil Nadu, India": {
+      "lat": 11.33237,
+      "lon": 78.60986,
+      "display": "Tamil Nadu, India"
     },
     "Kansas City, KS": {
       "lat": 39.11346,
       "lon": -94.6265,
       "display": "Kansas City, Wyandotte County, Kansas, United States"
+    },
+    "Kansas City, MO": {
+      "lat": 39.1001,
+      "lon": -94.57814,
+      "display": "Kansas City, Jackson County, Missouri, United States"
     },
     "Kent, US": {
       "lat": 33.16653,
@@ -456,11 +536,6 @@
       "lat": 35.96039,
       "lon": -83.92103,
       "display": "Knoxville, Knox County, East Tennessee, Tennessee, United States"
-    },
-    "Kolkata, India": {
-      "lat": 22.57265,
-      "lon": 88.3639,
-      "display": "Kolkata, Greater Kolkata, Kolkata, West Bengal, India"
     },
     "Kolkata, West Bengal": {
       "lat": 22.57265,
@@ -487,6 +562,11 @@
       "lon": -86.8919,
       "display": "Lafayette, Tippecanoe County, Indiana, United States"
     },
+    "Largo, FL": {
+      "lat": 27.90947,
+      "lon": -82.78732,
+      "display": "Largo, Pinellas County, Florida, United States"
+    },
     "Lawrence, US": {
       "lat": 38.97191,
       "lon": -95.23594,
@@ -501,6 +581,11 @@
       "lat": 38.96975,
       "lon": -94.78458,
       "display": "Lenexa, Johnson County, Kansas, United States"
+    },
+    "Ljubljana, Ljubljana": {
+      "lat": 46.05003,
+      "lon": 14.50693,
+      "display": "Ljubljana, Upravna Enota Ljubljana, 1000, Slovenija"
     },
     "Lleida, ES": {
       "lat": 41.61476,
@@ -517,11 +602,6 @@
       "lon": -0.12777,
       "display": "Greater London, England, United Kingdom"
     },
-    "Lorain, OH": {
-      "lat": 41.26336,
-      "lon": -82.17347,
-      "display": "Lorain County, Ohio, United States"
-    },
     "Los Angeles, US": {
       "lat": 34.05369,
       "lon": -118.24277,
@@ -537,10 +617,10 @@
       "lon": 80.9346,
       "display": "Lucknow, Uttar Pradesh, 226027, India"
     },
-    "Ludhiana, India": {
-      "lat": 30.90902,
-      "lon": 75.8516,
-      "display": "Ludhiana, Ludhiana (West) Tahsil, Ludhiana, Punjab, 141001, India"
+    "MANIT, Maulana Azad National Institute of Technology, Bhopal, Madhya Pradesh, India": {
+      "lat": 23.81434,
+      "lon": 77.53407,
+      "display": "Madhya Pradesh, India"
     },
     "MX, DIF, Mexico City": {
       "lat": 19.43263,
@@ -562,25 +642,10 @@
       "lon": -89.62374,
       "display": "Mérida, Yucatán, 97000, México"
     },
-    "Madison, WI": {
-      "lat": 43.07469,
-      "lon": -89.38417,
-      "display": "Madison, Dane County, Wisconsin, United States"
-    },
-    "Manhattan Beach, CA": {
-      "lat": 33.88728,
-      "lon": -118.41043,
-      "display": "Manhattan Beach, Los Angeles County, California, 90266, United States"
-    },
     "Maryland Heights, MO": {
       "lat": 38.71505,
       "lon": -90.436,
       "display": "Maryland Heights, Saint Louis County, Missouri, United States"
-    },
-    "Masonville, IA": {
-      "lat": 42.47936,
-      "lon": -91.59115,
-      "display": "Masonville, Coffins Grove Township, Delaware County, Iowa, United States"
     },
     "Massachusetts": {
       "lat": 42.37888,
@@ -642,45 +707,40 @@
       "lon": 72.8692,
       "display": "Mumbai, Mumbai Suburban District, Maharashtra, 400051, India"
     },
-    "Myladi, India": {
-      "lat": 11.09843,
-      "lon": 76.04749,
-      "display": "Myladi, New Bazar, Ernad, Malappuram, Kerala, 676517, India"
-    },
-    "München, Germany": {
+    "Munich": {
       "lat": 48.13711,
       "lon": 11.57538,
       "display": "München, Bayern, Deutschland"
     },
-    "Nagpur, India": {
+    "NL, Amsterdam": {
+      "lat": 52.37308,
+      "lon": 4.89245,
+      "display": "Amsterdam, Noord-Holland, Nederland"
+    },
+    "Nagpur, Maharashtra": {
       "lat": 21.14981,
       "lon": 79.08206,
       "display": "Nagpur City, Nagpur Urban Taluka, Nagpur, Maharashtra, India"
     },
-    "Nampa, ID": {
-      "lat": 43.57804,
-      "lon": -116.56169,
-      "display": "Nampa, Canyon County, Idaho, United States"
+    "Nagpur, Maharashtra, India": {
+      "lat": 21.14981,
+      "lon": 79.08206,
+      "display": "Nagpur City, Nagpur Urban Taluka, Nagpur, Maharashtra, India"
     },
     "Netherlands": {
       "lat": 52.2435,
       "lon": 5.63432,
       "display": "Nederland"
     },
-    "New Berlin, WI": {
-      "lat": 42.97622,
-      "lon": -88.1085,
-      "display": "New Berlin, Waukesha County, Wisconsin, United States"
+    "New Albany, OH": {
+      "lat": 40.08117,
+      "lon": -82.80879,
+      "display": "New Albany, Plain Township, Franklin County, Ohio, 43054, United States"
     },
     "New Brunswick, US": {
       "lat": 40.49361,
       "lon": -74.44364,
       "display": "New Brunswick, Middlesex County, New Jersey, United States"
-    },
-    "New Chandigarh, India": {
-      "lat": 30.73525,
-      "lon": 76.79061,
-      "display": "The New Public School, Sarovar Path, Sector 18, Ward 17, Chandigarh, 160018, India"
     },
     "New York, US": {
       "lat": 40.71273,
@@ -696,6 +756,11 @@
       "lat": 40.73566,
       "lon": -74.17237,
       "display": "Newark, Essex County, New Jersey, United States"
+    },
+    "Noida, Delhi": {
+      "lat": 28.57507,
+      "lon": 77.31249,
+      "display": "Delhi One, Chilla, Noida, Dadri, Gautam Buddha Nagar, Uttar Pradesh, 201301, India"
     },
     "Noida, Uttar Pradesh": {
       "lat": 28.57063,
@@ -732,25 +797,25 @@
       "lon": -1.25785,
       "display": "Oxford, Oxfordshire, England, United Kingdom"
     },
-    "Patiala, India": {
-      "lat": 30.20928,
-      "lon": 76.33972,
-      "display": "Patiala, Punjab, India"
-    },
     "Peterborough, CA": {
       "lat": 44.3048,
       "lon": -78.31995,
       "display": "Peterborough, Central Ontario, Ontario, Canada"
     },
+    "Pitampura, Delhi": {
+      "lat": 28.70327,
+      "lon": 77.13225,
+      "display": "Madhuban Chowk, Lala Jagat Narayan marg, Kapil Vihar, Pitampura, Keshavpuram, Delhi, Central North Delhi, Delhi, 110034, India"
+    },
+    "Pittsburgh, PA": {
+      "lat": 40.4407,
+      "lon": -80.00257,
+      "display": "Pittsburgh, Allegheny County, Pennsylvania, United States"
+    },
     "Port Arthur, TX": {
       "lat": 29.87166,
       "lon": -93.93323,
       "display": "Port Arthur, Jefferson County, Texas, United States"
-    },
-    "Portland, OR": {
-      "lat": 45.52025,
-      "lon": -122.67419,
-      "display": "Portland, Multnomah County, Oregon, United States"
     },
     "Princeton, US": {
       "lat": 40.3497,
@@ -817,11 +882,6 @@
       "lon": 103.77662,
       "display": "National University of Singapore, one-north, Queenstown, Central Region, Singapore"
     },
-    "Sonipat, Haryana": {
-      "lat": 28.99538,
-      "lon": 77.02336,
-      "display": "Sonipat, Haryana, 131001, India"
-    },
     "Spokane, WA": {
       "lat": 47.65719,
       "lon": -117.42351,
@@ -857,6 +917,16 @@
       "lon": 121.41823,
       "display": "台灣房屋, 7, 富國路, 裕民里, 新莊區, 三角埔, 新北市, 242076, 臺灣"
     },
+    "Techno India University, EM Block, Sector V, Bidhannagar, Kolkata, West Bengal 700091, India": {
+      "lat": 22.57603,
+      "lon": 88.42844,
+      "display": "Techno India University, Street Number 13, DN Block, Sector V, Bidhannagar, Greater Kolkata, Rajarhat, North 24 Parganas, West Bengal, 700091, India"
+    },
+    "Tel Aviv, Israel": {
+      "lat": 32.0853,
+      "lon": 34.78181,
+      "display": "תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, ישראל"
+    },
     "Tel Aviv, Israel, Haifa, Israel": {
       "lat": 32.81912,
       "lon": 34.99839,
@@ -866,6 +936,16 @@
       "lat": 33.42551,
       "lon": -111.94002,
       "display": "Tempe, Maricopa County, Arizona, United States"
+    },
+    "Texas": {
+      "lat": 31.26389,
+      "lon": -98.54561,
+      "display": "Texas, United States"
+    },
+    "Thapar Institute of Engineering & Technology, Bhadson Road, Adarsh Nagar, Prem Nagar, Patiala, Punjab, India": {
+      "lat": 30.92932,
+      "lon": 75.50048,
+      "display": "Punjab, India"
     },
     "Timișoara, RO": {
       "lat": 45.75384,
@@ -897,10 +977,20 @@
       "lon": 22.267,
       "display": "Turku, Turun seutukunta, Varsinais-Suomi, Manner-Suomi, Suomi / Finland"
     },
+    "UCL East - Marshgate, Sidings Street, London, UK": {
+      "lat": 51.50745,
+      "lon": -0.12777,
+      "display": "Greater London, England, United Kingdom"
+    },
     "US": {
       "lat": 39.78373,
       "lon": -100.44588,
       "display": "United States"
+    },
+    "US, CA, Cupertino": {
+      "lat": 37.32289,
+      "lon": -122.03229,
+      "display": "Cupertino, Santa Clara County, California, 95014, United States"
     },
     "US, CA, Fresno": {
       "lat": 36.73944,
@@ -937,11 +1027,6 @@
       "lon": -100.44588,
       "display": "United States"
     },
-    "United Kingdom": {
-      "lat": 54.70235,
-      "lon": -3.27658,
-      "display": "United Kingdom"
-    },
     "University Park, US": {
       "lat": 32.85513,
       "lon": -96.79195,
@@ -962,11 +1047,6 @@
       "lon": -107.99171,
       "display": "Canada"
     },
-    "Vellore, India": {
-      "lat": 12.90218,
-      "lon": 79.0611,
-      "display": "Vellore, Tamil Nadu, India"
-    },
     "Virginia": {
       "lat": 37.12322,
       "lon": -78.49277,
@@ -981,11 +1061,6 @@
       "lat": 38.8951,
       "lon": -77.03638,
       "display": "Washington, District of Columbia, United States"
-    },
-    "Waterloo, ON, Canada, Toronto, ON, Canada": {
-      "lat": 50.00068,
-      "lon": -86.00098,
-      "display": "Ontario, Canada"
     },
     "Waukesha, WI": {
       "lat": 43.06225,
