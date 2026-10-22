@@ -1,0 +1,126 @@
+# OPP-Track codebase review — 2026-10-22
+
+## Scope and verification
+
+Reviewed the tracked application, API, pipeline, scraper, test, workflow, configuration, and documentation trees. The deployed Vercel target is `app/` (`vercel.json`), with serverless handlers in `api/`; `src/` and `frontend/` are additional, older frontend implementations.
+
+Checks run locally (updated after implementation):
+
+- `npm run typecheck`, `npm run typecheck:app`, and `npm run typecheck:api`: passed.
+- `npm run validate`: passed against the current 2,887-item catalog (three duplicate-title warnings).
+- `npm run verify:data-integrity`: passed after publication repair.
+- `npm test`: 23/23 passed; `npm run build:app`: passed; `pytest tests -q`: 13/13 passed.
+
+## Must fix first
+
+### 1. The edit API secret is exposed to every browser user — critical security issue
+
+`app/src/data.ts` reads `VITE_EDITS_TOKEN` and sends it in the `x-edits-token` header. Every `VITE_*` variable is compiled into the public JavaScript bundle, so it cannot authenticate a write request. Anyone can inspect the bundle or browser network traffic, recover the token, and call `POST /api/edits` directly.
+
+The login gate is also explicitly client-side: its password digest is bundled, and `isLoggedIn()` accepts a locally constructed `localStorage` payload. This is not a security boundary, even for one user. The Vercel Blob edit document is written with `access: 'public'`, and `GET /api/edits` returns every edit (including notes) without authentication.
+
+Recommendation: remove the browser-shipped shared secret and choose a real server-verifiable identity/session mechanism (for example Vercel/third-party auth with an HttpOnly session cookie). Require authorization for both read and write access to edits. Store the Blob privately. If real authentication is out of scope, remove the edit endpoint and describe the catalog as fully public/read-only rather than presenting a login control.
+
+### 2. Published-data integrity metadata was false — fixed in this working tree
+
+The current files are internally inconsistent:
+
+- `data/manifest.json` claims SHA-256 `d996cd93…` and names `opportunities.d996cd93.json`.
+- Both `data/scraped_opportunities.json` and that named published file contain 2,887 items and hash to `0072aef6…`.
+
+This defeats the manifest’s purpose: clients and `/api/health` report a checksum that does not identify the bytes they serve. It can also make troubleshooting and cache invalidation misleading.
+
+Implemented: regenerated the manifest and immutable asset under the actual hash,
+added `scripts/verify_published_data.py`, wired it into the guarded publisher
+and CI, and verified the current 2,887-item asset. The verifier checks the
+canonical hash, manifest fields, public-manifest equality, item count, and
+byte-for-byte identity of the public snapshot.
+
+### 3. Edit persistence could silently discard data — partially fixed
+
+`saveEdit()` performs read-modify-write of one document and replaces an opportunity’s entire `fields` object with only the fields from the latest request. Editing title, then later editing deadline, causes the saved title override to disappear and revert to the scraped value. The 15-second process-local cache and concurrent serverless requests also permit lost updates. Worse, `loadEdits()` converts a Blob outage/read failure into an empty document; a subsequent save can overwrite the real document with that empty baseline.
+
+Implemented: a write now uses a fresh, strict read and merges existing fields
+before persisting, so changing one field no longer removes earlier overrides.
+It refuses a save when the existing document cannot be read. Remaining: true
+multi-writer conflict protection still requires CAS/versioning or per-record
+storage, plus Blob-backed regression tests.
+
+## High-priority engineering improvements
+
+### 4. Consolidate the three frontend implementations and define one source of truth
+
+There are three frontend trees: legacy `src/`, `frontend/src/`, and deployed `app/src/`. Documentation, tests, root scripts, and the freeze policy mainly reference `src/`, while Vercel deploys `app/`. This creates a high probability that developers fix or test the wrong application. For example, root `npm run typecheck`, `npm test`, and `npm run build` exercise the legacy frontend, not the deployed UI.
+
+Recommendation: migrate the deployed app into the primary frontend root (or adopt a proper workspace with explicit packages), then delete/archive the unused copies. Update all scripts and CI to build/typecheck/test the deployable app and API. Remove the `src/` freeze workaround once the architecture is unified.
+
+### 5. Make CI validate what Vercel deploys — partially fixed
+
+`verify.yml` runs root typecheck/build/tests but does not run `tsc -p app/tsconfig.json`, `tsc -p api/tsconfig.json`, or the deployed `npm run build:app`. The only unit test command is the migration test for the legacy storage implementation. Consequently a deploy-breaking app/API change can be green in GitHub Actions.
+
+Implemented: added `typecheck:app` and `typecheck:api` scripts, included them in
+`verify:all`, and made CI typecheck both deployable surfaces and build `app/`.
+Remaining: API-handler and deployed-preview smoke tests.
+
+### 6. Repair the documentation/product-contract drift
+
+The README describes an automatic 2,588-opportunity / 73-source product; the actual manifest says 2,887 / 70. `docs/ARCHITECTURE.md`, `TASKS.md`, and `KNOWN_ISSUES_AND_DECISIONS.md` describe a no-backend, no-auth personal local-storage MVP that is no longer the deployed product. `docs/API.md` says the SPA does not use runtime fetches, but `app/src/data.ts` does. The landing page says “no write surface” even though `/api/edits` exists.
+
+Recommendation: select one current architecture document, label historical material as archived, and update README/API/security statements from generated facts (manifest-derived counts and actual routes). Add a documentation review to release/publish changes.
+
+### 7. Fix the incomplete catalog fallback — fixed in this working tree
+
+When the static manifest asset is unavailable, `loadCatalog()` requests `/api/opportunities?page_size=100`, but the API caps pages at 100. The UI then presents only the first 100 of thousands of opportunities without paging or a warning.
+
+Implemented: the fallback now validates pagination metadata and retrieves every
+API page before rendering the catalog.
+
+### 8. Keep API responses semantically consistent with edits
+
+`/api/opportunities` and `/api/opportunities/[id]` merge edits, but `/api/export` and `/api/stats` read the raw dataset. A user can see edited values in one route and export/count the original values from another.
+
+Recommendation: decide whether edits are personal/private overlays or canonical shared data. If shared, apply them consistently to every relevant read route; if private, require identity and apply only that user’s edit set. Document the decision and test it.
+
+## Data-pipeline and scraper improvements
+
+### 9. Add quality/provenance controls beyond schema validation
+
+The validator correctly checks field shape, dates, identity, and duplicate links, but it cannot establish that listings are current, relevant, or genuinely opportunities. The catalog includes a large number of evergreen items and aggregated job/course records, so stale or poorly classified records can pass all gates. Current historical counts also differ across documentation and older assets.
+
+Recommendation: record `scraped_at`, source URL, parser version, and a freshness/expiry decision per record. Add source-specific acceptance tests with saved fixtures, a sampled human-review queue, and metrics for stale links, expired listings, and fields missing by source. Establish a retention policy for expired records instead of retaining them indefinitely without a user-visible status.
+
+### 10. Bound link validation and make scraper failures observable
+
+`validate-data.mjs --check-links` starts a promise for every URL at once. At catalog scale this can overwhelm the runner/network and create noisy false negatives. Scrapers are network-dependent and often subject to rate limits/anti-bot controls; the existing health file is useful but is not sufficient alerting on its own.
+
+Recommendation: use a small configurable concurrency limit, retry only transient failures with backoff, and distinguish 404/410 from 403/429/timeouts. Emit machine-readable per-source metrics and alert on freshness, error rate, zero output, and meaningful count deltas. Keep raw response/fixture samples only where permitted by source terms.
+
+### 11. Remove or rotate immutable public snapshots deliberately
+
+`public/data/` currently contains several full historical snapshots. They will grow with every publication unless they are intentionally retained. The manifest only points to one file, but old files are still deployable/public.
+
+Recommendation: define a retention window for public immutable assets, clean obsolete snapshots during publish, and ensure caches retain a snapshot for at least the maximum manifest cache lifetime before deletion. Keep longer-term recovery copies in the backup/artifact system rather than the public web root.
+
+## Product and UI improvements
+
+### 12. Match the UI to the catalog’s scale
+
+The events page renders the entire filtered result list at once and only has type/text filters. At thousands of records this can create slow first paint, expensive re-sorts, and an overwhelming browsing experience.
+
+Recommendation: use server-side search/filtering with pagination or virtualization; add filters for deadline range, source, location/remote, prize, and tags; persist user preferences; and display a clear result total/loading state. Consider separating opportunities from evergreen learning catalogs so deadlines are not diluted.
+
+### 13. Improve accessibility and resilience
+
+The custom router and button-based navigation work minimally, but there is no route-level focus management, no visible skip link, and form inputs in inline editing lack type-specific validation/semantics. External links should have accessible labels that communicate they open a new tab. Failure states for edits/catalog fetching should offer retry guidance.
+
+Recommendation: run automated accessibility checks (axe/Lighthouse) and manual keyboard/screen-reader testing in CI/pre-release; use semantic links where appropriate; add focus restoration after navigation/editing; and validate date/URL fields client-side before submitting.
+
+## Suggested delivery order
+
+1. Disable/rework public edit authorization and private data exposure.
+2. Rebuild the current manifest/assets and add integrity tests.
+3. Make edit writes lossless and failure-safe with tests.
+4. Align CI with `app/` + `api/`, then consolidate/remove duplicate frontends.
+5. Bring README/docs/product claims up to date.
+6. Improve catalog pagination, pipeline observability, data quality, and accessibility.
+

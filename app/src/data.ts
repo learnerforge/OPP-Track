@@ -209,11 +209,28 @@ export async function loadCatalog(): Promise<LoadedCatalog> {
 
   // API fallback — server clamps page_size, so request a large page and accept
   // whatever the validator allows.
-  const res = await fetch("/api/opportunities?page_size=100", { cache: "no-cache" });
-  if (!res.ok) throw new Error(`catalog unavailable (HTTP ${res.status})`);
-  const items = pickItems(await res.json());
-  if (!items) throw new Error("catalog unavailable (unexpected shape)");
-  return { items, manifest, origin: "api-fallback" };
+  const firstRes = await fetch("/api/opportunities?page_size=100&page=1", { cache: "no-cache" });
+  if (!firstRes.ok) throw new Error(`catalog unavailable (HTTP ${firstRes.status})`);
+  const firstBody = (await firstRes.json()) as { items?: unknown; total_pages?: unknown };
+  const firstItems = pickItems(firstBody);
+  if (!firstItems) throw new Error("catalog unavailable (unexpected shape)");
+  const totalPages = typeof firstBody.total_pages === "number" ? firstBody.total_pages : 1;
+  if (!Number.isInteger(totalPages) || totalPages < 1 || totalPages > 10_000) {
+    throw new Error("catalog unavailable (invalid pagination metadata)");
+  }
+  if (totalPages === 1) return { items: firstItems, manifest, origin: "api-fallback" };
+
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map(async (page) => {
+      const res = await fetch(`/api/opportunities?page_size=100&page=${page}`, { cache: "no-cache" });
+      if (!res.ok) throw new Error(`catalog unavailable (HTTP ${res.status} on page ${page})`);
+      const body = (await res.json()) as { items?: unknown };
+      const items = pickItems(body);
+      if (!items) throw new Error(`catalog unavailable (unexpected page ${page} shape)`);
+      return items;
+    }),
+  );
+  return { items: [firstItems, ...rest].flat(), manifest, origin: "api-fallback" };
 }
 
 /** Identity of an opportunity, matching the API's id/fingerprint rule. */

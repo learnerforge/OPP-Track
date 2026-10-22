@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-10-21T20:18:48Z",
+  "generated_at": "2026-10-22T08:01:07Z",
   "item_count": 2887,
   "type_histogram": {
     "Certification": 797,
@@ -81,11 +81,11 @@
     "lablab.ai": 2
   },
   "rolling_count": 1685,
-  "sha256": "d996cd932c55e997a9accd26e86afc10371a9e1f6b469be1630e3d3c19dfa8c1",
-  "published_sha8": "d996cd93",
-  "published_file": "opportunities.d996cd93.json",
-  "git_commit": "9686b30e4543ef9baa0872f1dd9fa1398c17de84",
-  "duration_s": 0.259,
-  "seed_version": "11",
+  "sha256": "0072aef67cc1b31ebce34421ae4e8ff2b990ec18925e5e1648631154123e5955",
+  "published_sha8": "0072aef6",
+  "published_file": "opportunities.0072aef6.json",
+  "git_commit": "58e6f180b10496a08dbac698cc7b748a7478bf1d",
+  "duration_s": 0.238,
+  "seed_version": "12",
   "validator_version": "sha256:3df14ab3"
 }

@@ -52,6 +52,7 @@ VALIDATOR = PROJECT_ROOT / "scripts" / "validate-data.mjs"
 SANITY_GATE = PROJECT_ROOT / "scripts" / "sanity_gate.py"
 ROTATE_BACKUPS = PROJECT_ROOT / "scripts" / "rotate_backups.py"
 REGENERATE_SEEDS = PROJECT_ROOT / "scripts" / "regenerate_seeds.py"
+VERIFY_PUBLISHED_DATA = PROJECT_ROOT / "scripts" / "verify_published_data.py"
 STORAGE_TS = PROJECT_ROOT / "src" / "lib" / "storage.ts"
 
 SCHEMA_VERSION = 1
@@ -388,6 +389,15 @@ def main() -> int:
     atomic_write_bytes(PUBLIC_DATA_DIR / "manifest.json", manifest_bytes)
     print(f"[publish] wrote data/manifest.json (sha256 {sha8}, {manifest['item_count']} items)")
     print(f"[publish] wrote public/data/{manifest['published_file']} + public/data/manifest.json")
+
+    # Verify the exact bytes and manifest names immediately. A manifest that
+    # points to a different payload makes cache-busting and health reporting
+    # actively misleading, so publication must not report success in that case.
+    if VERIFY_PUBLISHED_DATA.is_file():
+        proc = run_step([sys.executable, str(VERIFY_PUBLISHED_DATA)], "verify published data integrity")
+        if proc.returncode != 0:
+            print("[publish] ERROR: post-write data integrity verification failed", file=sys.stderr)
+            return 2
 
     # --- f. backup rotation (invokes companion #1's rotator, never reimpl) -
     if ROTATE_BACKUPS.is_file():

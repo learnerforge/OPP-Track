@@ -118,6 +118,43 @@ export async function loadEdits(): Promise<EditDocument> {
 }
 
 /**
+ * Read an edit document to use as a write baseline.
+ *
+ * Read endpoints may degrade to an empty overlay during a Blob outage. A save
+ * must not: writing that empty overlay back would erase all prior edits.
+ */
+async function loadEditsForWrite(): Promise<EditDocument> {
+  if (!blobConfigured()) {
+    throw new EditsError(
+      'Edit storage is not configured (BLOB_READ_WRITE_TOKEN is unset).',
+      'edits_not_configured',
+    );
+  }
+
+  try {
+    const { list } = await import('@vercel/blob');
+    const { blobs } = await list({ prefix: EDITS_BLOB_PATH, limit: 1 });
+    const match = blobs.find((b) => b.pathname === EDITS_BLOB_PATH);
+    if (!match) return EMPTY;
+    const res = await fetch(match.url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`blob fetch failed (${res.status})`);
+    const parsed = (await res.json()) as Partial<EditDocument>;
+    if (parsed.edits !== undefined && (!parsed.edits || typeof parsed.edits !== 'object')) {
+      throw new Error('blob document has an invalid edits field');
+    }
+    return {
+      version: typeof parsed.version === 'number' ? parsed.version : 1,
+      updated_at: typeof parsed.updated_at === 'string' ? parsed.updated_at : '',
+      edits: (parsed.edits as Record<string, StoredEdit> | undefined) ?? {},
+    };
+  } catch (err) {
+    throw new EditsError(
+      `Could not read existing edits before saving: ${String((err as Error)?.message ?? err)}`,
+    );
+  }
+}
+
+/**
  * Persist a single edit and return the full updated document.
  *
  * Read-modify-write against one blob. Two simultaneous editors can therefore
@@ -138,7 +175,7 @@ export async function saveEdit(
   }
 
   const { put } = await import('@vercel/blob');
-  const current = await loadEdits();
+  const current = await loadEditsForWrite();
   const now = new Date().toISOString();
 
   const next: EditDocument = {
@@ -146,7 +183,11 @@ export async function saveEdit(
     updated_at: now,
     edits: {
       ...current.edits,
-      [id]: { fields: { ...fields }, updated_at: now, updated_by: updatedBy },
+      [id]: {
+        fields: { ...(current.edits[id]?.fields ?? {}), ...fields },
+        updated_at: now,
+        updated_by: updatedBy,
+      },
     },
   };
 

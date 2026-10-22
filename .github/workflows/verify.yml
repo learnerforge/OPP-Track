@@ -57,14 +57,26 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Deployed app typecheck
+        run: npm run typecheck:app
+
+      - name: API typecheck
+        run: npm run typecheck:api
+
       - name: Test
         run: npm test
 
       - name: Build
         run: npm run build
 
+      - name: Deployed app build
+        run: npm run build:app
+
       - name: Node data validation
         run: npm run validate
+
+      - name: Published data integrity
+        run: npm run verify:data-integrity
 
       # Python 3.13's unittest exits 5 ("NO TESTS RAN") when no test file
       # matches, so only run discovery once E2's tests/test_*.py exists; the

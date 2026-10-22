@@ -13,7 +13,10 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
+    "typecheck:app": "tsc -p app/tsconfig.json --noEmit",
+    "typecheck:api": "tsc -p api/tsconfig.json --noEmit",
     "validate": "node scripts/validate-data.mjs",
+    "verify:data-integrity": "python scripts/verify_published_data.py",
     "validate:links": "node scripts/validate-data.mjs --check-links",
     "test": "node tests/migration.test.mjs",
     "scrape": "python scripts/scrapers/run_all.py",
@@ -32,7 +35,7 @@
     "merge:seeds": "python scripts/merge_seeds.py",
     "check:freeze": "python scripts/check_freeze.py",
     "publish:data": "python scripts/publish_dataset.py --with-seeds",
-    "verify:all": "npm run typecheck && npm test && npm run validate"
+    "verify:all": "npm run typecheck && npm run typecheck:app && npm run typecheck:api && npm test && npm run validate && npm run verify:data-integrity"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",
