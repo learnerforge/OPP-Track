@@ -1,4 +1,9 @@
 {
+  "4Seas Nimman Coliving Coworking Space Nimmana Haeminda Road Lane 15 Nimmanhaemin Suthep, Mueang Chiang Mai District, Chiang Mai, Thailand": {
+    "lat": 18.78828,
+    "lon": 98.98588,
+    "display": "เทศบาลนครเชียงใหม่, ฟ้าฮ่าม, อำเภอเมืองเชียงใหม่, จังหวัดเชียงใหม่, ประเทศไทย"
+  },
   "AE, Dubai": {
     "lat": 25.07428,
     "lon": 55.18856,
@@ -93,6 +98,11 @@
     "lat": 12.97679,
     "lon": 77.59008,
     "display": "Bengaluru, Bangalore North, Bengaluru Urban, Karnataka, India"
+  },
+  "Beatrice, NE": {
+    "lat": 40.26643,
+    "lon": -96.74737,
+    "display": "Beatrice, Gage County, Nebraska, United States"
   },
   "Bengaluru, India": {
     "lat": 12.97679,
@@ -204,6 +214,11 @@
     "lon": 76.57646,
     "display": "State Bank of India, CU, Ludhiana - Chandigarh Highway, Lahra, Gharuan, Kharar Tahsil, Sahibzada Ajit Singh Nagar, Punjab, 140413, India"
   },
+  "Chandigarh, Chandigarh": {
+    "lat": 30.73344,
+    "lon": 76.77971,
+    "display": "Chandigarh, 160018, India"
+  },
   "Chennai, Tamil Nadu": {
     "lat": 13.08009,
     "lon": 80.2808,
@@ -283,6 +298,16 @@
     "lat": 28.66645,
     "lon": 77.21698,
     "display": "Delhi, Old Delhi, Delhi, India"
+  },
+  "Detroit, MI": {
+    "lat": 42.33155,
+    "lon": -83.04664,
+    "display": "Detroit, Wayne County, Michigan, United States"
+  },
+  "Dubai, Dubai": {
+    "lat": 25.07428,
+    "lon": 55.18856,
+    "display": "دبي, الإمارات العربية المتحدة"
   },
   "Dublin, Ireland": {
     "lat": 53.34938,
@@ -378,6 +403,11 @@
     "lat": 51.50745,
     "lon": -0.12777,
     "display": "Greater London, England, United Kingdom"
+  },
+  "GB, Rugby": {
+    "lat": 52.37267,
+    "lon": -1.262,
+    "display": "Rugby, Warwickshire, England, United Kingdom"
   },
   "Gauteng, Johannesburg": {
     "lat": -26.205,
@@ -484,6 +514,11 @@
     "lat": 48.12755,
     "lon": 11.60937,
     "display": "Serviceplan - House Of Communication, 24, Friedenstraße, Werksviertel, Berg am Laim, München, Bayern, 81671, Deutschland"
+  },
+  "Houston, TX": {
+    "lat": 29.75894,
+    "lon": -95.3677,
+    "display": "Houston, Harris County, Texas, United States"
   },
   "Hubbard, IA": {
     "lat": 42.30563,
@@ -680,6 +715,11 @@
     "lon": 0.62678,
     "display": "Lleida, Segrià, Lleida, Catalunya, España"
   },
+  "London, CA": {
+    "lat": 42.98367,
+    "lon": -81.24961,
+    "display": "London, Southwestern Ontario, Ontario, Canada"
+  },
   "London, London": {
     "lat": 51.51562,
     "lon": -0.092,
@@ -860,6 +900,11 @@
     "lon": -116.56169,
     "display": "Nampa, Canyon County, Idaho, United States"
   },
+  "Navi Mumbai, Maharashtra": {
+    "lat": 19.03083,
+    "lon": 73.01985,
+    "display": "Navi Mumbai, Thane Subdistrict, Thane, Maharashtra, India"
+  },
   "Netherlands": {
     "lat": 52.2435,
     "lon": 5.63432,
@@ -899,6 +944,11 @@
     "lat": 40.73566,
     "lon": -74.17237,
     "display": "Newark, Essex County, New Jersey, United States"
+  },
+  "Newport News, VA": {
+    "lat": 36.9775,
+    "lon": -76.42977,
+    "display": "Newport News, Virginia, United States"
   },
   "Noida, Delhi": {
     "lat": 28.57507,
@@ -944,6 +994,16 @@
     "lat": 51.75201,
     "lon": -1.25785,
     "display": "Oxford, Oxfordshire, England, United Kingdom"
+  },
+  "PL, Gdansk": {
+    "lat": 54.34829,
+    "lon": 18.65402,
+    "display": "Gdańsk, województwo pomorskie, Polska"
+  },
+  "PL, Warsaw": {
+    "lat": 52.23337,
+    "lon": 21.07115,
+    "display": "Warszawa, województwo mazowieckie, Polska"
   },
   "Patiala, India": {
     "lat": 30.20928,
@@ -1044,6 +1104,11 @@
     "lat": 1.29598,
     "lon": 103.77662,
     "display": "National University of Singapore, one-north, Queenstown, Central Region, Singapore"
+  },
+  "Sioux Falls, SD": {
+    "lat": 43.5476,
+    "lon": -96.72936,
+    "display": "Sioux Falls, Sioux Falls Township, Minnehaha County, South Dakota, United States"
   },
   "Sonipat, Haryana": {
     "lat": 28.99538,
@@ -1264,6 +1329,11 @@
     "lat": 37.69224,
     "lon": -97.33754,
     "display": "Wichita, Sedgwick County, Kansas, United States"
+  },
+  "Wyoming, Wisconsin": {
+    "lat": 43.1261,
+    "lon": -90.11179,
+    "display": "Town of Wyoming, Iowa County, Wisconsin, United States"
   },
   "York PA, US": {
     "lat": 39.96249,
