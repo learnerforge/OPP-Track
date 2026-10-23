@@ -34,6 +34,11 @@
     "lon": 75.78967,
     "display": "Karnataka, India"
   },
+  "Ahmedabad, Gujarat": {
+    "lat": 23.02154,
+    "lon": 72.58006,
+    "display": "Ahmedabad, Gujarat, 380001, India"
+  },
   "Ajmer, Rajasthan": {
     "lat": 26.4691,
     "lon": 74.639,
@@ -73,6 +78,11 @@
     "lat": 33.75447,
     "lon": -84.38982,
     "display": "Atlanta, Fulton County, Georgia, United States"
+  },
+  "Austin, TX": {
+    "lat": 30.26493,
+    "lon": -97.74741,
+    "display": "Austin, Travis County, Texas, United States"
   },
   "Austin, US": {
     "lat": 30.26493,
@@ -715,6 +725,11 @@
     "lon": 0.62678,
     "display": "Lleida, Segrià, Lleida, Catalunya, España"
   },
+  "Logan, UT": {
+    "lat": 41.73131,
+    "lon": -111.83491,
+    "display": "Logan, Cache County, Utah, United States"
+  },
   "London, CA": {
     "lat": 42.98367,
     "lon": -81.24961,
@@ -1094,6 +1109,11 @@
     "lat": 47.60383,
     "lon": -122.33006,
     "display": "Seattle, King County, Washington, United States"
+  },
+  "Sheffield, GB": {
+    "lat": 53.38066,
+    "lon": -1.47023,
+    "display": "Sheffield, South Yorkshire, England, United Kingdom"
   },
   "Singapore": {
     "lat": 1.35711,
