@@ -89,6 +89,11 @@
     "lon": -97.74741,
     "display": "Austin, Travis County, Texas, United States"
   },
+  "Avon Lake, OH": {
+    "lat": 41.51003,
+    "lon": -82.01859,
+    "display": "Avon Lake, Lorain County, Ohio, 44012, United States"
+  },
   "BR, RJ, Rio De Janeiro": {
     "lat": -22.91101,
     "lon": -43.20937,
@@ -274,6 +279,11 @@
     "lon": 13.33865,
     "display": "Berlin, Tauentzienstraße, City West, Charlottenburg, Charlottenburg-Wilmersdorf, Berlin, 10789, Deutschland"
   },
+  "DE, BY, Munich": {
+    "lat": 48.13711,
+    "lon": 11.57538,
+    "display": "München, Bayern, Deutschland"
+  },
   "DE, HE, Bad Hersfeld": {
     "lat": 50.86042,
     "lon": 9.67677,
@@ -283,6 +293,11 @@
     "lat": 48.13711,
     "lon": 11.57538,
     "display": "München, Bayern, Deutschland"
+  },
+  "DE, RP, Frankenthal": {
+    "lat": 49.53535,
+    "lon": 8.35414,
+    "display": "Frankenthal (Pfalz), Rheinland-Pfalz, 67227, Deutschland"
   },
   "Davenport, IA": {
     "lat": 41.52247,
@@ -309,6 +324,11 @@
     "lon": 77.21698,
     "display": "Delhi, Old Delhi, Delhi, India"
   },
+  "Des Moines, IA": {
+    "lat": 41.58687,
+    "lon": -93.62495,
+    "display": "Des Moines, Polk County, Iowa, United States"
+  },
   "Detroit, MI": {
     "lat": 42.33155,
     "lon": -83.04664,
@@ -323,6 +343,11 @@
     "lat": 53.34938,
     "lon": -6.26056,
     "display": "Dublin, County Dublin, Leinster, Éire / Ireland"
+  },
+  "Duncombe, IA": {
+    "lat": 42.4705,
+    "lon": -93.99335,
+    "display": "Duncombe, Webster County, Iowa, United States"
   },
   "Durham, GB": {
     "lat": 54.66667,
@@ -368,6 +393,11 @@
     "lat": 42.73203,
     "lon": -84.47217,
     "display": "East Lansing, Ingham County, Michigan, United States"
+  },
+  "Eau Claire, WI": {
+    "lat": 44.81135,
+    "lon": -91.49849,
+    "display": "Eau Claire, Eau Claire County, Wisconsin, United States"
   },
   "Edinburgh, GB": {
     "lat": 55.95335,
@@ -454,11 +484,21 @@
     "lon": -87.27972,
     "display": "Graham, Muhlenberg County, Kentucky, 42344, United States"
   },
+  "Grand Rapids, MI": {
+    "lat": 42.96324,
+    "lon": -85.66786,
+    "display": "Grand Rapids, Kent County, Michigan, United States"
+  },
   "Greater Lexington Area": null,
   "Greater Milwaukee": {
     "lat": 43.05288,
     "lon": -87.91321,
     "display": "United Way of Greater Milwaukee & Waukesha County, 225, West Vine Street, Brewers Hill, Lindsay Heights, Milwaukee, Milwaukee County, Wisconsin, 53212, United S"
+  },
+  "Greater Noida, Uttar Pradesh": {
+    "lat": 28.46707,
+    "lon": 77.51376,
+    "display": "Greater Noida, Gautam Buddha Nagar, Uttar Pradesh, 210310, India"
   },
   "Green Bay, WI": {
     "lat": 44.51264,
@@ -715,6 +755,16 @@
     "lon": -94.78458,
     "display": "Lenexa, Johnson County, Kansas, United States"
   },
+  "Lewis Center, OH": {
+    "lat": 40.1984,
+    "lon": -83.01018,
+    "display": "Lewis Center, Orange Township, Delaware County, Ohio, 43035, United States"
+  },
+  "Liberty Lake, WA": {
+    "lat": 47.66811,
+    "lon": -117.10487,
+    "display": "Liberty Lake, Spokane County, Washington, United States"
+  },
   "Ljubljana, Ljubljana": {
     "lat": 46.05003,
     "lon": 14.50693,
@@ -850,6 +900,11 @@
     "lon": -76.98804,
     "display": "District of Columbia, United States"
   },
+  "Mountain View, CA, USA, Atlanta, GA, USA, Austin, TX, USA, Boulder, CO, USA, Bellevue, WA, USA, Cambridge, MA, USA, Chicago, IL, USA, Irvine, CA, USA, Kirkland, WA, USA, Los Angeles, CA, USA, Madison, WI, USA, New York, NY, USA, Palo Alto, CA, USA, Pittsburgh, PA, USA, Reston, VA, USA, Redmond, WA, USA, San Diego, CA, USA, Goleta, CA, USA, San Bruno, CA, USA, Seattle, WA, USA, San Francisco, CA, USA, Santa Cruz, CA, USA, Sunnyvale, CA, USA, Washington D.C., DC, USA, Portland, OR, USA": {
+    "lat": 43.97928,
+    "lon": -120.73726,
+    "display": "Oregon, United States"
+  },
   "Mountain View, CA, USA, Atlanta, GA, USA, Austin, TX, USA, Boulder, CO, USA, Cambridge, MA, USA, Bellevue, WA, USA, Chicago, IL, USA, Irvine, CA, USA, Kirkland, WA, USA, Los Angeles, CA, USA, Madison, WI, USA, New York, NY, USA, Palo Alto, CA, USA, Portland, OR, USA, Pittsburgh, PA, USA, Raleigh, NC, USA, Durham, NC, USA, Reston, VA, USA, Redmond, WA, USA, Redwood City, CA, USA, San Diego, CA, USA, Goleta, CA, USA, San Bruno, CA, USA, Seattle, WA, USA, San Francisco, CA, USA, San Jose, CA, USA, Santa Cruz, CA, USA, South San Francisco, CA, USA, Sunnyvale, CA, USA, Washington D.C., DC, USA": {
     "lat": 38.89385,
     "lon": -76.98804,
@@ -979,6 +1034,11 @@
     "lat": 42.89873,
     "lon": -87.9178,
     "display": "Oak Creek, Milwaukee County, Wisconsin, 53154, United States"
+  },
+  "Oklahoma City, OK": {
+    "lat": 35.47299,
+    "lon": -97.51705,
+    "display": "Oklahoma City, Oklahoma County, Oklahoma, United States"
   },
   "Olathe, KS": {
     "lat": 38.88389,
@@ -1210,6 +1270,11 @@
     "lon": 139.76389,
     "display": "東京都, 日本"
   },
+  "Toledo, OH": {
+    "lat": 41.65291,
+    "lon": -83.53782,
+    "display": "Toledo, Lucas County, Ohio, United States"
+  },
   "Toronto": {
     "lat": 43.65348,
     "lon": -79.38393,
@@ -1314,6 +1379,16 @@
     "lat": 37.12322,
     "lon": -78.49277,
     "display": "Virginia, United States"
+  },
+  "Visakhapatnam, Andhra Pradesh": {
+    "lat": 17.69355,
+    "lon": 83.29213,
+    "display": "Visakhapatnam, Visakhapatnam Urban Mandal, Visakhapatnam District, Andhra Pradesh, 530001, India"
+  },
+  "Warsaw, Poland, Kraków, Poland": {
+    "lat": 50.06195,
+    "lon": 19.93686,
+    "display": "Kraków, województwo małopolskie, Polska"
   },
   "Washington, Redmond": {
     "lat": 47.66941,
