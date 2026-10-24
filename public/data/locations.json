@@ -1,5 +1,5 @@
 {
-  "count": 216,
+  "count": 219,
   "source": "OpenStreetMap Nominatim",
   "locations": {
     "4Seas Nimman Coliving Coworking Space Nimmana Haeminda Road Lane 15 Nimmanhaemin Suthep, Mueang Chiang Mai District, Chiang Mai, Thailand": {
@@ -52,6 +52,11 @@
       "lon": -83.3764,
       "display": "Athens, Clarke County, Georgia, United States"
     },
+    "Atlanta, GA": {
+      "lat": 33.75447,
+      "lon": -84.38982,
+      "display": "Atlanta, Fulton County, Georgia, United States"
+    },
     "Atlanta, US": {
       "lat": 33.75447,
       "lon": -84.38982,
@@ -101,11 +106,6 @@
       "lat": 23.25849,
       "lon": 77.40199,
       "display": "Bhopal, Huzur Tahsil, Bhopal, Madhya Pradesh, 462001, India"
-    },
-    "Bhubaneswar, Odisha": {
-      "lat": 20.2603,
-      "lon": 85.83945,
-      "display": "Bhubaneswar, Bhubaneswar Municipal Corporation, Bhubaneswar (M.Corp.), Khordha, Odisha, 751001, India"
     },
     "Bilaspur, Chhattisgarh": {
       "lat": 22.16385,
@@ -172,6 +172,11 @@
       "lon": -107.99171,
       "display": "Canada"
     },
+    "Chandigarh, Punjab": {
+      "lat": 30.7573,
+      "lon": 76.80674,
+      "display": "Punjab and Haryana High Court, Jan Marg, Sector 1, Ward 1, Chandigarh, 160001, India"
+    },
     "Chennai, Tamil Nadu": {
       "lat": 13.08009,
       "lon": 80.2808,
@@ -212,11 +217,6 @@
       "lon": 13.33865,
       "display": "Berlin, Tauentzienstraße, City West, Charlottenburg, Charlottenburg-Wilmersdorf, Berlin, 10789, Deutschland"
     },
-    "DE, BY, Munich": {
-      "lat": 48.13711,
-      "lon": 11.57538,
-      "display": "München, Bayern, Deutschland"
-    },
     "DE, HE, Bad Hersfeld": {
       "lat": 50.86042,
       "lon": 9.67677,
@@ -237,6 +237,11 @@
       "lon": -90.57564,
       "display": "Davenport, Rockingham Township, Scott County, Iowa, United States"
     },
+    "Dayton, OH": {
+      "lat": 39.75895,
+      "lon": -84.19161,
+      "display": "Dayton, Montgomery County, Ohio, United States"
+    },
     "Delhi NCR, Haryana": {
       "lat": 28.42209,
       "lon": 77.1043,
@@ -256,6 +261,11 @@
       "lat": 42.33155,
       "lon": -83.04664,
       "display": "Detroit, Wayne County, Michigan, United States"
+    },
+    "Dubai, Dubai": {
+      "lat": 25.07428,
+      "lon": 55.18856,
+      "display": "دبي, الإمارات العربية المتحدة"
     },
     "Dublin, Ireland": {
       "lat": 53.34938,
@@ -367,11 +377,6 @@
       "lon": 87.68559,
       "display": "West Bengal, India"
     },
-    "Grand Rapids, MI": {
-      "lat": 42.96324,
-      "lon": -85.66786,
-      "display": "Grand Rapids, Kent County, Michigan, United States"
-    },
     "Greater Milwaukee": {
       "lat": 43.05288,
       "lon": -87.91321,
@@ -387,6 +392,11 @@
       "lon": -88.01258,
       "display": "Green Bay, Brown County, Wisconsin, United States"
     },
+    "Green Bay, Wisconsin Metropolitan Area": {
+      "lat": 43.0321,
+      "lon": -89.35202,
+      "display": "Madison Metropolitan Sewerage District Wildlife Observation Area, Madison, Blooming Grove, Dane County, Wisconsin, United States"
+    },
     "Gurgaon, Haryana": {
       "lat": 28.46461,
       "lon": 77.02992,
@@ -396,11 +406,6 @@
       "lat": 30.92932,
       "lon": 75.50048,
       "display": "Punjab, India"
-    },
-    "Guru Tegh Bahadur Institute of Technology, G-8 Area, Press Colony, Rajouri Garden, New Delhi:, Delhi, India": {
-      "lat": 28.6328,
-      "lon": 77.21977,
-      "display": "Delhi, India"
     },
     "Hamilton, CA": {
       "lat": 43.25608,
@@ -467,15 +472,20 @@
       "lon": 9.18963,
       "display": "Milano, Rodano, Milano, Lombardia, Italia"
     },
-    "Independence, MO": {
-      "lat": 39.09248,
-      "lon": -94.41379,
-      "display": "Independence, Jackson County, Missouri, United States"
+    "Idaho Falls, ID": {
+      "lat": 43.48879,
+      "lon": -112.03628,
+      "display": "Idaho Falls, Bonneville County, Idaho, United States"
     },
     "India": {
       "lat": 22.35111,
       "lon": 78.66774,
       "display": "India"
+    },
+    "Indore, Madhya Pradesh": {
+      "lat": 22.72036,
+      "lon": 75.8682,
+      "display": "Indore, Juni Indore Tahsil, Indore, Madhya Pradesh, 452001, India"
     },
     "Ireland": {
       "lat": 52.8652,
@@ -486,6 +496,11 @@
       "lat": 30.81242,
       "lon": 34.85948,
       "display": "ישראל"
+    },
+    "Jaipur, Rajasthan": {
+      "lat": 26.91546,
+      "lon": 75.81898,
+      "display": "Jaipur, Jaipur Municipal Corporation, Jaipur Tehsil, Jaipur, Rajasthan, 302001, India"
     },
     "K S R College of Engineering, KSR Kalvi Nagar, Tamil Nadu, India": {
       "lat": 11.33237,
@@ -531,6 +546,11 @@
       "lat": 40.41912,
       "lon": -86.8919,
       "display": "Lafayette, Tippecanoe County, Indiana, United States"
+    },
+    "Las Vegas, NV": {
+      "lat": 36.16743,
+      "lon": -115.14841,
+      "display": "Las Vegas, Clark County, Nevada, United States"
     },
     "Lawrence, US": {
       "lat": 38.97191,
@@ -611,11 +631,6 @@
       "lat": 20.96708,
       "lon": -89.62374,
       "display": "Mérida, Yucatán, 97000, México"
-    },
-    "Maryland Heights, MO": {
-      "lat": 38.71505,
-      "lon": -90.436,
-      "display": "Maryland Heights, Saint Louis County, Missouri, United States"
     },
     "Massachusetts": {
       "lat": 42.37888,
@@ -707,11 +722,6 @@
       "lon": 5.63432,
       "display": "Nederland"
     },
-    "New Albany, OH": {
-      "lat": 40.08117,
-      "lon": -82.80879,
-      "display": "New Albany, Plain Township, Franklin County, Ohio, 43054, United States"
-    },
     "New Brunswick, US": {
       "lat": 40.49361,
       "lon": -74.44364,
@@ -737,6 +747,11 @@
       "lon": -76.42977,
       "display": "Newport News, Virginia, United States"
     },
+    "Noida, Delhi": {
+      "lat": 28.57507,
+      "lon": 77.31249,
+      "display": "Delhi One, Chilla, Noida, Dadri, Gautam Buddha Nagar, Uttar Pradesh, 201301, India"
+    },
     "Noida, Uttar Pradesh": {
       "lat": 28.57063,
       "lon": 77.32721,
@@ -761,11 +776,6 @@
       "lat": 45.42088,
       "lon": -75.69011,
       "display": "Ottawa, Eastern Ontario, Ontario, Canada"
-    },
-    "Overland Park, KS": {
-      "lat": 38.97425,
-      "lon": -94.68517,
-      "display": "Overland Park, Johnson County, Kansas, United States"
     },
     "Owensboro, KY": {
       "lat": 37.77422,
@@ -806,6 +816,11 @@
       "lat": 18.52137,
       "lon": 73.85451,
       "display": "Pune, Pune City Subdistrict, Pune, Maharashtra, 411001, India"
+    },
+    "Raipur, Chhattisgarh": {
+      "lat": 21.23809,
+      "lon": 81.6337,
+      "display": "Raipur, Raipur Tahsil, Raipur, Chhattisgarh, 493332, India"
     },
     "Raleigh, US": {
       "lat": 35.7804,
@@ -877,20 +892,10 @@
       "lon": -52.7067,
       "display": "St. John's, Newfoundland, Newfoundland and Labrador, Canada"
     },
-    "Stony Brook, US": {
-      "lat": 40.90848,
-      "lon": -73.13255,
-      "display": "Stony Brook, Town of Brookhaven, Suffolk County, New York, United States"
-    },
     "Sunnyvale, CA, USA, Austin, TX, USA, Madison, WI, USA": {
       "lat": 44.4309,
       "lon": -89.68846,
       "display": "Wisconsin, United States"
-    },
-    "Switzerland": {
-      "lat": 46.79856,
-      "lon": 8.23197,
-      "display": "Schweiz/Suisse/Svizzera/Svizra"
     },
     "Taipei, Taiwan, New Taipei, Banqiao District, New Taipei City, Taiwan": {
       "lat": 25.0266,
@@ -946,6 +951,11 @@
       "lat": 42.72841,
       "lon": -73.69179,
       "display": "City of Troy, Rensselaer County, New York, United States"
+    },
+    "Tulsa, OK": {
+      "lat": 36.15631,
+      "lon": -95.99275,
+      "display": "Tulsa, Oklahoma, United States"
     },
     "Turku, FI": {
       "lat": 60.45159,
@@ -1056,6 +1066,11 @@
       "lat": 40.42587,
       "lon": -86.90807,
       "display": "West Lafayette, Tippecanoe County, Indiana, United States"
+    },
+    "Westerville, OH": {
+      "lat": 40.12614,
+      "lon": -82.92953,
+      "display": "Westerville, Franklin County, Ohio, 43081, United States"
     },
     "Wichita, KS": {
       "lat": 37.69224,

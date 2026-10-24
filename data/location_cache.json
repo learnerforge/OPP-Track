@@ -234,6 +234,11 @@
     "lon": 76.77971,
     "display": "Chandigarh, 160018, India"
   },
+  "Chandigarh, Punjab": {
+    "lat": 30.7573,
+    "lon": 76.80674,
+    "display": "Punjab and Haryana High Court, Jan Marg, Sector 1, Ward 1, Chandigarh, 160001, India"
+  },
   "Chennai, Tamil Nadu": {
     "lat": 13.08009,
     "lon": 80.2808,
@@ -505,6 +510,11 @@
     "lon": -88.01258,
     "display": "Green Bay, Brown County, Wisconsin, United States"
   },
+  "Green Bay, Wisconsin Metropolitan Area": {
+    "lat": 43.0321,
+    "lon": -89.35202,
+    "display": "Madison Metropolitan Sewerage District Wildlife Observation Area, Madison, Blooming Grove, Dane County, Wisconsin, United States"
+  },
   "Gurgaon, Haryana": {
     "lat": 28.46461,
     "lon": 77.02992,
@@ -614,6 +624,11 @@
     "lat": 41.89332,
     "lon": 12.48293,
     "display": "Roma, Roma Capitale, Lazio, Italia"
+  },
+  "Idaho Falls, ID": {
+    "lat": 43.48879,
+    "lon": -112.03628,
+    "display": "Idaho Falls, Bonneville County, Idaho, United States"
   },
   "Independence, MO": {
     "lat": 39.09248,
@@ -739,6 +754,11 @@
     "lat": 27.90947,
     "lon": -82.78732,
     "display": "Largo, Pinellas County, Florida, United States"
+  },
+  "Las Vegas, NV": {
+    "lat": 36.16743,
+    "lon": -115.14841,
+    "display": "Las Vegas, Clark County, Nevada, United States"
   },
   "Lawrence, US": {
     "lat": 38.97191,
@@ -1125,6 +1145,11 @@
     "lon": 73.85451,
     "display": "Pune, Pune City Subdistrict, Pune, Maharashtra, 411001, India"
   },
+  "Raipur, Chhattisgarh": {
+    "lat": 21.23809,
+    "lon": 81.6337,
+    "display": "Raipur, Raipur Tahsil, Raipur, Chhattisgarh, 493332, India"
+  },
   "Raleigh, US": {
     "lat": 35.7804,
     "lon": -78.6391,
@@ -1290,6 +1315,11 @@
     "lon": -73.69179,
     "display": "City of Troy, Rensselaer County, New York, United States"
   },
+  "Tulsa, OK": {
+    "lat": 36.15631,
+    "lon": -95.99275,
+    "display": "Tulsa, Oklahoma, United States"
+  },
   "Turku, FI": {
     "lat": 60.45159,
     "lon": 22.267,
@@ -1419,6 +1449,11 @@
     "lat": 40.42587,
     "lon": -86.90807,
     "display": "West Lafayette, Tippecanoe County, Indiana, United States"
+  },
+  "Westerville, OH": {
+    "lat": 40.12614,
+    "lon": -82.92953,
+    "display": "Westerville, Franklin County, Ohio, 43081, United States"
   },
   "Wichita, KS": {
     "lat": 37.69224,

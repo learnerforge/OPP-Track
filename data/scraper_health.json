@@ -1,91 +1,91 @@
 {
-  "generated_at": "2026-10-23T20:14:03Z",
-  "total_items": 2909,
+  "generated_at": "2026-10-24T12:50:46Z",
+  "total_items": 2902,
   "sources": {
     "AIESEC": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.1
+      "time_s": 0.2
     },
     "AIcrowd": {
       "status": "ok",
       "items": 18,
-      "time_s": 2.9
+      "time_s": 3.1
     },
     "AWS Training": {
       "status": "ok",
       "items": 10,
-      "time_s": 0.3
+      "time_s": 0.2
     },
     "Advent of Code": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.2
+      "time_s": 0.1
     },
     "Amazon Jobs": {
       "status": "ok",
       "items": 100,
-      "time_s": 0.9
+      "time_s": 1.0
     },
     "Analytics Vidhya": {
       "status": "empty",
       "items": 0,
-      "time_s": 2.9
+      "time_s": 1.6
     },
     "AngelHack": {
       "status": "ok",
       "items": 12,
-      "time_s": 2.1
+      "time_s": 0.1
     },
     "Apple Jobs": {
       "status": "ok",
       "items": 21,
-      "time_s": 0.5
+      "time_s": 0.4
     },
     "AtCoder": {
       "status": "ok",
-      "items": 6,
-      "time_s": 0.3
+      "items": 5,
+      "time_s": 0.2
     },
     "Buddy4Study": {
       "status": "ok",
       "items": 75,
-      "time_s": 7.6
+      "time_s": 7.1
     },
     "Bugcrowd": {
       "status": "ok",
       "items": 24,
-      "time_s": 3.1
+      "time_s": 2.6
     },
     "CERN Internships": {
       "status": "ok",
       "items": 1,
-      "time_s": 1.3
+      "time_s": 1.7
     },
     "Challenge.gov": {
       "status": "ok",
       "items": 15,
-      "time_s": 1.4
+      "time_s": 3.3
     },
     "CodaBench": {
       "status": "empty",
       "items": 0,
-      "time_s": 30.4
+      "time_s": 30.3
     },
     "CodeChef": {
       "status": "ok",
       "items": 2,
-      "time_s": 0.4
+      "time_s": 0.2
     },
     "CodeGladiators": {
       "status": "empty",
       "items": 0,
-      "time_s": 1.3
+      "time_s": 1.0
     },
     "Codeforces": {
       "status": "ok",
-      "items": 6,
-      "time_s": 0.7
+      "items": 5,
+      "time_s": 0.3
     },
     "CodingNinjas": {
       "status": "ok",
@@ -100,57 +100,57 @@
     "Coursera": {
       "status": "ok",
       "items": 9,
-      "time_s": 1.6
+      "time_s": 0.8
     },
     "DAAD RISE": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.5
+      "time_s": 0.4
     },
     "Devfolio": {
       "status": "ok",
-      "items": 32,
-      "time_s": 265.9
+      "items": 27,
+      "time_s": 142.9
     },
     "Devpost": {
       "status": "ok",
-      "items": 18,
-      "time_s": 107.7
+      "items": 9,
+      "time_s": 63.4
     },
     "DoraHacks": {
       "status": "ok",
       "items": 13,
-      "time_s": 1.4
+      "time_s": 1.3
     },
     "DrivenData": {
       "status": "ok",
       "items": 1,
-      "time_s": 1.1
+      "time_s": 0.7
     },
     "ETHGlobal": {
       "status": "ok",
       "items": 1,
-      "time_s": 1.8
+      "time_s": 1.7
     },
     "Fastweb": {
       "status": "ok",
       "items": 131,
-      "time_s": 0.6
+      "time_s": 0.5
     },
     "Flipkart": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.5
+      "time_s": 0.4
     },
     "Forage": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.7
+      "time_s": 0.5
     },
     "Goldman Sachs": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.4
+      "time_s": 0.1
     },
     "Google Careers": {
       "status": "ok",
@@ -165,57 +165,57 @@
     "Google Summer of Code": {
       "status": "empty",
       "items": 0,
-      "time_s": 0.5
+      "time_s": 0.3
     },
     "Hack Club": {
       "status": "ok",
-      "items": 14,
-      "time_s": 2.9
+      "items": 15,
+      "time_s": 2.6
     },
     "Hack2Skill": {
       "status": "ok",
       "items": 9,
-      "time_s": 7.8
+      "time_s": 6.9
     },
     "HackIndia": {
       "status": "ok",
       "items": 4,
-      "time_s": 3.4
+      "time_s": 2.8
     },
     "HackWithInfy": {
       "status": "empty",
       "items": 0,
-      "time_s": 2.9
+      "time_s": 2.7
     },
     "Hackathon.com": {
       "status": "ok",
       "items": 4,
-      "time_s": 2.8
+      "time_s": 2.3
     },
     "HackerEarth": {
       "status": "ok",
       "items": 4,
-      "time_s": 27.7
+      "time_s": 27.1
     },
     "HackerOne": {
       "status": "ok",
       "items": 15,
-      "time_s": 9.7
+      "time_s": 5.2
     },
     "HackerRank": {
-      "status": "ok",
-      "items": 1,
-      "time_s": 1.5
+      "status": "empty",
+      "items": 0,
+      "time_s": 60.3
     },
     "Handshake": {
       "status": "ok",
       "items": 31,
-      "time_s": 0.1
+      "time_s": 0.2
     },
     "Heap Heap Hurray": {
       "status": "ok",
-      "items": 334,
-      "time_s": 5.9
+      "items": 311,
+      "time_s": 4.4
     },
     "Himalayas": {
       "status": "ok",
@@ -225,22 +225,22 @@
     "IBM Skills": {
       "status": "ok",
       "items": 50,
-      "time_s": 20.7
+      "time_s": 13.2
     },
     "Immunefi": {
       "status": "ok",
       "items": 10,
-      "time_s": 46.7
+      "time_s": 46.6
     },
     "Indeed": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.1
+      "time_s": 0.0
     },
     "Internshala": {
       "status": "ok",
       "items": 100,
-      "time_s": 523.8
+      "time_s": 523.2
     },
     "InterviewBit": {
       "status": "ok",
@@ -250,47 +250,47 @@
     "JPMorgan": {
       "status": "ok",
       "items": 58,
-      "time_s": 0.7
+      "time_s": 0.8
     },
     "Kaggle": {
       "status": "ok",
       "items": 26,
-      "time_s": 3.7
+      "time_s": 3.5
     },
     "LeetCode Contests": {
       "status": "ok",
       "items": 4,
-      "time_s": 0.4
+      "time_s": 0.3
     },
     "LeetCode Problems": {
       "status": "ok",
       "items": 101,
-      "time_s": 0.7
+      "time_s": 1.0
     },
     "LinkedIn Jobs": {
       "status": "ok",
-      "items": 59,
-      "time_s": 0.9
+      "items": 58,
+      "time_s": 0.6
     },
     "MLH": {
       "status": "ok",
       "items": 70,
-      "time_s": 1.4
+      "time_s": 1.2
     },
     "MLH Fellowship": {
       "status": "empty",
       "items": 0,
-      "time_s": 0.3
+      "time_s": 0.2
     },
     "MachineHack": {
       "status": "ok",
       "items": 1,
-      "time_s": 4.2
+      "time_s": 4.8
     },
     "Meta Careers": {
       "status": "ok",
       "items": 10,
-      "time_s": 4.4
+      "time_s": 3.5
     },
     "Meta Hacker Cup": {
       "status": "empty",
@@ -299,48 +299,48 @@
     },
     "Microsoft Careers": {
       "status": "ok",
-      "items": 83,
-      "time_s": 0.4
+      "items": 84,
+      "time_s": 0.5
     },
     "Mitacs": {
       "status": "ok",
       "items": 12,
-      "time_s": 0.6
+      "time_s": 0.4
     },
     "NASA Internships": {
       "status": "ok",
       "items": 6,
-      "time_s": 1.1
+      "time_s": 0.6
     },
     "NPTEL": {
       "status": "ok",
       "items": 500,
-      "time_s": 2.1
+      "time_s": 0.5
     },
     "NSF REU": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.2
+      "time_s": 0.1
     },
     "Outreachy": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.4
+      "time_s": 0.6
     },
     "PrepBytes": {
       "status": "empty",
       "items": 0,
-      "time_s": 1.9
+      "time_s": 1.3
     },
     "Qureka": {
       "status": "empty",
       "items": 0,
-      "time_s": 0.8
+      "time_s": 0.9
     },
     "Remotive": {
       "status": "ok",
-      "items": 9,
-      "time_s": 0.3
+      "items": 10,
+      "time_s": 0.1
     },
     "Reskilll": {
       "status": "empty",
@@ -350,22 +350,22 @@
     "SIGNATE": {
       "status": "ok",
       "items": 50,
-      "time_s": 8.3
+      "time_s": 9.3
     },
     "SWAYAM": {
       "status": "ok",
       "items": 99,
-      "time_s": 18.8
+      "time_s": 16.0
     },
     "ScholarshipOwl": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.4
+      "time_s": 0.3
     },
     "SimplifyJobs": {
       "status": "ok",
       "items": 18,
-      "time_s": 0.2
+      "time_s": 0.1
     },
     "Smart India Hackathon": {
       "status": "empty",
@@ -375,48 +375,48 @@
     "TCS CodeVita": {
       "status": "empty",
       "items": 0,
-      "time_s": 1.1
+      "time_s": 1.4
     },
     "TechGig": {
       "status": "ok",
       "items": 12,
-      "time_s": 5.5
+      "time_s": 5.7
     },
     "Topcoder": {
       "status": "blocked",
       "items": 0,
-      "time_s": 0.2,
+      "time_s": 0.1,
       "detail": "Topcoder probe returned HTTP 404 (forbidden/blocked)"
     },
     "Turing": {
       "status": "ok",
       "items": 50,
-      "time_s": 9.8
+      "time_s": 5.6
     },
     "USAJobs": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.2
+      "time_s": 0.3
     },
     "Udacity": {
       "status": "ok",
       "items": 24,
-      "time_s": 0.4
+      "time_s": 0.3
     },
     "Unstop": {
       "status": "ok",
-      "items": 627,
+      "items": 647,
       "time_s": 33.0
     },
     "Virtual Internships": {
       "status": "ok",
       "items": 1,
-      "time_s": 1.1
+      "time_s": 0.8
     },
     "Wellfound": {
       "status": "ok",
       "items": 1,
-      "time_s": 0.3
+      "time_s": 0.5
     },
     "YC Jobs": {
       "status": "ok",
@@ -426,12 +426,12 @@
     "Zindi": {
       "status": "ok",
       "items": 20,
-      "time_s": 5.1
+      "time_s": 4.3
     },
     "edX": {
       "status": "ok",
       "items": 50,
-      "time_s": 24.9
+      "time_s": 11.7
     },
     "glassdoor": {
       "status": "empty",
@@ -441,12 +441,12 @@
     "lablab.ai": {
       "status": "ok",
       "items": 2,
-      "time_s": 3.3
+      "time_s": 4.0
     },
     "leetcode": {
       "status": "empty",
       "items": 0,
-      "time_s": 0.1
+      "time_s": 0.0
     },
     "skillenza": {
       "status": "error",
